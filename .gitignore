@@ -1,0 +1,26 @@
+# Swift
+.build/
+*.exe
+*.o
+DerivedData/
+*.xcuserdata
+
+# Python
+__pycache__/
+*.pyc
+.venv/
+*.egg-info/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Claude Code
+.claude/
+
+# Env
+.env
