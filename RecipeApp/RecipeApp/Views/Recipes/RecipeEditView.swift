@@ -93,6 +93,12 @@ struct RecipeEditView: View {
         target.servings = servings
         target.updatedAt = Date()
 
+        if isEditing {
+            for old in target.ingredients {
+                modelContext.delete(old)
+            }
+        }
+
         let newIngredients = ingredientRows.compactMap { row -> Ingredient? in
             guard !row.name.isEmpty else { return nil }
             return Ingredient(

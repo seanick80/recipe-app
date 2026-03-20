@@ -56,6 +56,8 @@ struct RecipeListView: View {
                         systemImage: "book",
                         description: Text("Tap + to add your first recipe.")
                     )
+                } else if filteredRecipes.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 }
             }
         }

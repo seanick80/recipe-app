@@ -10,12 +10,15 @@
   - Fix: top-level expressions wrapped in `@main struct TestRunner`
   - Fix: renamed `assert()` to `check()` to avoid shadowing builtin
 
-## Current Step: Milestone 1A (remaining) — Git Init + GitHub Repo
+- [x] **Milestone 1A**: Git init + GitHub repo created (https://github.com/seanick80/recipe-app, private)
 
-1. `git init` the project and create a GitHub repo
-2. Push initial commit
+## Current Step: Milestone 1C — SwiftUI Recipe Views
 
-Then proceed to **Milestone 1C** (SwiftUI Recipe views — already scaffolded).
+Views are scaffolded but need full implementation:
+- Recipe list with search and empty state
+- Recipe detail view (ingredients, instructions, time/servings)
+- Recipe create/edit form with ingredient rows
+- Delete recipes with swipe
 
 ## Compile Command (for reference)
 ```

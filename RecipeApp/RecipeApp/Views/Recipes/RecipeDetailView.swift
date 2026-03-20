@@ -40,7 +40,7 @@ struct RecipeDetailView: View {
                             HStack {
                                 Text("•")
                                 if ingredient.quantity > 0 {
-                                    Text("\(ingredient.quantity, specifier: "%.1f") \(ingredient.unit)")
+                                    Text("\(formatQuantity(ingredient.quantity)) \(ingredient.unit)")
                                         .bold()
                                 }
                                 Text(ingredient.name)
@@ -66,5 +66,11 @@ struct RecipeDetailView: View {
         .sheet(isPresented: $showingEdit) {
             RecipeEditView(recipe: recipe)
         }
+    }
+
+    private func formatQuantity(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(format: "%.0f", value)
+            : String(format: "%.1f", value)
     }
 }
