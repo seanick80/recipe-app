@@ -5,6 +5,7 @@ struct GroceryListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \GroceryList.createdAt, order: .reverse) private var lists: [GroceryList]
     @State private var showingNewList = false
+    @State private var showingGenerateFromRecipes = false
     @State private var newListName = ""
 
     var body: some View {
@@ -31,8 +32,15 @@ struct GroceryListView: View {
             }
             .navigationTitle("Grocery Lists")
             .toolbar {
-                Button(action: { showingNewList = true }) {
-                    Label("New List", systemImage: "plus")
+                ToolbarItem(placement: .primaryAction) {
+                    Button(action: { showingNewList = true }) {
+                        Label("New List", systemImage: "plus")
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button(action: { showingGenerateFromRecipes = true }) {
+                        Label("From Recipes", systemImage: "book")
+                    }
                 }
             }
             .alert("New Grocery List", isPresented: $showingNewList) {
@@ -52,6 +60,9 @@ struct GroceryListView: View {
                         description: Text("Tap + to create a grocery list.")
                     )
                 }
+            }
+            .sheet(isPresented: $showingGenerateFromRecipes) {
+                GenerateGroceryListView()
             }
         }
     }
@@ -84,12 +95,48 @@ struct GroceryListDetailView: View {
         }
         .navigationTitle(groceryList.name)
         .toolbar {
-            Button(action: { showingAddItem = true }) {
-                Label("Add Item", systemImage: "plus")
+            ToolbarItem(placement: .primaryAction) {
+                Button(action: { showingAddItem = true }) {
+                    Label("Add Item", systemImage: "plus")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button(role: .destructive) {
+                    removeCheckedItems()
+                } label: {
+                    Label("Remove Checked", systemImage: "trash")
+                }
+                .disabled(groceryList.items.filter(\.isChecked).isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    for item in groceryList.items {
+                        item.isChecked = false
+                    }
+                } label: {
+                    Label("Uncheck All", systemImage: "arrow.uturn.backward")
+                }
+                .disabled(groceryList.items.filter(\.isChecked).isEmpty)
             }
         }
         .sheet(isPresented: $showingAddItem) {
             AddGroceryItemView(groceryList: groceryList)
+        }
+        .overlay {
+            if groceryList.items.isEmpty {
+                ContentUnavailableView(
+                    "No Items",
+                    systemImage: "cart",
+                    description: Text("Tap + to add items to this list.")
+                )
+            }
+        }
+    }
+
+    private func removeCheckedItems() {
+        let checked = groceryList.items.filter(\.isChecked)
+        for item in checked {
+            modelContext.delete(item)
         }
     }
 }

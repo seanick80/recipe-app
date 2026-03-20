@@ -18,11 +18,17 @@ struct GroceryItemRow: View {
                     .strikethrough(item.isChecked)
                     .foregroundStyle(item.isChecked ? .secondary : .primary)
                 if item.quantity > 0 {
-                    Text("\(item.quantity, specifier: "%.1f") \(item.unit)")
+                    Text("\(formatQuantity(item.quantity)) \(item.unit)")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
             }
         }
+    }
+
+    private func formatQuantity(_ value: Double) -> String {
+        value.truncatingRemainder(dividingBy: 1) == 0
+            ? String(format: "%.0f", value)
+            : String(format: "%.1f", value)
     }
 }
