@@ -12,13 +12,16 @@
 
 - [x] **Milestone 1A**: Git init + GitHub repo created (https://github.com/seanick80/recipe-app, private)
 
-## Current Step: Milestone 1C — SwiftUI Recipe Views
+- [x] **Milestone 1C**: Recipe views complete (list/detail/edit with search, empty states, swipe delete)
+- [x] **Milestone 1D**: Grocery views complete (lists, categorized items, check/uncheck, generate from recipes)
 
-Views are scaffolded but need full implementation:
-- Recipe list with search and empty state
-- Recipe detail view (ingredients, instructions, time/servings)
-- Recipe create/edit form with ingredient rows
-- Delete recipes with swipe
+## Current Step: Milestone 1E — First Build & Install
+
+1. Enroll in Apple Developer Program ($99/year)
+2. Create Codemagic account (free tier)
+3. Connect GitHub repo to Codemagic
+4. Configure code signing + generate Xcode project
+5. Trigger first build, install on iPhone via OTA
 
 ## Compile Command (for reference)
 ```
