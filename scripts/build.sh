@@ -85,23 +85,36 @@ fi
 if grep -Fq "CODE_SIGNING_ALLOWED=NO" codemagic.yaml; then
     err "codemagic.yaml still has CODE_SIGNING_ALLOWED=NO (remove for device builds)"
 fi
-# environment.ios_signing runs an auto-fetch WITHOUT --create at env setup
-# time, so a first-time build with no existing profile fails before any
-# script runs. We drive signing entirely from scripts instead.
-if grep -Fq "ios_signing:" codemagic.yaml; then
-    err "codemagic.yaml has environment.ios_signing — remove it; signing is handled in script steps with fetch-signing-files --create"
+# Signing is backed by a persistent .p12 uploaded to Codemagic's Code
+# Signing Identities store under reference name `ios_development_cert`.
+# The build pulls it into the keychain via environment.ios_signing.
+# Per-build `certificates create` is forbidden: creating a new cert every
+# build burns a slot in Apple's 1-cert-per-type limit and orphans the
+# old private key on the ephemeral runner. See
+# ~/.claude/.../memory/feedback_ci_signing.md for the reasoning.
+if ! grep -Fq "ios_signing:" codemagic.yaml; then
+    err "codemagic.yaml missing environment.ios_signing block (must reference the stored ios_development_cert)"
+fi
+if ! grep -Fq "ios_development_cert" codemagic.yaml; then
+    err "codemagic.yaml must reference the stored signing identity 'ios_development_cert' under environment.ios_signing.certificates"
+fi
+if grep -Fq "certificates create" codemagic.yaml; then
+    err "codemagic.yaml must NOT run 'app-store-connect certificates create' — signing uses the persistent .p12 in Codemagic's store"
+fi
+if grep -Fq "openssl genrsa" codemagic.yaml; then
+    err "codemagic.yaml must NOT generate an RSA key at build time — the persistent .p12 already contains the key"
+fi
+if grep -Eq '\-\-certificate-key' codemagic.yaml; then
+    err "codemagic.yaml must NOT pass --certificate-key — no ephemeral key generation"
+fi
+if grep -Fq "certificates delete" codemagic.yaml; then
+    err "codemagic.yaml must NOT revoke certificates as a routine build step"
 fi
 if ! grep -Fq "fetch-signing-files" codemagic.yaml; then
-    err "codemagic.yaml missing app-store-connect fetch-signing-files step (needed to create dev profile on first build)"
+    err "codemagic.yaml missing app-store-connect fetch-signing-files step (needed to fetch/create the provisioning profile)"
 fi
 if ! grep -Fq -- "--create" codemagic.yaml; then
     err "codemagic.yaml fetch-signing-files must pass --create so the first-ever build can provision a new profile"
-fi
-if ! grep -Fq "certificates create" codemagic.yaml; then
-    err "codemagic.yaml missing app-store-connect certificates create step (fetch-signing-files cannot provision certs without a locally-saved private key)"
-fi
-if ! grep -Fq -- "--save" codemagic.yaml; then
-    err "codemagic.yaml certificates create must pass --save so the new private key is kept for the rest of the session"
 fi
 if ! grep -Fq "triggering:" codemagic.yaml; then
     err "codemagic.yaml missing triggering: section — without it the GitHub webhook will not auto-build"

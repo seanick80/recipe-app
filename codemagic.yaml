@@ -6,6 +6,15 @@ workflows:
     integrations:
       app_store_connect: recipe-app-appstore-key
     environment:
+      # Signing is backed by a persistent iOS Development cert issued once
+      # via scripts/generate-signing-identity.sh and uploaded to Codemagic
+      # as a stored Code Signing Identity with reference name
+      # `ios_development_cert`. This block tells Codemagic to load that
+      # .p12 into the build keychain automatically before scripts run.
+      # See secrets/ios_dev_cert_record.md for the renewal procedure.
+      ios_signing:
+        certificates:
+          - ios_development_cert
       xcode: latest
       cocoapods: default
     triggering:
@@ -23,53 +32,20 @@ workflows:
         script: |
           cd RecipeApp
           xcodegen generate
-      - name: Initialize keychain
-        script: |
-          keychain initialize
-      - name: Create development signing certificate
-        script: |
-          set -euxo pipefail
-          # 1. Generate a fresh 2048-bit RSA private key on the Mac runner.
-          # 2. Feed it to app-store-connect certificates create so the
-          #    CLI signs a CSR and uploads just the public cert to ASC.
-          # 3. --save stashes the public cert in the Codemagic session.
-          # 4. Export PRIVATE_KEY_PATH via CM_ENV so subsequent steps
-          #    (fetch-signing-files in particular) can re-pair the cert
-          #    with the private key when building the .p12.
-          #
-          # We generate the key ourselves rather than relying on the CLI's
-          # auto-generation because codemagic-cli-tools requires an
-          # explicit --certificate-key ("Cannot create resource without
-          # certificate private key").
-          #
-          # Apple allows up to 2 active iOS Development certs per account.
-          # If this step ever fails with a limit error, revoke unused ones
-          # at https://developer.apple.com/account/resources/certificates
-          mkdir -p "$CM_BUILD_DIR/private"
-          PRIVATE_KEY_PATH="$CM_BUILD_DIR/private/ios_development_key.pem"
-          openssl genrsa -out "$PRIVATE_KEY_PATH" 2048
-          app-store-connect certificates create \
-            --type IOS_DEVELOPMENT \
-            --certificate-key=@file:"$PRIVATE_KEY_PATH" \
-            --log-api-calls \
-            --save
-          echo "PRIVATE_KEY_PATH=$PRIVATE_KEY_PATH" >> "$CM_ENV"
       - name: Fetch or create development provisioning profile
         script: |
           set -euxo pipefail
-          # fetch-signing-files is a separate CLI invocation that does NOT
-          # inherit the private key from the previous step. We have to
-          # hand it back via --certificate-key so it can bundle the cert
-          # it fetches from ASC into a usable .p12.
+          # The stored .p12 already gave us a usable signing identity in
+          # the keychain (via environment.ios_signing). All we need is a
+          # matching provisioning profile. fetch-signing-files --create
+          # will create the profile if it doesn't exist, and reuse the
+          # existing iOS Development cert in ASC. No private key is
+          # passed, so it will not attempt to issue a new cert.
           app-store-connect fetch-signing-files \
             "com.seanick80.recipeapp" \
             --type IOS_APP_DEVELOPMENT \
-            --certificate-key=@file:"$PRIVATE_KEY_PATH" \
-            --log-api-calls \
-            --create
-      - name: Add certificates to keychain
-        script: |
-          keychain add-certificates
+            --create \
+            --log-api-calls
       - name: Apply provisioning profiles to Xcode project
         script: |
           xcode-project use-profiles
