@@ -99,11 +99,14 @@ fi
 if ! grep -Fq "ios_signing:" codemagic.yaml; then
     err "codemagic.yaml missing environment.ios_signing block"
 fi
-if ! grep -Fq "distribution_type:" codemagic.yaml; then
-    err "codemagic.yaml missing environment.ios_signing.distribution_type (required by Codemagic schema)"
+if ! grep -Fq "ios_development_cert" codemagic.yaml; then
+    err "codemagic.yaml must reference stored signing identity 'ios_development_cert' under environment.ios_signing.certificates"
 fi
-if ! grep -Fq "bundle_identifier:" codemagic.yaml; then
-    err "codemagic.yaml missing environment.ios_signing.bundle_identifier (required by Codemagic schema)"
+if ! grep -Fq "ios_development_profile" codemagic.yaml; then
+    err "codemagic.yaml must reference stored provisioning profile 'ios_development_profile' under environment.ios_signing.provisioning_profiles"
+fi
+if ! grep -Fq "provisioning_profiles:" codemagic.yaml; then
+    err "codemagic.yaml missing environment.ios_signing.provisioning_profiles list"
 fi
 if grep -Fq "certificates create" codemagic.yaml; then
     err "codemagic.yaml must NOT run 'app-store-connect certificates create' — signing uses the persistent .p12 in Codemagic's store"
