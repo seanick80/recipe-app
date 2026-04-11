@@ -27,3 +27,17 @@ Thumbs.db
 
 # Env
 .env
+
+# Secrets — NEVER commit anything from here.
+# This directory holds local key material (ASC API .p8, signing .p12,
+# private keys, CSRs) used for the one-time signing identity ceremony.
+# Persistent storage for these lives in Codemagic's signing-identity store
+# and/or a password manager, not the repo.
+secrets/
+*.p8
+*.p12
+*.cer
+*.pem
+*.mobileprovision
+*.key
+AuthKey_*.p8
