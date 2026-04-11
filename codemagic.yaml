@@ -11,6 +11,13 @@ workflows:
       ios_signing:
         distribution_type: development
         bundle_identifier: com.seanick80.recipeapp
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+          source: true
     scripts:
       - name: Install xcodegen
         script: |
@@ -19,8 +26,16 @@ workflows:
         script: |
           cd RecipeApp
           xcodegen generate
+      - name: Fetch signing files
+        script: |
+          app-store-connect fetch-signing-files \
+            "com.seanick80.recipeapp" \
+            --type IOS_APP_DEVELOPMENT \
+            --create
       - name: Set up signing
         script: |
+          keychain initialize
+          keychain add-certificates
           xcode-project use-profiles
       - name: Build
         script: |
