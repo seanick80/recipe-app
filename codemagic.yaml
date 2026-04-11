@@ -28,17 +28,28 @@ workflows:
           keychain initialize
       - name: Create development signing certificate
         script: |
-          # Generates a fresh cert + private key pair, uploads the public
-          # cert to App Store Connect via the API key, and --save stashes
-          # the private key in the Codemagic session so later steps
-          # (fetch-signing-files, keychain add-certificates) can use it.
+          set -euxo pipefail
+          # 1. Generate a fresh 2048-bit RSA private key on the Mac runner.
+          # 2. Feed it to app-store-connect certificates create so the
+          #    CLI signs a CSR and uploads just the public cert to ASC.
+          # 3. --save stashes the cert+key pair in the Codemagic session
+          #    keychain so subsequent steps (fetch-signing-files, keychain
+          #    add-certificates, xcode-project use-profiles) can use it.
+          #
+          # We generate the key ourselves rather than relying on the CLI's
+          # auto-generation because older versions of codemagic-cli-tools
+          # require an explicit --certificate-key argument.
           #
           # Apple allows up to 2 active iOS Development certs per account.
-          # If this step ever starts failing with a limit error, revoke
-          # unused certs at:
-          # https://developer.apple.com/account/resources/certificates
+          # If this step ever fails with a limit error, revoke unused ones
+          # at https://developer.apple.com/account/resources/certificates
+          mkdir -p "$CM_BUILD_DIR/private"
+          PRIVATE_KEY_PATH="$CM_BUILD_DIR/private/ios_development_key.pem"
+          openssl genrsa -out "$PRIVATE_KEY_PATH" 2048
           app-store-connect certificates create \
             --type IOS_DEVELOPMENT \
+            --certificate-key=@file:"$PRIVATE_KEY_PATH" \
+            --log-api-calls \
             --save
       - name: Fetch or create development provisioning profile
         script: |
