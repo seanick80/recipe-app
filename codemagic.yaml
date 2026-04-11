@@ -6,15 +6,20 @@ workflows:
     integrations:
       app_store_connect: recipe-app-appstore-key
     environment:
-      # Signing is backed by a persistent iOS Development cert issued once
-      # via scripts/generate-signing-identity.sh and uploaded to Codemagic
-      # as a stored Code Signing Identity with reference name
-      # `ios_development_cert`. This block tells Codemagic to load that
-      # .p12 into the build keychain automatically before scripts run.
-      # See secrets/ios_dev_cert_record.md for the renewal procedure.
+      # Managed signing via the App Store Connect integration. Codemagic
+      # picks up a matching iOS Development cert from its Code Signing
+      # Identities store (we uploaded one as `ios_development_cert`,
+      # produced by scripts/generate-signing-identity.sh) and fetches or
+      # creates a matching provisioning profile for the bundle id via
+      # the ASC API before scripts run. See secrets/ios_dev_cert_record.md
+      # for the cert renewal procedure.
+      #
+      # Schema note: Codemagic requires EITHER distribution_type +
+      # bundle_identifier OR a provisioning_profiles list. A bare
+      # `certificates:` list is not a valid ios_signing shape.
       ios_signing:
-        certificates:
-          - ios_development_cert
+        distribution_type: development
+        bundle_identifier: com.seanick80.recipeapp
       xcode: latest
       cocoapods: default
     triggering:
@@ -32,20 +37,6 @@ workflows:
         script: |
           cd RecipeApp
           xcodegen generate
-      - name: Fetch or create development provisioning profile
-        script: |
-          set -euxo pipefail
-          # The stored .p12 already gave us a usable signing identity in
-          # the keychain (via environment.ios_signing). All we need is a
-          # matching provisioning profile. fetch-signing-files --create
-          # will create the profile if it doesn't exist, and reuse the
-          # existing iOS Development cert in ASC. No private key is
-          # passed, so it will not attempt to issue a new cert.
-          app-store-connect fetch-signing-files \
-            "com.seanick80.recipeapp" \
-            --type IOS_APP_DEVELOPMENT \
-            --create \
-            --log-api-calls
       - name: Apply provisioning profiles to Xcode project
         script: |
           xcode-project use-profiles
