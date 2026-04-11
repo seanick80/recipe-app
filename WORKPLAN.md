@@ -38,12 +38,19 @@ Full-stack recipe & grocery list iOS app with local-first architecture.
 - [ ] Generate grocery list from selected recipes (consolidate ingredients)
 
 ### Milestone 1E: First Build & Install
-- [ ] Enroll in Apple Developer Program ($99/year)
-- [ ] Create Codemagic account (free tier, 500 min/mo)
-- [ ] Connect GitHub repo to Codemagic
-- [ ] Configure code signing (Apple ID + Team ID + UDID)
-- [ ] Generate Xcode project (via Codemagic or Swift Package Manager)
-- [ ] Trigger first build, install on iPhone via OTA link
+- [x] Enroll in Apple Developer Program ($99/year)
+- [x] Create Codemagic account (free tier, 500 min/mo)
+- [x] Connect GitHub repo to Codemagic
+- [x] Create App ID `com.seanick80.recipeapp` with iCloud/CloudKit capability
+- [x] Create CloudKit container `iCloud.com.seanick80.recipeapp`
+- [x] Refactor SwiftData models for CloudKit compatibility (defaults, optional relationships with inverses)
+- [x] Add `RecipeApp.entitlements` + wire CloudKit into `ModelConfiguration`
+- [x] Choose build system: **xcodegen** — `project.yml` committed, `.xcodeproj` generated at build time
+- [x] Generate App Store Connect API key and upload to Codemagic as `recipe-app-appstore-key`
+- [x] Rewrite `codemagic.yaml` for API-key automatic signing + `xcodegen generate` + `xcode-project build-ipa`
+- [ ] Register iPhone UDID in Apple Developer portal → Devices *(in progress)*
+- [ ] Trigger Codemagic build, install on iPhone via OTA link
+- [ ] **Smoke test**: add recipe → delete app → reinstall → verify CloudKit restore
 
 ---
 

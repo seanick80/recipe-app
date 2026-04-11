@@ -17,7 +17,7 @@ class RecipeViewModel {
 
         var consolidated: [String: (quantity: Double, unit: String, category: String)] = [:]
         for recipe in recipes {
-            for ingredient in recipe.ingredients {
+            for ingredient in recipe.ingredients ?? [] {
                 let key = ingredient.name.lowercased()
                 if let existing = consolidated[key] {
                     consolidated[key] = (

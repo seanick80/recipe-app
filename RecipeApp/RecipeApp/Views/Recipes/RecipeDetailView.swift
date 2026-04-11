@@ -31,12 +31,12 @@ struct RecipeDetailView: View {
                 }
                 .padding(.horizontal)
 
-                if !recipe.ingredients.isEmpty {
+                if let ingredients = recipe.ingredients, !ingredients.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
                         Text("Ingredients")
                             .font(.title2)
                             .bold()
-                        ForEach(recipe.ingredients) { ingredient in
+                        ForEach(ingredients) { ingredient in
                             HStack {
                                 Text("•")
                                 if ingredient.quantity > 0 {

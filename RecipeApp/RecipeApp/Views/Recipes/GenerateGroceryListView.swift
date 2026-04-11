@@ -33,7 +33,7 @@ struct GenerateGroceryListView: View {
                                 VStack(alignment: .leading) {
                                     Text(recipe.name)
                                         .foregroundStyle(.primary)
-                                    Text("\(recipe.ingredients.count) ingredients")
+                                    Text("\(recipe.ingredients?.count ?? 0) ingredients")
                                         .font(.caption)
                                         .foregroundStyle(.secondary)
                                 }
@@ -61,7 +61,7 @@ struct GenerateGroceryListView: View {
 
         var consolidated: [String: (quantity: Double, unit: String)] = [:]
         for recipe in chosen {
-            for ingredient in recipe.ingredients {
+            for ingredient in recipe.ingredients ?? [] {
                 let key = ingredient.name.lowercased()
                 if let existing = consolidated[key] {
                     consolidated[key] = (

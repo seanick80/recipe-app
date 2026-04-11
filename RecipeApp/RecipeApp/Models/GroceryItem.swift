@@ -3,16 +3,16 @@ import SwiftData
 
 @Model
 final class GroceryItem {
-    var id: UUID
-    var name: String
-    var quantity: Double
-    var unit: String
-    var category: String
-    var isChecked: Bool
+    var id: UUID = UUID()
+    var name: String = ""
+    var quantity: Double = 1
+    var unit: String = ""
+    var category: String = "Other"
+    var isChecked: Bool = false
     var groceryList: GroceryList?
 
     init(
-        name: String,
+        name: String = "",
         quantity: Double = 1,
         unit: String = "",
         category: String = "Other"

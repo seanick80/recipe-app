@@ -78,7 +78,7 @@ struct RecipeEditView: View {
         prepTime = recipe.prepTimeMinutes
         cookTime = recipe.cookTimeMinutes
         servings = recipe.servings
-        ingredientRows = recipe.ingredients.map {
+        ingredientRows = (recipe.ingredients ?? []).map {
             (name: $0.name, quantity: "\($0.quantity)", unit: $0.unit)
         }
     }
@@ -94,7 +94,7 @@ struct RecipeEditView: View {
         target.updatedAt = Date()
 
         if isEditing {
-            for old in target.ingredients {
+            for old in target.ingredients ?? [] {
                 modelContext.delete(old)
             }
         }

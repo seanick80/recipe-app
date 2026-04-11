@@ -4,9 +4,10 @@ A full-stack recipe and grocery list iOS app with local-first architecture.
 
 ## Tech Stack
 
-- **iOS Client**: SwiftUI + MVVM + SwiftData (on-device persistence)
-- **Backend**: Python FastAPI + PostgreSQL (future sync)
-- **Build Pipeline**: Windows dev -> GitHub -> Codemagic CI -> iPhone (OTA install)
+- **iOS Client**: SwiftUI + MVVM + SwiftData with CloudKit private database (on-device + iCloud sync)
+- **Build System**: xcodegen (`RecipeApp.xcodeproj` generated on CI from `RecipeApp/project.yml`)
+- **Backend**: Python FastAPI + PostgreSQL (future sync for cross-household features; CloudKit handles single-user persistence today)
+- **Build Pipeline**: Windows dev -> GitHub -> Codemagic CI (xcodegen + App Store Connect API-key signing) -> iPhone (OTA install)
 
 ## Features
 
@@ -69,7 +70,7 @@ psql recipe_app < database/seed.sql
 - [x] Phase 1B: Pure Swift model validation on Windows
 - [x] Phase 1C: SwiftUI Recipe views (list, detail, edit)
 - [x] Phase 1D: SwiftUI Grocery views (lists, items, generate from recipes)
-- [ ] Phase 1E: Apple Developer Program + Codemagic CI + first device build
+- [~] Phase 1E: Apple Developer Program + Codemagic CI + CloudKit + first device build (in progress — awaiting UDID registration)
 - [ ] Phase 2: Backend server + database
 - [ ] Phase 3: Meal planning + calendar
 - [ ] Phase 4: Pantry + camera features

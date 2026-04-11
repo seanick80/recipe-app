@@ -12,7 +12,8 @@ struct RecipeAppApp: App {
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,
-            isStoredInMemoryOnly: false
+            isStoredInMemoryOnly: false,
+            cloudKitDatabase: .private("iCloud.com.seanick80.recipeapp")
         )
         do {
             return try ModelContainer(

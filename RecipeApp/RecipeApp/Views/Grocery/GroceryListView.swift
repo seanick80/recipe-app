@@ -18,7 +18,7 @@ struct GroceryListView: View {
                         VStack(alignment: .leading) {
                             Text(list.name)
                                 .font(.headline)
-                            Text("\(list.completedCount)/\(list.items.count) items checked")
+                            Text("\(list.completedCount)/\(list.items?.count ?? 0) items checked")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
@@ -74,7 +74,7 @@ struct GroceryListDetailView: View {
     @State private var showingAddItem = false
 
     var categorizedItems: [(String, [GroceryItem])] {
-        let grouped = Dictionary(grouping: groceryList.items) { $0.category }
+        let grouped = Dictionary(grouping: groceryList.items ?? []) { $0.category }
         return grouped.sorted { $0.key < $1.key }
     }
 
@@ -106,24 +106,24 @@ struct GroceryListDetailView: View {
                 } label: {
                     Label("Remove Checked", systemImage: "trash")
                 }
-                .disabled(groceryList.items.filter(\.isChecked).isEmpty)
+                .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
             }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
-                    for item in groceryList.items {
+                    for item in groceryList.items ?? [] {
                         item.isChecked = false
                     }
                 } label: {
                     Label("Uncheck All", systemImage: "arrow.uturn.backward")
                 }
-                .disabled(groceryList.items.filter(\.isChecked).isEmpty)
+                .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
             }
         }
         .sheet(isPresented: $showingAddItem) {
             AddGroceryItemView(groceryList: groceryList)
         }
         .overlay {
-            if groceryList.items.isEmpty {
+            if (groceryList.items ?? []).isEmpty {
                 ContentUnavailableView(
                     "No Items",
                     systemImage: "cart",
@@ -134,7 +134,7 @@ struct GroceryListDetailView: View {
     }
 
     private func removeCheckedItems() {
-        let checked = groceryList.items.filter(\.isChecked)
+        let checked = (groceryList.items ?? []).filter(\.isChecked)
         for item in checked {
             modelContext.delete(item)
         }

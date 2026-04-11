@@ -3,18 +3,18 @@ import SwiftData
 
 @Model
 final class GroceryList {
-    var id: UUID
-    var name: String
-    var createdAt: Date
+    var id: UUID = UUID()
+    var name: String = ""
+    var createdAt: Date = Date()
 
-    @Relationship(deleteRule: .cascade)
-    var items: [GroceryItem]
+    @Relationship(deleteRule: .cascade, inverse: \GroceryItem.groceryList)
+    var items: [GroceryItem]?
 
     var completedCount: Int {
-        items.filter { $0.isChecked }.count
+        (items ?? []).filter { $0.isChecked }.count
     }
 
-    init(name: String, items: [GroceryItem] = []) {
+    init(name: String = "", items: [GroceryItem] = []) {
         self.id = UUID()
         self.name = name
         self.createdAt = Date()

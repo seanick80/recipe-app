@@ -5,6 +5,9 @@
 DerivedData/
 *.xcuserdata
 
+# xcodegen: project is generated from project.yml at build time
+RecipeApp/RecipeApp.xcodeproj/
+
 # Python
 __pycache__/
 *.pyc
