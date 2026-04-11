@@ -97,6 +97,12 @@ fi
 if ! grep -Fq -- "--create" codemagic.yaml; then
     err "codemagic.yaml fetch-signing-files must pass --create so the first-ever build can provision a new profile"
 fi
+if ! grep -Fq "certificates create" codemagic.yaml; then
+    err "codemagic.yaml missing app-store-connect certificates create step (fetch-signing-files cannot provision certs without a locally-saved private key)"
+fi
+if ! grep -Fq -- "--save" codemagic.yaml; then
+    err "codemagic.yaml certificates create must pass --save so the new private key is kept for the rest of the session"
+fi
 if ! grep -Fq "triggering:" codemagic.yaml; then
     err "codemagic.yaml missing triggering: section — without it the GitHub webhook will not auto-build"
 fi
