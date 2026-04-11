@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct GenerateGroceryListView: View {
     @Environment(\.modelContext) private var modelContext
@@ -26,10 +26,14 @@ struct GenerateGroceryListView: View {
                             }
                         } label: {
                             HStack {
-                                Image(systemName: selectedRecipes.contains(recipe.id)
-                                    ? "checkmark.circle.fill" : "circle")
-                                    .foregroundStyle(selectedRecipes.contains(recipe.id)
-                                        ? .blue : .gray)
+                                Image(
+                                    systemName: selectedRecipes.contains(recipe.id)
+                                        ? "checkmark.circle.fill" : "circle"
+                                )
+                                .foregroundStyle(
+                                    selectedRecipes.contains(recipe.id)
+                                        ? .blue : .gray
+                                )
                                 VStack(alignment: .leading) {
                                     Text(recipe.name)
                                         .foregroundStyle(.primary)

@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# .githooks/pre-push — runs before every `git push`.
+#
+# Enforces the FULL build: lint + tests + config validation + clean-tree check.
+# This is the last line of defense before changes hit GitHub / Codemagic.
+#
+# To activate (one-time per clone):
+#   git config core.hooksPath .githooks
+
+set -e
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+cd "$REPO_ROOT"
+
+echo ""
+echo "################################################################"
+echo "# pre-push: full build + config validation"
+echo "################################################################"
+
+./scripts/build.sh full

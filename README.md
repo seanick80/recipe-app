@@ -37,16 +37,55 @@ server/             Python FastAPI backend
 database/           PostgreSQL schema and seed data
 ```
 
+## Required Tools
+
+Install these locally for full dev workflow (Mac-only tools run on Codemagic, not needed locally):
+
+| Tool             | Required? | Install                                                          | Purpose                                            |
+| ---------------- | --------- | ---------------------------------------------------------------- | -------------------------------------------------- |
+| Swift toolchain  | yes       | https://www.swift.org/install/ (Swift 6.2+)                      | Compile + run pure-Swift `Models/` tests           |
+| Python 3         | yes       | https://www.python.org/downloads/ (3.10+)                        | YAML/XML validation in lint, future backend work   |
+| PyYAML           | yes       | `pip install pyyaml`                                             | Validates `project.yml` and `codemagic.yaml`       |
+| `swift-format`   | yes       | Bundled with Swift toolchain on Windows; `brew install swift-format` on macOS | Lint Swift source code                |
+| Git + Git Bash   | yes       | https://git-scm.com/download/win                                 | Version control, script host on Windows           |
+| `gh` (GitHub CLI)| optional  | https://cli.github.com/                                          | Opening PRs / managing issues                      |
+| `xcodegen`       | Mac only  | `brew install xcodegen`                                          | Generates `.xcodeproj` from `project.yml` on CI    |
+| Xcode            | Mac only  | Mac App Store                                                    | Actual iOS build (runs on Codemagic)              |
+
+**One-time setup after cloning:**
+
+```bash
+# Enable the repo's git hooks (pre-commit lint/test, pre-push full build)
+git config core.hooksPath .githooks
+```
+
 ## Development
 
-### Pure Swift Model Tests (Windows)
+### Canonical build entrypoint
 
-```
-cmd.exe /c "swiftc Models\Recipe.swift Models\GroceryItem.swift Models\TestModels.swift -o test.exe"
-test.exe
+**Always build/validate through `scripts/build.sh`.** Never duplicate flags or checks inline — if a new check is needed, add it to the script so it runs for everyone, every time.
+
+```bash
+./scripts/build.sh            # full: lint + tests + config validation + clean-tree check
+./scripts/build.sh quick      # pre-commit mode: lint + tests only
+./scripts/build.sh validate   # config validation only
 ```
 
-Note: `swiftc` must be invoked via `cmd.exe` on Windows — Git Bash silently fails.
+### Individual scripts
+
+```bash
+./scripts/lint.sh             # swift-format + YAML/XML validation + CRLF detection
+./scripts/test.sh             # pure-Swift Models/ tests + (future) pytest
+```
+
+### Git hooks
+
+Once `core.hooksPath` is set to `.githooks`, the hooks run automatically:
+
+- **pre-commit** — runs `build.sh quick` (lint + lightweight tests)
+- **pre-push**   — runs `build.sh full` (everything including clean-tree check)
+
+Hooks can be bypassed in emergencies with `git commit --no-verify` but avoid making that a habit.
 
 ### Backend Server
 

@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct GroceryListView: View {
     @Environment(\.modelContext) private var modelContext

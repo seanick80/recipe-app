@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct RecipeEditView: View {
     @Environment(\.modelContext) private var modelContext

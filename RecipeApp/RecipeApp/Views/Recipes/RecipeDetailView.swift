@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct RecipeDetailView: View {
     let recipe: Recipe
@@ -9,7 +9,8 @@ struct RecipeDetailView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 16) {
                 if let imageData = recipe.imageData,
-                   let uiImage = UIImage(data: imageData) {
+                    let uiImage = UIImage(data: imageData)
+                {
                     Image(uiImage: uiImage)
                         .resizable()
                         .aspectRatio(contentMode: .fill)

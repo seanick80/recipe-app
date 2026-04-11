@@ -1,0 +1,39 @@
+# Enforce LF line endings for all text files on checkout and in the repo.
+# This overrides any core.autocrlf setting and makes the repo portable
+# across Windows, macOS, and Linux without CRLF churn.
+
+# Default: treat as text and normalize to LF in the working tree
+* text=auto eol=lf
+
+# Explicit text formats (belt-and-suspenders)
+*.swift       text eol=lf
+*.py          text eol=lf
+*.sh          text eol=lf
+*.yml         text eol=lf
+*.yaml        text eol=lf
+*.json        text eol=lf
+*.md          text eol=lf
+*.txt         text eol=lf
+*.toml        text eol=lf
+*.cfg         text eol=lf
+*.ini         text eol=lf
+*.xml         text eol=lf
+*.plist       text eol=lf
+*.entitlements text eol=lf
+.gitignore    text eol=lf
+.gitattributes text eol=lf
+.editorconfig text eol=lf
+
+# Binary formats (never touched)
+*.png         binary
+*.jpg         binary
+*.jpeg        binary
+*.gif         binary
+*.ico         binary
+*.pdf         binary
+*.zip         binary
+*.tar.gz      binary
+*.ipa         binary
+*.p8          binary
+*.p12         binary
+*.mobileprovision binary

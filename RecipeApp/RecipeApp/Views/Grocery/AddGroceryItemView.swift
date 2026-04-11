@@ -1,5 +1,5 @@
-import SwiftUI
 import SwiftData
+import SwiftUI
 
 struct AddGroceryItemView: View {
     @Environment(\.modelContext) private var modelContext
@@ -12,7 +12,9 @@ struct AddGroceryItemView: View {
     @State private var unit = ""
     @State private var category = "Other"
 
-    let categories = ["Produce", "Dairy", "Meat", "Bakery", "Frozen", "Canned", "Snacks", "Beverages", "Condiments", "Other"]
+    let categories = [
+        "Produce", "Dairy", "Meat", "Bakery", "Frozen", "Canned", "Snacks", "Beverages", "Condiments", "Other",
+    ]
 
     var body: some View {
         NavigationStack {

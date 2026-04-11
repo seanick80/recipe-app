@@ -21,11 +21,61 @@
   `xcodegen generate`, then `xcode-project build-ipa` → signed IPA via email.
 - Local testing: Pure Swift models in `Models/` can be compiled with `swiftc` on Windows.
 
-## Identifiers (do not change casually)
+## Identifiers (do not change casually; all safe to commit)
 - **Bundle ID**: `com.seanick80.recipeapp`
 - **CloudKit container**: `iCloud.com.seanick80.recipeapp`
 - **Apple Team ID**: `3JR8WTJUV6`
 - **Codemagic integration name**: `recipe-app-appstore-key`
+
+## Build & validation conventions
+
+**All build/validation goes through `scripts/build.sh`.** Never add one-off
+flags, checks, or build steps inline to commits or CI — add them to the
+script so they run for every developer and every push. Reasons:
+
+- Single source of truth for "what a build means here"
+- CI (Codemagic) and local `git push` both enforce the same checks
+- Prevents the classic "it passes on my machine, fails in prod" drift
+
+Modes:
+- `./scripts/build.sh`          → full: lint + tests + config validation + clean tree
+- `./scripts/build.sh quick`    → pre-commit: lint + tests only
+- `./scripts/build.sh validate` → config validation only
+
+Supporting scripts: `scripts/lint.sh`, `scripts/test.sh`.
+
+Git hooks in `.githooks/` are auto-installed per-clone with
+`git config core.hooksPath .githooks`. They enforce:
+- pre-commit: `build.sh quick`
+- pre-push:   `build.sh full`
+
+## Line endings and encoding (MANDATORY)
+
+- All text files in this repo are **LF only**, enforced via `.gitattributes`
+  and `.editorconfig`.
+- When writing ANY file in this project, Claude MUST use LF line endings.
+  The Write tool respects literal newline characters — do not emit `\r\n`.
+- If you touch a file and see a CRLF warning from git, run
+  `git add --renormalize .` and investigate why it wasn't caught by
+  `.gitattributes` (likely a new extension that needs adding there).
+
+## Swift formatting
+
+- `.swift-format` in the repo root is the canonical formatter config
+  (4-space indent, 120-col lines, ordered imports).
+- Run `swift-format format -i -r --configuration .swift-format Models RecipeApp/RecipeApp`
+  to autofix; `./scripts/lint.sh` runs `--mode lint` in CI.
+
+## Secrets policy
+
+Safe to commit (all are effectively public): Team ID, bundle ID, CloudKit
+container identifier, Codemagic integration name.
+
+NEVER commit: `.p8` files, `.p12` files, private keys, mobileprovision
+files, Apple ID passwords, CloudKit server-to-server tokens, Issuer ID +
+Key ID pairs for App Store Connect API keys. If any of these are ever
+added by mistake, stop and ask — do not just `git rm` because they may
+already be in the remote history.
 
 ## Backend Server
 ```bash
