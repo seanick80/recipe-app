@@ -10,7 +10,13 @@ settings:
   base:
     DEVELOPMENT_TEAM: 3JR8WTJUV6
     SWIFT_VERSION: "5.9"
-    CODE_SIGN_STYLE: Automatic
+    # CODE_SIGN_STYLE is deliberately not set here. Codemagic runs
+    # `xcode-project use-profiles` after `xcodegen generate`, which
+    # installs the stored provisioning profile and flips signing to
+    # Manual with the correct PROVISIONING_PROFILE_SPECIFIER. Setting
+    # Automatic (or Manual) here would be overridden and can conflict
+    # with the xcodebuild CODE_SIGN_STYLE=Manual override Codemagic
+    # passes on the archive command line.
 
 targets:
   RecipeApp:
