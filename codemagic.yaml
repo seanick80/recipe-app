@@ -6,6 +6,12 @@ workflows:
     integrations:
       app_store_connect: recipe-app-appstore-key
     environment:
+      # App-level environment variable group defined in Codemagic UI.
+      # Contains RECIPIENT_EMAIL (marked secure) so the notification
+      # address never lands in source control. Add more non-secret
+      # config (URLs, flags) here rather than hardcoding in yaml.
+      groups:
+        - recipe_app_notifications
       # Explicit manual code signing. Both the iOS Development cert
       # and the matching provisioning profile are pre-uploaded to
       # Codemagic's Code Signing Identities / Provisioning Profiles
@@ -56,9 +62,19 @@ workflows:
             --project RecipeApp.xcodeproj \
             --scheme RecipeApp
     artifacts:
-      - build/ios/ipa/*.ipa
+      # The Build step cd's into RecipeApp/ before running
+      # `xcode-project build-ipa`, so the IPA lands at
+      # $CM_BUILD_DIR/RecipeApp/build/ios/ipa/*.ipa, NOT at
+      # $CM_BUILD_DIR/build/ios/ipa/. Artifact globs are resolved
+      # relative to $CM_BUILD_DIR, so the RecipeApp/ prefix is
+      # required or the IPA silently fails to upload and the build
+      # publishes only the xcodebuild log.
+      - RecipeApp/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
     publishing:
       email:
+        # Address lives in the `recipe_app_notifications` Codemagic env var
+        # group as $RECIPIENT_EMAIL (marked secure) so no PII ends up in
+        # source control. Update it in the Codemagic UI, not here.
         recipients:
-          - user@example.com
+          - $RECIPIENT_EMAIL
