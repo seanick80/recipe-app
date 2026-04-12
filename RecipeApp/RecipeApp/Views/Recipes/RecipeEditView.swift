@@ -38,8 +38,8 @@ struct RecipeEditView: View {
                             TextField("Qty", text: $ingredientRows[index].quantity)
                                 .frame(width: 50)
                                 .keyboardType(.decimalPad)
-                            TextField("Unit", text: $ingredientRows[index].unit)
-                                .frame(width: 60)
+                            UnitPicker(unit: $ingredientRows[index].unit)
+                                .frame(width: 80)
                             TextField("Ingredient", text: $ingredientRows[index].name)
                         }
                     }

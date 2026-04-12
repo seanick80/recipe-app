@@ -24,7 +24,7 @@ struct AddGroceryItemView: View {
                     TextField("Quantity", text: $quantity)
                         .keyboardType(.decimalPad)
                         .frame(width: 80)
-                    TextField("Unit (oz, lbs, etc.)", text: $unit)
+                    UnitPicker(unit: $unit)
                 }
                 Picker("Category", selection: $category) {
                     ForEach(categories, id: \.self) { Text($0) }
