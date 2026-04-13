@@ -68,6 +68,9 @@ while true; do
         building)
             echo "  [$STATUS] Build in progress..."
             ;;
+        publishing)
+            echo "  [$STATUS] Publishing artifacts..."
+            ;;
         finished)
             echo ""
             echo "BUILD FINISHED"
