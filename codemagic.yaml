@@ -57,6 +57,7 @@ workflows:
           xcode-project use-profiles
       - name: Run XCTests
         script: |
+          mkdir -p /tmp/xcodebuild_logs
           cd RecipeApp
           set -o pipefail
           xcodebuild test \
