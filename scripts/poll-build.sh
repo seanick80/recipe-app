@@ -6,11 +6,14 @@
 #   ./scripts/poll-build.sh <build_id>   # poll a specific build
 #
 # Reads CODEMAGIC_API_TOKEN and CODEMAGIC_APP_ID from .env in repo root.
+# On completion (success or failure), downloads artifacts and extracts
+# the xctest.log for analysis.
 # Exit code: 0 on success (finished), 1 on failure/canceled.
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+ARTIFACT_DIR="$REPO_ROOT/build/ci-artifacts"
 
 # Load .env
 if [[ -f "$REPO_ROOT/.env" ]]; then
@@ -53,6 +56,80 @@ echo "Dashboard: https://codemagic.io/app/$CODEMAGIC_APP_ID/build/$BUILD_ID"
 echo ""
 
 # -----------------------------------------------------------------------
+# download_artifacts — fetch and extract artifact zip, show xctest.log
+# -----------------------------------------------------------------------
+download_artifacts() {
+    local response="$1"
+    local final_status="$2"
+
+    local artifact_url
+    artifact_url=$(echo "$response" | python -c "
+import sys, json
+build = json.load(sys.stdin)['build']
+for a in build.get('artefacts', []):
+    url = a.get('url', '')
+    if url:
+        print(url)
+        break
+" 2>/dev/null || true)
+
+    if [[ -z "$artifact_url" ]]; then
+        echo "  No artifact URL found."
+        return
+    fi
+
+    echo "  Downloading artifacts..."
+    mkdir -p "$ARTIFACT_DIR"
+    local zip_path="$ARTIFACT_DIR/artifacts.zip"
+    curl -sL "${AUTH[@]}" -o "$zip_path" "$artifact_url"
+
+    if ! file "$zip_path" | grep -q "Zip"; then
+        echo "  Downloaded file is not a valid zip."
+        return
+    fi
+
+    unzip -o -q "$zip_path" -d "$ARTIFACT_DIR" 2>/dev/null || true
+
+    # Show xctest.log summary
+    local log_path="$ARTIFACT_DIR/xctest.log"
+    if [[ -f "$log_path" ]]; then
+        echo ""
+        echo "=== XCTest Log Analysis ==="
+        local line_count
+        line_count=$(wc -l < "$log_path")
+        echo "  Log: $log_path ($line_count lines)"
+
+        # Extract errors
+        local errors
+        errors=$(grep -i "error:" "$log_path" 2>/dev/null | head -20 || true)
+        if [[ -n "$errors" ]]; then
+            echo ""
+            echo "  ERRORS:"
+            echo "$errors" | sed 's/^/    /'
+        fi
+
+        # Extract test summary
+        local summary
+        summary=$(grep -E "(TEST (SUCCEEDED|FAILED)|Testing failed|tests? passed|tests? failed)" "$log_path" 2>/dev/null | tail -5 || true)
+        if [[ -n "$summary" ]]; then
+            echo ""
+            echo "  TEST SUMMARY:"
+            echo "$summary" | sed 's/^/    /'
+        fi
+
+        # If build failed, show last 20 lines for context
+        if [[ "$final_status" == "failed" ]]; then
+            echo ""
+            echo "  TAIL (last 20 lines):"
+            tail -20 "$log_path" | sed 's/^/    /'
+        fi
+    else
+        echo "  No xctest.log found in artifacts."
+        echo "  Contents: $(ls "$ARTIFACT_DIR" 2>/dev/null || echo "(empty)")"
+    fi
+}
+
+# -----------------------------------------------------------------------
 # Poll loop
 # -----------------------------------------------------------------------
 INTERVAL=15
@@ -74,25 +151,13 @@ while true; do
         finished)
             echo ""
             echo "BUILD FINISHED"
-            # Try to extract artifact URLs
-            echo "$RESPONSE" | python -c "
-import sys, json
-build = json.load(sys.stdin)['build']
-artifacts = build.get('artefacts', [])
-if artifacts:
-    print('Artifacts:')
-    for a in artifacts:
-        name = a.get('name', a.get('type', 'unknown'))
-        url = a.get('url', 'no url')
-        print(f'  {name}: {url}')
-else:
-    print('No artifacts found in response')
-" 2>/dev/null || true
+            download_artifacts "$RESPONSE" "finished"
             exit 0
             ;;
         failed)
             echo ""
             echo "BUILD FAILED"
+            download_artifacts "$RESPONSE" "failed"
             exit 1
             ;;
         canceled)
