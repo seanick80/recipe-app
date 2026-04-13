@@ -131,6 +131,14 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 - [ ] Confirm, edit, or remove items before adding to active list
 - Estimated effort: 1 session
 
+### CI/Build Infrastructure Updates (during Phase 2)
+- [x] Codemagic XCTest results piped to separate `xctest.log` artifact
+- [x] CI step copies shared parser modules from `Models/` into `RecipeApp/RecipeApp/Parsers/` before xcodegen
+- [x] `scripts/poll-build.sh` — polls Codemagic REST API for build status, auto-downloads artifact zip, extracts and analyzes `xctest.log` inline
+- [x] Simulator destination updated to `iPhone 17` (Xcode 26.2 runner only has iPhone 17-series)
+- [x] `.env` stores `CODEMAGIC_API_TOKEN` + `CODEMAGIC_APP_ID` (gitignored)
+- [x] `build/ci-artifacts/` for downloaded artifacts (gitignored)
+
 **Phase 2 checkpoint**: Working pantry scanner (barcode + OCR + YOLO, all free),
 recipe photo capture with OCR, shopping list photo import. Real user data on
 where on-device detection fails informs Phase 3 cloud API usage.
@@ -269,7 +277,13 @@ is the safety net for framework behavior changes, not the primary test surface.
 
 ## Current Focus
 
-**Phase 2A–2C complete** — Camera infrastructure, barcode scanning (Open Food Facts),
-and OCR pipeline built. New "Scan" tab with barcode, shopping list, and recipe
-scanning modes. Pure Swift parsers wired into iOS views via shared xcodegen sources.
+**Phase 2A–2C complete** (2026-04-13) — Camera infrastructure, barcode scanning
+(Open Food Facts), and OCR pipeline built. New "Scan" tab with barcode, shopping
+list, and recipe scanning modes. Pure Swift parsers (5 modules, 181 tests) wired
+into iOS views via CI copy step. Build 22 on Codemagic passed (Xcode 26.2,
+iPhone 17 simulator). IPA with Scan tab available.
+
+**Uncommitted local-only change**: `poll-build.sh` fix to skip IPA artifacts
+when looking for xctest.log zip. Commit on next push.
+
 Next: Phase 2D (YOLO food detection) and 2E (confirmation UI).
