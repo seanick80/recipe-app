@@ -31,9 +31,17 @@ AUTH=(-H "x-auth-token: $CODEMAGIC_API_TOKEN")
 if [[ $# -ge 1 ]]; then
     BUILD_ID="$1"
 else
-    # Fetch latest build for this app
-    BUILD_ID=$(curl -s "${AUTH[@]}" "$API/apps/$CODEMAGIC_APP_ID" \
-        | python -c "import sys,json; print(json.load(sys.stdin)['app']['lastBuildId'])" 2>/dev/null)
+    # Fetch latest build ID from the apps list endpoint
+    BUILD_ID=$(curl -s "${AUTH[@]}" "$API/apps" \
+        | python -c "
+import sys, json
+data = json.load(sys.stdin)
+apps = data.get('applications', [])
+for app in apps:
+    if app['_id'] == '$CODEMAGIC_APP_ID':
+        print(app.get('lastBuildId', ''))
+        break
+" 2>/dev/null)
     if [[ -z "$BUILD_ID" || "$BUILD_ID" == "None" ]]; then
         echo "Could not determine latest build ID" >&2
         exit 1
