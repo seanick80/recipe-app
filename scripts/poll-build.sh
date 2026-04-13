@@ -62,13 +62,27 @@ download_artifacts() {
     local response="$1"
     local final_status="$2"
 
+    # List all artifacts
+    echo "$response" | python -c "
+import sys, json
+build = json.load(sys.stdin)['build']
+arts = build.get('artefacts', [])
+if arts:
+    print('  Artifacts:')
+    for a in arts:
+        print(f'    {a.get(\"name\", \"unknown\")}: {a.get(\"url\", \"no url\")}')
+" 2>/dev/null || true
+
+    # Find the artifact zip containing xctest.log (not the IPA)
     local artifact_url
     artifact_url=$(echo "$response" | python -c "
 import sys, json
 build = json.load(sys.stdin)['build']
 for a in build.get('artefacts', []):
     url = a.get('url', '')
-    if url:
+    name = a.get('name', '')
+    # Prefer the artifacts zip (contains xctest.log), skip IPA files
+    if url and not name.endswith('.ipa'):
         print(url)
         break
 " 2>/dev/null || true)
