@@ -94,12 +94,19 @@ psql recipe_app < database/seed.sql
 
 ## Testing
 ```bash
-# Swift models (Windows)
-swiftc Models/Recipe.swift Models/GroceryItem.swift Models/TestModels.swift -o test.exe && ./test.exe
+# All tests (Windows) — 255 tests across 7 suites
+./scripts/test.sh
+
+# Full build validation (lint + tests + config)
+./scripts/build.sh
 
 # Python server
 cd server && pytest
 ```
+
+Pure Swift test suites in `Models/`: Recipe (12), Shopping (63), ListParser (57),
+OCR (42), Detection (26), Barcode (22), Pantry (34). XCTests in `RecipeAppTests/`
+run on Codemagic simulator before archive.
 
 ## Bug reporting workflow (Linear + GitHub)
 

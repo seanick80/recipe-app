@@ -55,6 +55,15 @@ workflows:
       - name: Apply provisioning profiles to Xcode project
         script: |
           xcode-project use-profiles
+      - name: Run XCTests
+        script: |
+          cd RecipeApp
+          xcodebuild test \
+            -project RecipeApp.xcodeproj \
+            -scheme RecipeApp \
+            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -resultBundlePath ../build/test-results \
+            | xcpretty || true
       - name: Build
         script: |
           cd RecipeApp

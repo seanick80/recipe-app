@@ -210,36 +210,44 @@ where on-device detection fails informs Phase 3 cloud API usage.
 
 ## Testing Strategy
 
-Modeled after the fractal drawing app's infrastructure (JUnit 5 with size tags,
-TestHelpers factory, golden-value checksums, headless execution). Tests must
-run locally on Windows — not just on Apple devices.
+Modeled after the fractal drawing app's infrastructure. **Guiding principle:
+maximize tests that run locally on Windows.** Codemagic XCTest is a safety
+net, not the primary test surface.
 
-### Tier 1: Pure Swift (Windows, every commit)
+### Tier 1: Pure Swift (Windows, every commit, ~80% of logic)
 
-Compiled via `swiftc` on Windows. No SwiftData, no UIKit, no network.
-Run by `scripts/test.sh` (wired into pre-commit hook).
+Compiled via `swiftc` on Windows. No SwiftData, no UIKit, no network, no
+Apple vision frameworks. Run by `scripts/test.sh` (wired into pre-commit hook).
 
-| Category | What It Tests | Examples |
-|---|---|---|
-| **small** | Model init, computed props, validation | Recipe.totalTimeMinutes, GroceryItem.isChecked |
-| **medium** | Codable round-trips, sorting, template stamping | Category sort order, ingredient consolidation |
+All parsing and decision logic is extracted into pure Swift modules in `Models/`
+that have zero Apple-framework dependencies. The iOS app imports these same
+files, but they compile and test independently on Windows.
 
-Test files live in `Models/` alongside the model code:
-- `Models/TestModels.swift` — existing (recipe + grocery basics)
-- `Models/TestShopping.swift` — Phase 1.5 (template, stamping, category sort)
-- `Models/TestPantry.swift` — Phase 2 (PantryItem, confidence thresholds)
-- `Models/TestOCR.swift` — Phase 2 (OCR text → item parsing logic)
+**Model + logic files (all implemented, 255 tests passing):**
 - `Models/TestHelpers.swift` — factory methods, assertion helpers
+- `Models/TestModels.swift` — recipe + grocery model tests (12 tests)
+- `Models/TestShopping.swift` — shopping template tests (63 tests)
+- `Models/ListLineParser.swift` + `Models/TestListParser.swift` — handwritten list → items (57 tests)
+- `Models/OCRParser.swift` + `Models/TestOCR.swift` — OCR text → structured recipe (42 tests)
+- `Models/DetectionClassifier.swift` + `Models/TestDetection.swift` — confidence triage (26 tests)
+- `Models/BarcodeProductMapper.swift` + `Models/TestBarcode.swift` — OFF JSON → product (22 tests)
+- `Models/PantryItemMapper.swift` + `Models/TestPantry.swift` — YOLO → PantryItem (34 tests)
 
-### Tier 2: Integration (macOS / Codemagic only)
+### Tier 2: XCTest on Codemagic Simulator (~20% of logic)
 
-XCTest via `xcodebuild test`. Tests SwiftData persistence, CloudKit constraints,
-view model logic, API contract shapes.
+Thin iOS framework wrapper tests against fixture images in
+`RecipeAppTests/Fixtures/`. Runs via `xcodebuild test` on Codemagic before the
+archive step. Test failure blocks the build.
+
+**XCTest files (implemented):**
+- `RecipeAppTests/RecipeModelTests.swift` — SwiftData model init + toggle
+- `RecipeAppTests/ShoppingTemplateTests.swift` — SwiftData template + archive + category
 
 ### Test expansion rule
 
-Every new model or logic function gets a corresponding test in `Models/` that
-runs on Windows. No exceptions — this is enforced by the pre-commit hook.
+Every new parsing or decision function gets a corresponding test in `Models/`
+that runs on Windows. No exceptions — enforced by the pre-commit hook. XCTest
+is the safety net for framework behavior changes, not the primary test surface.
 
 ---
 
@@ -255,5 +263,7 @@ runs on Windows. No exceptions — this is enforced by the pre-commit hook.
 
 ## Current Focus
 
-**Phase 1.5** — Persistent weekly shopping list with store aisle ordering.
-Then Phase 2 (on-device vision) where the interesting work begins.
+**Phase 2 prep complete** — All pure Swift parsing/decision modules built and tested
+(255 tests on Windows). Codemagic `xcodebuild test` step added to CI pipeline.
+Next: Phase 2A (camera capture infrastructure) and connecting the parsing modules
+to iOS framework wrappers.

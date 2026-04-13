@@ -73,6 +73,11 @@ struct TestRunner {
         var allPassed = true
         allPassed = runRecipeTests() && allPassed
         allPassed = runShoppingTests() && allPassed
+        allPassed = runListParserTests() && allPassed
+        allPassed = runOCRTests() && allPassed
+        allPassed = runDetectionTests() && allPassed
+        allPassed = runBarcodeTests() && allPassed
+        allPassed = runPantryTests() && allPassed
 
         print("\n=== Done ===")
         if !allPassed {

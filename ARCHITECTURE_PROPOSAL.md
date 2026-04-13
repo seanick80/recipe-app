@@ -752,82 +752,128 @@ informs which cloud API to choose and how much cloud usage you'll actually need.
 
 Modeled after the fractal drawing app's test infrastructure (JUnit 5 with
 size-tagged categories, TestHelpers factory, golden-value checksums, headless
-execution). Key constraint: **tests must run locally on Windows** via `swiftc`,
-not just on macOS/Xcode.
+execution). **Guiding principle: maximize tests that run locally on Windows.**
+Running tests on other people's hardware doesn't feel good — Codemagic XCTest
+is a safety net, not the primary test surface.
 
-### Two-Tier Test Architecture
+### Architecture: Extract Everything Possible Into Pure Swift
 
-**Tier 1: Pure Swift model tests (Windows-compatible, run on every commit)**
+The core insight for Phase 2 is that most vision feature logic doesn't need
+Apple frameworks. The framework calls (AVFoundation, Vision, CoreML, Speech)
+are thin wrappers that return raw strings, scores, and labels. All the
+interesting logic — parsing, classification, mapping, deduplication — is pure
+Swift that compiles and tests on Windows.
 
-Compiled and executed via `swiftc` on Windows. No Foundation networking, no
-SwiftData, no UIKit/SwiftUI. These test all domain logic in isolation.
+```
+┌─────────────────────────────────────────────────────┐
+│  iOS Framework Wrappers (thin, XCTest only, ~20%)   │
+│  VisionService, BarcodeService, CameraService       │
+│  Only job: call Apple API → return raw data          │
+└──────────────────────┬──────────────────────────────┘
+                       │ raw strings, floats, rects
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│  Parsing & Decision Layer (pure Swift, ~80%)         │
+│  OCRParser, DetectionClassifier, BarcodeProduct-     │
+│  Mapper, PantryItemMapper, ListLineParser            │ ← Windows-testable
+│  No import AVFoundation/Vision/CoreML/Speech         │
+└──────────────────────┬──────────────────────────────┘
+                       │ structured models
+                       ▼
+┌─────────────────────────────────────────────────────┐
+│  Models (already tested)                             │
+│  PantryItemModel, GroceryItemModel, etc.             │
+└─────────────────────────────────────────────────────┘
+```
 
-| Category | Analogue to | What It Tests | Target Runtime |
+### Tier 1: Pure Swift Tests (Windows, every commit, ~80% of logic)
+
+Compiled via `swiftc` on Windows. No Foundation networking, no SwiftData, no
+UIKit/SwiftUI, no Apple vision frameworks. Runs via `scripts/test.sh` (wired
+into pre-commit hook).
+
+**Existing test files:**
+- `Models/TestHelpers.swift` — assertion helpers, factory methods
+- `Models/TestModels.swift` — recipe + grocery model tests (12 tests)
+- `Models/TestShopping.swift` — shopping template tests (63 tests)
+
+**Phase 2 pure-Swift modules and their test files:**
+
+| Module (in `Models/`) | What It Does | Test File | Golden Values |
 |---|---|---|---|
-| `small` | Drawing app `@SmallTest` | Model init, computed properties, validation, formatters | < 50ms |
-| `medium` | Drawing app `@MediumTest` | Codable round-trips, category sorting, template→list stamping, ingredient consolidation | < 200ms |
+| `OCRParser.swift` | Raw OCR text lines → (name, quantity, unit) structs | `TestOCR.swift` | Known OCR output strings from recipe pages and shopping lists |
+| `DetectionClassifier.swift` | Confidence score → triage (auto/confirm/reject), deduplication of overlapping detections | `TestDetection.swift` | Boundary tests at 0.55/0.85, overlap scenarios |
+| `BarcodeProductMapper.swift` | Open Food Facts JSON → product name + category | `TestBarcode.swift` | Real OFF API response fixtures as JSON strings |
+| `PantryItemMapper.swift` | YOLO class label + confidence + bounding box → PantryItemModel | `TestPantry.swift` | Known YOLO output scenarios |
+| `ListLineParser.swift` | Handwritten list OCR lines → GroceryItemModel candidates | `TestListParser.swift` | "2x milk", "eggs (12)", "chicken breast 2 lb" → structured items |
 
-Runs via: `scripts/test.sh` (already wired into pre-commit hook)
+Each module is a pure Swift file with no Apple-framework imports. The iOS app
+imports these files too (they're in the xcodegen source tree), but the logic
+is testable independently on Windows.
 
-**Tier 2: Integration tests (macOS/Codemagic only)**
+### Tier 2: XCTest on Codemagic Simulator (~20% of logic)
 
-XCTest-based, run via `xcodebuild test` on Codemagic or local Mac. These test
-SwiftData persistence, CloudKit constraints, and view model logic.
+XCTest-based, run via `xcodebuild test` on Codemagic before the archive step.
+Tests the thin iOS framework wrappers against real fixture images.
 
-| Category | What It Tests |
-|---|---|
-| `persistence` | SwiftData CRUD, CloudKit constraint compliance (defaults, optional relationships) |
-| `viewmodel` | ViewModel state transitions, data flow |
-| `api` | Cloud Run endpoint contract tests (mock HTTP, validate request/response shapes) |
-| `ocr` | OCR pipeline output parsing (given known OCR text, validate parsed items) |
+| Test Class | What It Tests | Fixtures |
+|---|---|---|
+| `VisionOCRTests` | `VNRecognizeTextRequest` on known images → expected text | JPEG of recipe page, handwritten list |
+| `BarcodeDetectionTests` | `VNDetectBarcodesRequest` finds UPC in known barcode image | JPEG of cereal box barcode |
+| `CoreMLModelTests` | YOLO model loads, returns bounding boxes for known food image | JPEG of fridge shelf with known items |
+| `PersistenceTests` | SwiftData CRUD, CloudKit constraint compliance | In-memory ModelContainer |
+| `ViewModelTests` | ShoppingViewModel state transitions | Programmatic (no fixtures) |
 
-### Test Helpers (`Models/TestHelpers.swift`)
+Fixture images stored in `RecipeAppTests/Fixtures/` (~500KB total). These are
+golden-value tests: known input image → expected framework output → compared
+against baseline.
 
-Factory pattern matching the drawing app's `TestHelpers.java`:
+### Codemagic Test Pipeline
 
-```swift
-// Fixture factories (pure Swift, Windows-compatible)
-struct TestHelpers {
-    static func recipe(name: String = "Test Recipe", ingredients: Int = 0) -> RecipeModel { ... }
-    static func groceryList(name: String = "Weekly", items: Int = 3) -> GroceryListModel { ... }
-    static func ingredient(name: String = "Salt", quantity: Double = 1) -> IngredientModel { ... }
-    static func shoppingTemplate(name: String = "Staples", items: Int = 5) -> ShoppingTemplateModel { ... }
+`codemagic.yaml` updated to run `xcodebuild test` on simulator before the
+archive step. Test failure blocks the build — no IPA produced if tests fail.
 
-    // Assertion helpers
-    static func assertSortedByCategory(_ items: [GroceryItemModel], order: [String]) -> Bool { ... }
-    static func assertCodableRoundTrip<T: Codable & Equatable>(_ value: T) -> Bool { ... }
-}
+```yaml
+scripts:
+  - name: Run tests
+    script: |
+      xcodebuild test \
+        -scheme RecipeApp \
+        -destination 'platform=iOS Simulator,name=iPhone 16' \
+        -resultBundlePath build/TestResults.xcresult
 ```
 
 ### What Gets Tested Per Phase
 
-| Phase | New Test Coverage |
-|---|---|
-| 1.5 (Shopping list) | Template CRUD, "Start New Week" stamping, category sort order, archive, ingredient consolidation |
-| 2 (On-device vision) | OCR text → item parsing, barcode → product lookup mapping, confidence thresholds, YOLO label → PantryItem mapping |
-| 3 (Cloud vision) | Request/response contract tests (mock Gemini response shapes), cost logging accuracy, rate limiting |
-| 4 (Sharing) | SQLiteData model equivalence with SwiftData models, share zone scoping |
+| Phase | Pure Swift Tests (Windows) | XCTest (Codemagic) |
+|---|---|---|
+| 1.5 (Shopping) | Template CRUD, stamping, category sort, Codable | — |
+| 2 (Vision) | OCR parsing, confidence triage, barcode mapping, YOLO→PantryItem, list line parsing, deduplication | VisionKit OCR on fixture images, barcode detection, CoreML model loading |
+| 3 (Cloud) | Gemini request/response contract tests (mock JSON), cost calculation | Cloud Run endpoint integration (if staging env available) |
+| 4 (Sharing) | SQLiteData model equivalence | CKShare zone scoping |
 
 ### Running Tests
 
 ```bash
-# Windows (pre-commit, pre-push) — pure Swift model tests
+# Windows (pre-commit, pre-push) — pure Swift model + parsing tests
 ./scripts/test.sh
 
-# macOS / Codemagic — full suite including XCTest
+# Codemagic (every push) — XCTest on simulator + IPA build
+# Runs automatically via codemagic.yaml test step
+
+# Local Mac (if available) — full XCTest suite
 xcodebuild test -scheme RecipeApp -destination 'platform=iOS Simulator,name=iPhone 16'
 
-# Backend (when Phase 3 is built)
+# Backend (Phase 3)
 cd server && pytest -v
 ```
 
-### Test Expansion Plan
+### Test Expansion Rule
 
-As new models and logic are added in each phase, corresponding pure-Swift test
-files are added to `Models/` and compiled into the existing `test.sh` pipeline.
-The `TestModels.swift` file grows (or splits into `TestShopping.swift`,
-`TestPantry.swift`, etc.) following the same pattern as the drawing app's
-per-package test files.
+Every new parsing or decision function gets a corresponding test in `Models/`
+that runs on Windows. The iOS framework wrapper tests in `RecipeAppTests/` are
+the safety net — they catch framework behavior changes across iOS versions but
+should never be the first place a bug is found.
 
 ---
 

@@ -1,4 +1,5 @@
 import XCTest
+
 @testable import RecipeApp
 
 final class RecipeModelTests: XCTestCase {
