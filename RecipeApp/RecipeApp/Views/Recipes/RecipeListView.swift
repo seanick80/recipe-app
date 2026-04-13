@@ -18,14 +18,27 @@ struct RecipeListView: View {
                 ForEach(filteredRecipes) { recipe in
                     NavigationLink(destination: RecipeDetailView(recipe: recipe)) {
                         VStack(alignment: .leading, spacing: 4) {
-                            Text(recipe.name)
-                                .font(.headline)
+                            HStack {
+                                Text(recipe.name)
+                                    .font(.headline)
+                                if recipe.isFavorite {
+                                    Image(systemName: "star.fill")
+                                        .foregroundStyle(.yellow)
+                                        .font(.caption)
+                                }
+                            }
                             Text(recipe.summary)
                                 .font(.subheadline)
                                 .foregroundStyle(.secondary)
                                 .lineLimit(2)
                             HStack {
                                 Label("\(recipe.totalTimeMinutes) min", systemImage: "clock")
+                                if !recipe.cuisine.isEmpty {
+                                    Text(recipe.cuisine)
+                                }
+                                if !recipe.course.isEmpty {
+                                    Text(recipe.course)
+                                }
                                 Spacer()
                                 Label("\(recipe.servings) servings", systemImage: "person.2")
                             }

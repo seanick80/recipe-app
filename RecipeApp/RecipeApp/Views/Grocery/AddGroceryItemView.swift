@@ -22,7 +22,7 @@ struct AddGroceryItemView: View {
                     TextField("Quantity", text: $quantity)
                         .keyboardType(.decimalPad)
                         .frame(width: 80)
-                    UnitPicker(unit: $unit)
+                    UnitPicker(unit: $unit, context: .shopping)
                 }
                 Picker("Category", selection: $category) {
                     ForEach(categories, id: \.self) { Text($0) }

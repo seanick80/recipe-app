@@ -13,7 +13,12 @@ struct RecipeEditView: View {
     @State private var prepTime = 0
     @State private var cookTime = 0
     @State private var servings = 1
-    @State private var ingredientRows: [(name: String, quantity: String, unit: String)] = []
+    @State private var cuisine = ""
+    @State private var course = ""
+    @State private var tags = ""
+    @State private var sourceURL = ""
+    @State private var difficulty = ""
+    @State private var ingredientRows: [(name: String, quantity: String, unit: String, notes: String)] = []
 
     var isEditing: Bool { recipe != nil }
 
@@ -26,6 +31,16 @@ struct RecipeEditView: View {
                         .lineLimit(3...6)
                 }
 
+                Section("Classification") {
+                    TextField("Cuisine (e.g. Italian, Mexican)", text: $cuisine)
+                    TextField("Course (e.g. Dinner, Dessert)", text: $course)
+                    TextField("Difficulty (e.g. Easy, Medium, Hard)", text: $difficulty)
+                    TextField("Tags (comma-separated)", text: $tags)
+                    TextField("Source URL or cookbook name", text: $sourceURL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                }
+
                 Section("Time & Servings") {
                     Stepper("Prep: \(prepTime) min", value: $prepTime, in: 0...480, step: 5)
                     Stepper("Cook: \(cookTime) min", value: $cookTime, in: 0...480, step: 5)
@@ -34,20 +49,30 @@ struct RecipeEditView: View {
 
                 Section("Ingredients") {
                     ForEach(ingredientRows.indices, id: \.self) { index in
-                        HStack {
-                            TextField("Qty", text: $ingredientRows[index].quantity)
-                                .frame(width: 50)
-                                .keyboardType(.decimalPad)
-                            UnitPicker(unit: $ingredientRows[index].unit)
-                                .frame(width: 80)
-                            TextField("Ingredient", text: $ingredientRows[index].name)
+                        VStack(spacing: 4) {
+                            HStack {
+                                TextField("Qty", text: $ingredientRows[index].quantity)
+                                    .frame(width: 50)
+                                    .keyboardType(.decimalPad)
+                                UnitPicker(unit: $ingredientRows[index].unit)
+                                    .frame(width: 80)
+                                TextField("Ingredient", text: $ingredientRows[index].name)
+                            }
+                            if !ingredientRows[index].notes.isEmpty || index == ingredientRows.count - 1 {
+                                TextField("Notes (e.g. finely diced)", text: $ingredientRows[index].notes)
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
                     }
                     .onDelete { indices in
                         ingredientRows.remove(atOffsets: indices)
                     }
+                    .onMove { from, to in
+                        ingredientRows.move(fromOffsets: from, toOffset: to)
+                    }
                     Button("Add Ingredient") {
-                        ingredientRows.append((name: "", quantity: "", unit: ""))
+                        ingredientRows.append((name: "", quantity: "", unit: "", notes: ""))
                     }
                 }
 
@@ -78,9 +103,16 @@ struct RecipeEditView: View {
         prepTime = recipe.prepTimeMinutes
         cookTime = recipe.cookTimeMinutes
         servings = recipe.servings
-        ingredientRows = (recipe.ingredients ?? []).map {
-            (name: $0.name, quantity: "\($0.quantity)", unit: $0.unit)
-        }
+        cuisine = recipe.cuisine
+        course = recipe.course
+        tags = recipe.tags
+        sourceURL = recipe.sourceURL
+        difficulty = recipe.difficulty
+        ingredientRows = (recipe.ingredients ?? [])
+            .sorted { $0.displayOrder < $1.displayOrder }
+            .map {
+                (name: $0.name, quantity: "\($0.quantity)", unit: $0.unit, notes: $0.notes)
+            }
     }
 
     private func save() {
@@ -91,6 +123,11 @@ struct RecipeEditView: View {
         target.prepTimeMinutes = prepTime
         target.cookTimeMinutes = cookTime
         target.servings = servings
+        target.cuisine = cuisine
+        target.course = course
+        target.tags = tags
+        target.sourceURL = sourceURL
+        target.difficulty = difficulty
         target.updatedAt = Date()
 
         if isEditing {
@@ -99,12 +136,14 @@ struct RecipeEditView: View {
             }
         }
 
-        let newIngredients = ingredientRows.compactMap { row -> Ingredient? in
+        let newIngredients = ingredientRows.enumerated().compactMap { index, row -> Ingredient? in
             guard !row.name.isEmpty else { return nil }
             return Ingredient(
                 name: row.name,
                 quantity: Double(row.quantity) ?? 0,
-                unit: row.unit
+                unit: row.unit,
+                displayOrder: index,
+                notes: row.notes
             )
         }
         target.ingredients = newIngredients

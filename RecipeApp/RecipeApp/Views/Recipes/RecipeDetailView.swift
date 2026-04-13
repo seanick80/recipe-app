@@ -19,9 +19,11 @@ struct RecipeDetailView: View {
                 }
 
                 VStack(alignment: .leading, spacing: 8) {
-                    Text(recipe.summary)
-                        .font(.body)
-                        .foregroundStyle(.secondary)
+                    if !recipe.summary.isEmpty {
+                        Text(recipe.summary)
+                            .font(.body)
+                            .foregroundStyle(.secondary)
+                    }
 
                     HStack(spacing: 20) {
                         Label("\(recipe.prepTimeMinutes) min prep", systemImage: "clock")
@@ -29,6 +31,34 @@ struct RecipeDetailView: View {
                         Label("\(recipe.servings) servings", systemImage: "person.2")
                     }
                     .font(.caption)
+
+                    if !recipe.cuisine.isEmpty || !recipe.course.isEmpty || !recipe.difficulty.isEmpty {
+                        HStack(spacing: 12) {
+                            if !recipe.cuisine.isEmpty {
+                                Label(recipe.cuisine, systemImage: "globe")
+                            }
+                            if !recipe.course.isEmpty {
+                                Label(recipe.course, systemImage: "fork.knife")
+                            }
+                            if !recipe.difficulty.isEmpty {
+                                Label(recipe.difficulty, systemImage: "chart.bar")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+
+                    if !recipe.tags.isEmpty {
+                        Text(recipe.tags)
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+
+                    if !recipe.sourceURL.isEmpty {
+                        Text("Source: \(recipe.sourceURL)")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
                 }
                 .padding(.horizontal)
 
@@ -37,14 +67,19 @@ struct RecipeDetailView: View {
                         Text("Ingredients")
                             .font(.title2)
                             .bold()
-                        ForEach(ingredients) { ingredient in
+                        ForEach(ingredients.sorted { $0.displayOrder < $1.displayOrder }) { ingredient in
                             HStack {
-                                Text("•")
+                                Text("\u{2022}")
                                 if ingredient.quantity > 0 {
                                     Text("\(formatQuantity(ingredient.quantity)) \(ingredient.unit)")
                                         .bold()
                                 }
                                 Text(ingredient.name)
+                                if !ingredient.notes.isEmpty {
+                                    Text("(\(ingredient.notes))")
+                                        .foregroundStyle(.secondary)
+                                        .italic()
+                                }
                             }
                         }
                     }

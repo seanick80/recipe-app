@@ -1,26 +1,51 @@
 import SwiftUI
 
-/// Common cooking/grocery units offered as picker choices.
-let commonUnits = [
+/// Context in which units are being selected, determining which preset list
+/// the picker offers.
+enum UnitPickerContext {
+    case recipe
+    case shopping
+}
+
+/// Units shown when editing recipe ingredients — precision matters.
+let recipeUnits = [
     "", "tsp", "tbsp", "cup", "oz", "fl oz", "lb", "g", "kg", "ml", "l",
-    "pinch", "dash", "whole", "clove", "slice", "piece", "bunch", "can",
-    "bag", "box", "bottle", "jar", "packet",
+    "pinch", "dash", "whole", "large", "medium", "small",
+    "clove", "slice", "piece", "bunch", "head", "stalk", "sprig", "stick",
+    "can", "jar", "bottle",
 ]
 
-/// A compact `Menu`-based unit selector. Shows the common list and an
-/// "Other…" option that lets the user type a custom unit.
+/// Units shown when adding shopping list / template items — purchase quantities.
+let shoppingUnits = [
+    "", "lb", "oz", "g", "kg",
+    "gal", "qt", "pt", "fl oz", "l", "ml",
+    "dozen", "pack", "bag", "box", "can", "jar",
+    "bottle", "carton", "container", "loaf", "bunch",
+    "head", "case",
+]
+
+/// A compact `Menu`-based unit selector. Shows a context-appropriate list and
+/// an "Other…" option that lets the user type a custom unit.
 struct UnitPicker: View {
     @Binding var unit: String
+    var context: UnitPickerContext = .recipe
     @State private var showCustomField = false
 
+    private var unitList: [String] {
+        switch context {
+        case .recipe: return recipeUnits
+        case .shopping: return shoppingUnits
+        }
+    }
+
     var body: some View {
-        if showCustomField || (!unit.isEmpty && !commonUnits.contains(unit)) {
+        if showCustomField || (!unit.isEmpty && !unitList.contains(unit)) {
             TextField("Unit", text: $unit)
                 .textInputAutocapitalization(.never)
                 .autocorrectionDisabled()
         } else {
             Menu {
-                ForEach(commonUnits, id: \.self) { u in
+                ForEach(unitList, id: \.self) { u in
                     Button(u.isEmpty ? "(none)" : u) {
                         unit = u
                         showCustomField = false

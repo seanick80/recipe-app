@@ -59,16 +59,28 @@ func makeRecipe(
     prepTime: Int = 10,
     cookTime: Int = 20,
     servings: Int = 4,
+    cuisine: String = "",
+    course: String = "",
+    tags: String = "",
+    sourceURL: String = "",
+    difficulty: String = "",
+    isFavorite: Bool = false,
     ingredientCount: Int = 0
 ) -> RecipeModel {
     let ingredients = (0..<ingredientCount).map { i in
-        IngredientModel(name: "Ingredient \(i + 1)", quantity: Double(i + 1), unit: "cup")
+        IngredientModel(name: "Ingredient \(i + 1)", quantity: Double(i + 1), unit: "cup", displayOrder: i)
     }
     return RecipeModel(
         name: name,
         prepTimeMinutes: prepTime,
         cookTimeMinutes: cookTime,
         servings: servings,
+        cuisine: cuisine,
+        course: course,
+        tags: tags,
+        sourceURL: sourceURL,
+        difficulty: difficulty,
+        isFavorite: isFavorite,
         ingredients: ingredients
     )
 }

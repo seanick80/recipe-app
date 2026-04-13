@@ -63,19 +63,34 @@ struct GenerateGroceryListView: View {
         let chosen = recipes.filter { selectedRecipes.contains($0.id) }
         let list = GroceryList(name: listName)
 
-        var consolidated: [String: (quantity: Double, unit: String)] = [:]
+        struct ConsolidatedItem {
+            var quantity: Double
+            var unit: String
+            var category: String
+            var recipeNames: [String]
+            var recipeIds: [String]
+        }
+
+        var consolidated: [String: ConsolidatedItem] = [:]
         for recipe in chosen {
             for ingredient in recipe.ingredients ?? [] {
                 let key = ingredient.name.lowercased()
-                if let existing = consolidated[key] {
-                    consolidated[key] = (
-                        quantity: existing.quantity + ingredient.quantity,
-                        unit: existing.unit
-                    )
+                if var existing = consolidated[key] {
+                    if existing.unit == ingredient.unit {
+                        existing.quantity += ingredient.quantity
+                    }
+                    if !existing.recipeNames.contains(recipe.name) {
+                        existing.recipeNames.append(recipe.name)
+                        existing.recipeIds.append(recipe.id.uuidString)
+                    }
+                    consolidated[key] = existing
                 } else {
-                    consolidated[key] = (
+                    consolidated[key] = ConsolidatedItem(
                         quantity: ingredient.quantity,
-                        unit: ingredient.unit
+                        unit: ingredient.unit,
+                        category: ingredient.category,
+                        recipeNames: [recipe.name],
+                        recipeIds: [recipe.id.uuidString]
                     )
                 }
             }
@@ -85,7 +100,10 @@ struct GenerateGroceryListView: View {
             let item = GroceryItem(
                 name: name.capitalized,
                 quantity: info.quantity,
-                unit: info.unit
+                unit: info.unit,
+                category: info.category,
+                sourceRecipeName: info.recipeNames.joined(separator: ", "),
+                sourceRecipeId: info.recipeIds.joined(separator: ", ")
             )
             item.groceryList = list
             modelContext.insert(item)

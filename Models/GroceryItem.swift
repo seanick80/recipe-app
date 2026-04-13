@@ -7,6 +7,8 @@ struct GroceryItemModel: Codable, Identifiable, Hashable {
     var unit: String
     var category: String
     var isChecked: Bool
+    var sourceRecipeName: String
+    var sourceRecipeId: String
 
     init(
         id: UUID = UUID(),
@@ -14,7 +16,9 @@ struct GroceryItemModel: Codable, Identifiable, Hashable {
         quantity: Double = 1,
         unit: String = "",
         category: String = "Other",
-        isChecked: Bool = false
+        isChecked: Bool = false,
+        sourceRecipeName: String = "",
+        sourceRecipeId: String = ""
     ) {
         self.id = id
         self.name = name
@@ -22,6 +26,8 @@ struct GroceryItemModel: Codable, Identifiable, Hashable {
         self.unit = unit
         self.category = category
         self.isChecked = isChecked
+        self.sourceRecipeName = sourceRecipeName
+        self.sourceRecipeId = sourceRecipeId
     }
 }
 

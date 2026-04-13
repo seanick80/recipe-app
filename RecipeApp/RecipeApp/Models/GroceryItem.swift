@@ -9,13 +9,17 @@ final class GroceryItem {
     var unit: String = ""
     var category: String = "Other"
     var isChecked: Bool = false
+    var sourceRecipeName: String = ""
+    var sourceRecipeId: String = ""
     var groceryList: GroceryList?
 
     init(
         name: String = "",
         quantity: Double = 1,
         unit: String = "",
-        category: String = "Other"
+        category: String = "Other",
+        sourceRecipeName: String = "",
+        sourceRecipeId: String = ""
     ) {
         self.id = UUID()
         self.name = name
@@ -23,5 +27,7 @@ final class GroceryItem {
         self.unit = unit
         self.category = category
         self.isChecked = false
+        self.sourceRecipeName = sourceRecipeName
+        self.sourceRecipeId = sourceRecipeId
     }
 }

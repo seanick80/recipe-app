@@ -237,9 +237,9 @@ All parsing and decision logic is extracted into pure Swift modules in `Models/`
 that have zero Apple-framework dependencies. The iOS app imports these same
 files, but they compile and test independently on Windows.
 
-**Model + logic files (all implemented, 255 tests passing):**
+**Model + logic files (all implemented, 286 tests passing):**
 - `Models/TestHelpers.swift` — factory methods, assertion helpers
-- `Models/TestModels.swift` — recipe + grocery model tests (12 tests)
+- `Models/TestModels.swift` — recipe + grocery model tests (42 tests)
 - `Models/TestShopping.swift` — shopping template tests (63 tests)
 - `Models/ListLineParser.swift` + `Models/TestListParser.swift` — handwritten list → items (57 tests)
 - `Models/OCRParser.swift` + `Models/TestOCR.swift` — OCR text → structured recipe (42 tests)
@@ -282,6 +282,12 @@ is the safety net for framework behavior changes, not the primary test surface.
 list, and recipe scanning modes. Pure Swift parsers (5 modules, 181 tests) wired
 into iOS views via CI copy step. Build 22 on Codemagic passed (Xcode 26.2,
 iPhone 17 simulator). IPA with Scan tab available.
+
+**Schema review complete** (2026-04-14) — Added fields to Recipe (cuisine, course,
+tags, sourceURL, difficulty, isFavorite), Ingredient (displayOrder, notes),
+GroceryItem (sourceRecipeName, sourceRecipeId). Split UnitPicker into recipe vs
+shopping context. All additive, zero migration risk. See `SCHEMA_REVIEW.md`.
+Model tests: 12 → 42 (286 total across all suites).
 
 **Uncommitted local-only change**: `poll-build.sh` fix to skip IPA artifacts
 when looking for xctest.log zip. Commit on next push.
