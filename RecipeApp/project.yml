@@ -24,6 +24,13 @@ targets:
     platform: iOS
     sources:
       - path: RecipeApp
+      # Pure Swift parsing modules shared with Windows tests.
+      # Only library files — test files and TestModels.swift (@main) excluded.
+      - path: ../Models/ListLineParser.swift
+      - path: ../Models/OCRParser.swift
+      - path: ../Models/DetectionClassifier.swift
+      - path: ../Models/BarcodeProductMapper.swift
+      - path: ../Models/PantryItemMapper.swift
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp
@@ -33,7 +40,8 @@ targets:
         INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
         INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         CURRENT_PROJECT_VERSION: "1"
-        MARKETING_VERSION: "0.1.0"
+        MARKETING_VERSION: "0.2.0"
+        INFOPLIST_KEY_NSCameraUsageDescription: "Camera is used to scan barcodes, shopping lists, and recipes"
 
   RecipeAppTests:
     type: bundle.unit-test

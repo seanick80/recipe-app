@@ -13,6 +13,11 @@ struct ContentView: View {
                     Label("Shopping", systemImage: "cart.fill")
                 }
 
+            ScannerTabView()
+                .tabItem {
+                    Label("Scan", systemImage: "barcode.viewfinder")
+                }
+
             GroceryListView()
                 .tabItem {
                     Label("Lists", systemImage: "list.bullet")

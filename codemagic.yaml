@@ -58,12 +58,13 @@ workflows:
       - name: Run XCTests
         script: |
           cd RecipeApp
+          set -o pipefail
           xcodebuild test \
             -project RecipeApp.xcodeproj \
             -scheme RecipeApp \
             -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
             -resultBundlePath ../build/test-results \
-            | xcpretty || true
+            2>&1 | tee /tmp/xcodebuild_logs/xctest.log | xcpretty
       - name: Build
         script: |
           cd RecipeApp

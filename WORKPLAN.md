@@ -75,26 +75,32 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 ---
 
 ## Phase 2: On-Device Vision Foundation (free, no backend)
-**Status**: Not started
+**Status**: In progress (milestones 2A–2C complete)
 
-### Milestone 2A: Camera Capture Infrastructure
-- [ ] `AVCaptureSession` + `AVCapturePhotoOutput` for guided photo mode
-- [ ] `CMMotionManager` coaching overlays (tilt, stability)
-- [ ] Brightness heuristics for lighting warnings
-- [ ] Zone-by-zone guided capture UI with thumbnail strip
-- Estimated effort: 2-3 sessions
+### Milestone 2A: Camera Capture Infrastructure — DONE
+- [x] `AVCaptureSession` + `AVCapturePhotoOutput` for guided photo mode
+- [x] `CMMotionManager` coaching overlays (tilt, stability)
+- [x] Brightness heuristics for lighting warnings (EV-based dim/bright detection)
+- [x] Camera preview via UIViewRepresentable
+- [x] Coaching badge UI (pill-shaped warnings)
+- [ ] Zone-by-zone guided capture UI with thumbnail strip (deferred to 2D)
 
-### Milestone 2B: Barcode Scanning + Open Food Facts
-- [ ] AVFoundation `VNDetectBarcodesRequest` for UPC/EAN detection
-- [ ] Open Food Facts API integration (free, no key needed)
-- [ ] Product name + category returned for scanned barcodes
-- Estimated effort: 1 session
+### Milestone 2B: Barcode Scanning + Open Food Facts — DONE
+- [x] AVFoundation `VNDetectBarcodesRequest` for UPC-E/EAN-8/EAN-13 detection
+- [x] Open Food Facts API v2 integration (free, no key needed)
+- [x] Product name + brand + category returned for scanned barcodes
+- [x] Debounce (3s) to prevent re-scanning same barcode
+- [x] "Add to Shopping List" flow from scan result
+- [x] Camera permission request + Settings redirect
 
-### Milestone 2C: On-Device OCR Pipeline
-- [ ] Apple VisionKit `VNRecognizeTextRequest` (.accurate mode)
-- [ ] Extract product names from visible labels
-- [ ] Confidence scoring per text region
-- Estimated effort: 1 session
+### Milestone 2C: On-Device OCR Pipeline — DONE
+- [x] Apple Vision `VNRecognizeTextRequest` (.accurate mode, language correction)
+- [x] Per-line confidence scoring via `VNRecognizedTextObservation`
+- [x] Two scan modes: Shopping List import + Recipe import
+- [x] OCR text → `ListLineParser` (pure Swift) → structured items
+- [x] Review/edit screen with checkbox toggle per item
+- [x] Retake flow if no text found
+- [x] Keyword-based category auto-assignment
 
 ### Milestone 2D: On-Device YOLO Food Detection
 - [ ] Source pre-trained food YOLO model (BinhQuocNguyen/food-recognition-model)
@@ -263,7 +269,7 @@ is the safety net for framework behavior changes, not the primary test surface.
 
 ## Current Focus
 
-**Phase 2 prep complete** — All pure Swift parsing/decision modules built and tested
-(255 tests on Windows). Codemagic `xcodebuild test` step added to CI pipeline.
-Next: Phase 2A (camera capture infrastructure) and connecting the parsing modules
-to iOS framework wrappers.
+**Phase 2A–2C complete** — Camera infrastructure, barcode scanning (Open Food Facts),
+and OCR pipeline built. New "Scan" tab with barcode, shopping list, and recipe
+scanning modes. Pure Swift parsers wired into iOS views via shared xcodegen sources.
+Next: Phase 2D (YOLO food detection) and 2E (confirmation UI).
