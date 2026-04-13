@@ -8,6 +8,9 @@ DerivedData/
 # xcodegen: project is generated from project.yml at build time
 RecipeApp/RecipeApp.xcodeproj/
 
+# CI-only: shared parser modules copied from Models/ at build time
+RecipeApp/RecipeApp/Parsers/
+
 # Python
 __pycache__/
 *.pyc

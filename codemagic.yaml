@@ -48,6 +48,15 @@ workflows:
       - name: Install xcodegen
         script: |
           brew install xcodegen
+      - name: Copy shared parser modules into iOS sources
+        script: |
+          mkdir -p RecipeApp/RecipeApp/Parsers
+          cp Models/ListLineParser.swift \
+             Models/OCRParser.swift \
+             Models/DetectionClassifier.swift \
+             Models/BarcodeProductMapper.swift \
+             Models/PantryItemMapper.swift \
+             RecipeApp/RecipeApp/Parsers/
       - name: Generate Xcode project
         script: |
           cd RecipeApp
@@ -63,7 +72,7 @@ workflows:
           xcodebuild test \
             -project RecipeApp.xcodeproj \
             -scheme RecipeApp \
-            -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest' \
+            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
             -resultBundlePath ../build/test-results \
             2>&1 | tee /tmp/xcodebuild_logs/xctest.log | xcpretty
       - name: Build
