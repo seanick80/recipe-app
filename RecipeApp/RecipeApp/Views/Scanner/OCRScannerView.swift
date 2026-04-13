@@ -134,7 +134,7 @@ struct OCRScannerView: View {
                                         }
                                     }
                                 }
-                                .toggleStyle(.checkbox)
+                                .tint(.accentColor)
                             }
                         }
                     }
