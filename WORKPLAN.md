@@ -147,12 +147,21 @@ where on-device detection fails informs Phase 3 cloud API usage.
 - [ ] Dockerfile, Cloud Build config, deploy script
 - Estimated effort: 1-2 sessions
 
-### Milestone 3C: Recipe Photo Import — LLM Parsing Tier
+### Milestone 3C: API Spend Monitoring & Alerting
+- [ ] GCP Budget Alert: $1/mo threshold, email at 50%/90%/100%
+- [ ] Per-request cost logging in Cloud Run (token count + estimated cost → Cloud Logging)
+- [ ] Cloud Run max-instances=1, FastAPI per-IP rate limiting middleware
+- [ ] `scripts/check-api-spend.sh` — queries GCP Billing API, runs as cron on Raspberry Pi
+- [ ] Alert via email or pushover on daily spend spike
+- [ ] Cloud Monitoring dashboard (requests/day, tokens/day, cost/day)
+- Estimated effort: 0.5-1 session
+
+### Milestone 3D: Recipe Photo Import — LLM Parsing Tier
 - [ ] OCR text → Gemini → structured JSON
 - [ ] Handwritten/complex layout fallback (send photo directly to Gemini Pro)
 - Estimated effort: 1 session
 
-### Milestone 3D: Pantry Scanner — Cloud Fallback Tier
+### Milestone 3E: Pantry Scanner — Cloud Fallback Tier
 - [ ] Low-confidence YOLO detections → cropped regions → Gemini
 - [ ] Merge cloud results into confirmation UI
 - Estimated effort: 1 session
@@ -199,12 +208,47 @@ where on-device detection fails informs Phase 3 cloud API usage.
 
 ---
 
+## Testing Strategy
+
+Modeled after the fractal drawing app's infrastructure (JUnit 5 with size tags,
+TestHelpers factory, golden-value checksums, headless execution). Tests must
+run locally on Windows — not just on Apple devices.
+
+### Tier 1: Pure Swift (Windows, every commit)
+
+Compiled via `swiftc` on Windows. No SwiftData, no UIKit, no network.
+Run by `scripts/test.sh` (wired into pre-commit hook).
+
+| Category | What It Tests | Examples |
+|---|---|---|
+| **small** | Model init, computed props, validation | Recipe.totalTimeMinutes, GroceryItem.isChecked |
+| **medium** | Codable round-trips, sorting, template stamping | Category sort order, ingredient consolidation |
+
+Test files live in `Models/` alongside the model code:
+- `Models/TestModels.swift` — existing (recipe + grocery basics)
+- `Models/TestShopping.swift` — Phase 1.5 (template, stamping, category sort)
+- `Models/TestPantry.swift` — Phase 2 (PantryItem, confidence thresholds)
+- `Models/TestOCR.swift` — Phase 2 (OCR text → item parsing logic)
+- `Models/TestHelpers.swift` — factory methods, assertion helpers
+
+### Tier 2: Integration (macOS / Codemagic only)
+
+XCTest via `xcodebuild test`. Tests SwiftData persistence, CloudKit constraints,
+view model logic, API contract shapes.
+
+### Test expansion rule
+
+Every new model or logic function gets a corresponding test in `Models/` that
+runs on Windows. No exceptions — this is enforced by the pre-commit hook.
+
+---
+
 ## Development Workflow (Day-to-Day)
 
 1. Open project in VS Code
 2. Use Claude Code to write/modify Swift and SwiftUI files
 3. Review code — VS Code Swift extension highlights syntax errors
-4. Test pure Swift logic locally: `swiftc Models/*.swift -o test.exe && ./test.exe`
+4. Test pure Swift logic locally: `scripts/test.sh` (runs on every commit via hook)
 5. Commit and push to GitHub
 6. Codemagic auto-builds on push (5-15 min)
 7. Install via OTA link on iPhone

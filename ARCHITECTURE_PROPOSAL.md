@@ -631,19 +631,34 @@ informs which cloud API to choose and how much cloud usage you'll actually need.
     - Dockerfile, Cloud Build config, deploy script
     - Estimated effort: 1-2 sessions
 
-12. **Recipe photo import — LLM parsing tier**
+12. **API spend monitoring & alerting**
+    - GCP Budget Alert: set monthly budget ($1 initially), email alert at
+      50%/90%/100% thresholds via GCP Billing → Budgets & Alerts
+    - Per-request cost logging: Cloud Run logs each request with token
+      count and estimated cost (structured JSON to Cloud Logging)
+    - Local monitoring script (`scripts/check-api-spend.sh`): queries
+      GCP Billing API for current-month spend, outputs summary. Designed
+      to run as a cron job on Raspberry Pi (daily check, alert via email
+      or pushover if spend exceeds threshold)
+    - Cloud Run request quotas: set max-instances=1 on Cloud Run to
+      cap concurrent spend; add per-IP rate limiting in FastAPI middleware
+    - Dashboard: simple Cloud Monitoring dashboard showing requests/day,
+      tokens/day, cost/day trend
+    - Estimated effort: 0.5-1 session
+
+13. **Recipe photo import — LLM parsing tier**
     - OCR text → cloud LLM → structured JSON
     - Handwritten/complex layout fallback (send photo directly)
     - Estimated effort: 1 session
 
-13. **Pantry scanner — cloud fallback tier**
+14. **Pantry scanner — cloud fallback tier**
     - Low-confidence YOLO detections → cropped regions → cloud LLM
     - Merge cloud results into confirmation UI
     - Estimated effort: 1 session
 
 ### Phase 4: Sharing (Option A — SQLiteData + CloudKit)
 
-14. **Shared shopping list** (Feature 4)
+15. **Shared shopping list** (Feature 4)
     - Migrate SwiftData → SQLiteData (model declarations, query wrappers, view updates)
     - Implement CKShare-based zone sharing for GroceryList + GroceryItems
     - Native Apple share sheet for inviting spouse
@@ -652,12 +667,12 @@ informs which cloud API to choose and how much cloud usage you'll actually need.
 
 ### Phase 5: Integration & Advanced Features
 
-15. **Recipe ↔ Pantry integration**
+16. **Recipe ↔ Pantry integration**
     - "What can I cook?" query (match recipes against pantry)
     - "What do I need?" auto-populates shopping list with missing ingredients
     - Estimated effort: 1-2 sessions
 
-16. **Video quick-scan mode** (optional, if photo mode proves limiting)
+17. **Video quick-scan mode** (optional, if photo mode proves limiting)
     - Key frame extraction + `VNTrackObjectRequest` deduplication
     - LiDAR depth hints on Pro iPhones
     - Estimated effort: 2-3 sessions
@@ -730,6 +745,107 @@ informs which cloud API to choose and how much cloud usage you'll actually need.
 8. **Progressive disclosure details**: How many zones to prompt for guided
    photo mode? Current proposal is 4-6 (top shelf, middle shelf, door,
    crisper, freezer, pantry). Needs real-world testing to calibrate.
+
+---
+
+## Testing Strategy
+
+Modeled after the fractal drawing app's test infrastructure (JUnit 5 with
+size-tagged categories, TestHelpers factory, golden-value checksums, headless
+execution). Key constraint: **tests must run locally on Windows** via `swiftc`,
+not just on macOS/Xcode.
+
+### Two-Tier Test Architecture
+
+**Tier 1: Pure Swift model tests (Windows-compatible, run on every commit)**
+
+Compiled and executed via `swiftc` on Windows. No Foundation networking, no
+SwiftData, no UIKit/SwiftUI. These test all domain logic in isolation.
+
+| Category | Analogue to | What It Tests | Target Runtime |
+|---|---|---|---|
+| `small` | Drawing app `@SmallTest` | Model init, computed properties, validation, formatters | < 50ms |
+| `medium` | Drawing app `@MediumTest` | Codable round-trips, category sorting, template→list stamping, ingredient consolidation | < 200ms |
+
+Runs via: `scripts/test.sh` (already wired into pre-commit hook)
+
+**Tier 2: Integration tests (macOS/Codemagic only)**
+
+XCTest-based, run via `xcodebuild test` on Codemagic or local Mac. These test
+SwiftData persistence, CloudKit constraints, and view model logic.
+
+| Category | What It Tests |
+|---|---|
+| `persistence` | SwiftData CRUD, CloudKit constraint compliance (defaults, optional relationships) |
+| `viewmodel` | ViewModel state transitions, data flow |
+| `api` | Cloud Run endpoint contract tests (mock HTTP, validate request/response shapes) |
+| `ocr` | OCR pipeline output parsing (given known OCR text, validate parsed items) |
+
+### Test Helpers (`Models/TestHelpers.swift`)
+
+Factory pattern matching the drawing app's `TestHelpers.java`:
+
+```swift
+// Fixture factories (pure Swift, Windows-compatible)
+struct TestHelpers {
+    static func recipe(name: String = "Test Recipe", ingredients: Int = 0) -> RecipeModel { ... }
+    static func groceryList(name: String = "Weekly", items: Int = 3) -> GroceryListModel { ... }
+    static func ingredient(name: String = "Salt", quantity: Double = 1) -> IngredientModel { ... }
+    static func shoppingTemplate(name: String = "Staples", items: Int = 5) -> ShoppingTemplateModel { ... }
+
+    // Assertion helpers
+    static func assertSortedByCategory(_ items: [GroceryItemModel], order: [String]) -> Bool { ... }
+    static func assertCodableRoundTrip<T: Codable & Equatable>(_ value: T) -> Bool { ... }
+}
+```
+
+### What Gets Tested Per Phase
+
+| Phase | New Test Coverage |
+|---|---|
+| 1.5 (Shopping list) | Template CRUD, "Start New Week" stamping, category sort order, archive, ingredient consolidation |
+| 2 (On-device vision) | OCR text → item parsing, barcode → product lookup mapping, confidence thresholds, YOLO label → PantryItem mapping |
+| 3 (Cloud vision) | Request/response contract tests (mock Gemini response shapes), cost logging accuracy, rate limiting |
+| 4 (Sharing) | SQLiteData model equivalence with SwiftData models, share zone scoping |
+
+### Running Tests
+
+```bash
+# Windows (pre-commit, pre-push) — pure Swift model tests
+./scripts/test.sh
+
+# macOS / Codemagic — full suite including XCTest
+xcodebuild test -scheme RecipeApp -destination 'platform=iOS Simulator,name=iPhone 16'
+
+# Backend (when Phase 3 is built)
+cd server && pytest -v
+```
+
+### Test Expansion Plan
+
+As new models and logic are added in each phase, corresponding pure-Swift test
+files are added to `Models/` and compiled into the existing `test.sh` pipeline.
+The `TestModels.swift` file grows (or splits into `TestShopping.swift`,
+`TestPantry.swift`, etc.) following the same pattern as the drawing app's
+per-package test files.
+
+---
+
+## API Spend Monitoring
+
+Deployed alongside Phase 3 (milestone 12). Defense-in-depth against unexpected
+API costs:
+
+| Layer | Mechanism | Alert |
+|---|---|---|
+| **GCP Budget** | Billing → Budgets & Alerts, $1/mo initial threshold | Email at 50%/90%/100% |
+| **Per-request logging** | Cloud Run logs token count + estimated cost per request | Cloud Monitoring dashboard |
+| **Infrastructure caps** | Cloud Run max-instances=1, FastAPI per-IP rate limiting | Requests rejected beyond limit |
+| **Local monitor script** | `scripts/check-api-spend.sh` queries GCP Billing API | Cron on Raspberry Pi, daily, alerts via email/pushover on spike |
+
+The local monitor script is designed to run as a cron job on the Raspberry Pi
+(already used for the goodmorning dashboard). It provides an independent check
+outside of GCP's own alerting — belt and suspenders.
 
 ---
 
