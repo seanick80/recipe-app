@@ -72,7 +72,7 @@ workflows:
           xcodebuild test \
             -project RecipeApp.xcodeproj \
             -scheme RecipeApp \
-            -destination 'platform=iOS Simulator,name=iPhone 15,OS=latest' \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
             -resultBundlePath ../build/test-results \
             2>&1 | tee /tmp/xcodebuild_logs/xctest.log | xcpretty
       - name: Build
