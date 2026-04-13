@@ -1,11 +1,12 @@
 import SwiftData
 import SwiftUI
 
-struct AddGroceryItemView: View {
+/// Form for adding a new item to the weekly staples template.
+struct AddTemplateItemView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
 
-    let groceryList: GroceryList
+    let template: ShoppingTemplate
 
     @State private var name = ""
     @State private var quantity = "1"
@@ -28,20 +29,24 @@ struct AddGroceryItemView: View {
                     ForEach(categories, id: \.self) { Text($0) }
                 }
             }
-            .navigationTitle("Add Item")
+            .navigationTitle("Add Staple")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
-                        let item = GroceryItem(
+                        let nextSortOrder = (template.items ?? [])
+                            .filter { $0.category == category }
+                            .count
+                        let item = TemplateItem(
                             name: name,
                             quantity: Double(quantity) ?? 1,
                             unit: unit,
-                            category: category
+                            category: category,
+                            sortOrder: nextSortOrder
                         )
-                        item.groceryList = groceryList
+                        item.template = template
                         modelContext.insert(item)
                         dismiss()
                     }

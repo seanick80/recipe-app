@@ -31,7 +31,8 @@ if [[ -f "Models/TestModels.swift" ]]; then
         MINGW*|MSYS*|CYGWIN*) OUT="test.exe" ;;
         *)                    OUT="test_bin" ;;
     esac
-    if ! swiftc Models/Recipe.swift Models/GroceryItem.swift Models/TestModels.swift -o "$OUT" 2>&1; then
+    SWIFT_SOURCES=(Models/Recipe.swift Models/GroceryItem.swift Models/ShoppingTemplate.swift Models/TestHelpers.swift Models/TestShopping.swift Models/TestModels.swift)
+    if ! swiftc "${SWIFT_SOURCES[@]}" -o "$OUT" 2>&1; then
         err "swiftc compilation failed"
     else
         info "Running Models tests"

@@ -6,6 +6,7 @@ final class GroceryList {
     var id: UUID = UUID()
     var name: String = ""
     var createdAt: Date = Date()
+    var archivedAt: Date? = nil
 
     @Relationship(deleteRule: .cascade, inverse: \GroceryItem.groceryList)
     var items: [GroceryItem]?

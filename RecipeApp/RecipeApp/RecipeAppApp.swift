@@ -9,6 +9,8 @@ struct RecipeAppApp: App {
             Ingredient.self,
             GroceryList.self,
             GroceryItem.self,
+            ShoppingTemplate.self,
+            TemplateItem.self,
         ])
         let modelConfiguration = ModelConfiguration(
             schema: schema,

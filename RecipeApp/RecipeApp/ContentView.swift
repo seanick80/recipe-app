@@ -8,9 +8,14 @@ struct ContentView: View {
                     Label("Recipes", systemImage: "book")
                 }
 
+            ShoppingListTab()
+                .tabItem {
+                    Label("Shopping", systemImage: "cart.fill")
+                }
+
             GroceryListView()
                 .tabItem {
-                    Label("Grocery", systemImage: "cart")
+                    Label("Lists", systemImage: "list.bullet")
                 }
         }
     }

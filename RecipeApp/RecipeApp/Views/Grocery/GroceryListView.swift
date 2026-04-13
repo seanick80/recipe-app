@@ -74,8 +74,18 @@ struct GroceryListDetailView: View {
     @State private var showingAddItem = false
 
     var categorizedItems: [(String, [GroceryItem])] {
-        let grouped = Dictionary(grouping: groceryList.items ?? []) { $0.category }
-        return grouped.sorted { $0.key < $1.key }
+        let allItems = groceryList.items ?? []
+        let grouped = Dictionary(grouping: allItems) { $0.category }
+        let sortedKeys = grouped.keys.sorted {
+            ShoppingViewModel.categorySortIndex($0) < ShoppingViewModel.categorySortIndex($1)
+        }
+        return sortedKeys.map { key in
+            let items = grouped[key]!.sorted { a, b in
+                if a.isChecked != b.isChecked { return !a.isChecked }
+                return a.name.localizedCaseInsensitiveCompare(b.name) == .orderedAscending
+            }
+            return (key, items)
+        }
     }
 
     var body: some View {
