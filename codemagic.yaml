@@ -118,7 +118,7 @@ workflows:
     scripts:
       - name: Install Python dependencies
         script: |
-          pip3 install coremltools torch transformers Pillow numpy
+          pip3 install coremltools torch torchvision transformers Pillow numpy
       - name: Convert models
         script: |
           python3 scripts/convert-food-model.py
