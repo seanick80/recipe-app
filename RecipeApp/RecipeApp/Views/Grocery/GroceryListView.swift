@@ -7,6 +7,8 @@ struct GroceryListView: View {
     @State private var showingNewList = false
     @State private var showingGenerateFromRecipes = false
     @State private var newListName = ""
+    @State private var renamingList: GroceryList?
+    @State private var renameText = ""
 
     var body: some View {
         NavigationStack {
@@ -21,6 +23,24 @@ struct GroceryListView: View {
                             Text("\(list.completedCount)/\(list.items?.count ?? 0) items checked")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
+                        }
+                    }
+                    .contextMenu {
+                        Button {
+                            renameText = list.name
+                            renamingList = list
+                        } label: {
+                            Label("Rename", systemImage: "pencil")
+                        }
+                        Button {
+                            duplicateList(list)
+                        } label: {
+                            Label("Duplicate", systemImage: "doc.on.doc")
+                        }
+                        Button(role: .destructive) {
+                            modelContext.delete(list)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
                         }
                     }
                 }
@@ -52,6 +72,20 @@ struct GroceryListView: View {
                     newListName = ""
                 }
             }
+            .alert(
+                "Rename List",
+                isPresented: Binding(
+                    get: { renamingList != nil },
+                    set: { if !$0 { renamingList = nil } }
+                )
+            ) {
+                TextField("List name", text: $renameText)
+                Button("Cancel", role: .cancel) { renamingList = nil }
+                Button("Rename") {
+                    renamingList?.name = renameText
+                    renamingList = nil
+                }
+            }
             .overlay {
                 if lists.isEmpty {
                     ContentUnavailableView(
@@ -64,6 +98,21 @@ struct GroceryListView: View {
             .sheet(isPresented: $showingGenerateFromRecipes) {
                 GenerateGroceryListView()
             }
+        }
+    }
+
+    private func duplicateList(_ source: GroceryList) {
+        let copy = GroceryList(name: "\(source.name) (Copy)")
+        modelContext.insert(copy)
+        for item in source.items ?? [] {
+            let newItem = GroceryItem(
+                name: item.name,
+                quantity: item.quantity,
+                unit: item.unit,
+                category: item.category
+            )
+            newItem.groceryList = copy
+            modelContext.insert(newItem)
         }
     }
 }

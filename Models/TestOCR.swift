@@ -108,6 +108,23 @@ func testParseRecipeWithAlternateHeaders() {
     checkEqual(recipe.instructions.count, 1, "Alternate header: instruction count")
 }
 
+func testParseRecipeNoHeaders() {
+    let text = """
+        Chicken Stir Fry
+        2 chicken breasts
+        1 tbsp soy sauce
+        3 cloves garlic
+        1 cup broccoli
+        """
+    let recipe = parseRecipeText(text)
+    checkEqual(recipe.title, "Chicken Stir Fry", "No-header recipe: title")
+    check(recipe.ingredients.count >= 3, "No-header recipe: at least 3 ingredients (got \(recipe.ingredients.count))")
+    check(
+        recipe.ingredients.contains { $0.name.lowercased().contains("chicken") },
+        "No-header recipe: found chicken ingredient"
+    )
+}
+
 func testParsedRecipeCodable() {
     let recipe = ParsedRecipe(
         title: "Test",
@@ -133,6 +150,7 @@ func runOCRTests() -> Bool {
     testCleanInstructionLine()
     testParseEmptyRecipe()
     testParseRecipeWithAlternateHeaders()
+    testParseRecipeNoHeaders()
     testParsedRecipeCodable()
 
     return printTestSummary("OCR Parser Tests")

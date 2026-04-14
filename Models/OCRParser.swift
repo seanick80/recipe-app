@@ -115,6 +115,26 @@ func parseRecipeText(_ text: String) -> ParsedRecipe {
         }
     }
 
+    // Fallback: if no section headers were found, try parsing all non-title
+    // lines as ingredients. Real-world recipe photos often lack headers.
+    if ingredients.isEmpty && instructions.isEmpty {
+        for line in lines {
+            if line.isEmpty { continue }
+            let lower = line.lowercased()
+            // Skip the title line
+            if line == title || line == cleanRecipeTitle(line) && line == title { continue }
+            // Skip metadata lines
+            if parseServings(lower) != nil { continue }
+            if parseTimeField(lower, prefixes: ["prep time", "prep"]) != nil { continue }
+            if parseTimeField(lower, prefixes: ["cook time", "cooking time", "cook"]) != nil { continue }
+            if parseTimeField(lower, prefixes: ["total time", "total"]) != nil { continue }
+            // Try as ingredient
+            if let ingredient = parseIngredientLine(line) {
+                ingredients.append(ingredient)
+            }
+        }
+    }
+
     return ParsedRecipe(
         title: title,
         ingredients: ingredients,
