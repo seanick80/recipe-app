@@ -112,7 +112,7 @@ def main() -> None:
     parser.add_argument(
         "--skip-if-exists",
         action="store_true",
-        help="Skip conversion if .mlmodel file already exists",
+        help="Skip conversion if .mlpackage already exists",
     )
     args = parser.parse_args()
 

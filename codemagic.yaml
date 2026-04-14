@@ -105,7 +105,7 @@ workflows:
   # -----------------------------------------------------------------------
   # Converts upstream ML models to CoreML format. Run manually from the
   # Codemagic UI when switching models or updating conversion settings.
-  # Download the .mlmodel artifacts, commit them to the repo, and push.
+  # Download the .mlpackage artifacts, commit them to the repo, and push.
   #
   # No automatic trigger — select "ML Model Conversion" in the Codemagic
   # dashboard and click "Start new build".
