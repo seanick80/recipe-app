@@ -17,12 +17,44 @@ struct ScannerTabView: View {
     @State private var showingListScanner = false
     @State private var showingRecipeScanner = false
     @State private var showingCameraPermissionAlert = false
+    @State private var scanProcessor = ScanProcessor()
+    @State private var showingScanReview = false
 
     private var activeList: GroceryList? { activeLists.first }
 
     var body: some View {
         NavigationStack {
             List {
+                // Processing / results banner
+                if scanProcessor.isProcessing {
+                    Section {
+                        HStack(spacing: 12) {
+                            ProgressView()
+                            Text(
+                                scanProcessor.scanMode == .recipe
+                                    ? "Scanning recipe..."
+                                    : "Scanning your list..."
+                            )
+                            .foregroundStyle(.secondary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                }
+
+                if case .failed(let message) = scanProcessor.state {
+                    Section {
+                        HStack(spacing: 12) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .foregroundStyle(.orange)
+                            Text(message)
+                                .foregroundStyle(.secondary)
+                            Spacer()
+                            Button("Dismiss") { scanProcessor.reset() }
+                                .font(.caption)
+                        }
+                    }
+                }
+
                 Section {
                     scanButton(
                         title: "Scan Barcode",
@@ -86,10 +118,29 @@ struct ScannerTabView: View {
                 BarcodeScannerView(groceryList: activeList)
             }
             .sheet(isPresented: $showingListScanner) {
-                OCRScannerView(mode: .shoppingList, groceryList: activeList)
+                OCRScannerView(
+                    mode: .shoppingList,
+                    groceryList: activeList,
+                    scanProcessor: scanProcessor
+                )
             }
             .sheet(isPresented: $showingRecipeScanner) {
-                OCRScannerView(mode: .recipe, groceryList: activeList)
+                OCRScannerView(
+                    mode: .recipe,
+                    groceryList: activeList,
+                    scanProcessor: scanProcessor
+                )
+            }
+            .sheet(isPresented: $showingScanReview) {
+                ScanReviewSheet(
+                    processor: scanProcessor,
+                    groceryList: activeList
+                )
+            }
+            .onChange(of: scanProcessor.hasResults) { _, hasResults in
+                if hasResults {
+                    showingScanReview = true
+                }
             }
             .alert("Camera Access Required", isPresented: $showingCameraPermissionAlert) {
                 Button("Open Settings") {
@@ -147,5 +198,143 @@ struct ScannerTabView: View {
         default:
             showingCameraPermissionAlert = true
         }
+    }
+}
+
+// MARK: - Scan Review Sheet
+
+/// Presented automatically when background OCR finishes.
+/// Shows parsed items with toggles; user confirms to add to grocery list or save as recipe.
+struct ScanReviewSheet: View {
+    @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
+    @Bindable var processor: ScanProcessor
+    let groceryList: GroceryList?
+
+    private var isRecipeMode: Bool { processor.scanMode == .recipe }
+
+    private var ingredientItems: [ScanProcessor.ParsedItem] {
+        processor.parsedItems.filter { $0.category != "Recipe" }
+    }
+
+    private var recipeTitle: String {
+        processor.parsedItems.first { $0.name.hasPrefix("Recipe: ") }?
+            .name.replacingOccurrences(of: "Recipe: ", with: "") ?? ""
+    }
+
+    private var hasInstructions: Bool {
+        processor.parsedItems.contains { $0.name.hasPrefix("Instructions (") }
+    }
+
+    var body: some View {
+        NavigationStack {
+            VStack {
+                let items = isRecipeMode ? ingredientItems : processor.parsedItems
+                if items.isEmpty {
+                    ContentUnavailableView(
+                        "No Items Found",
+                        systemImage: "text.magnifyingglass",
+                        description: Text("Could not parse any items from the photo.")
+                    )
+                } else {
+                    if isRecipeMode && !recipeTitle.isEmpty {
+                        Text(recipeTitle)
+                            .font(.title3.bold())
+                            .padding(.top)
+                    }
+
+                    List {
+                        Section("Found \(items.filter(\.included).count) items") {
+                            ForEach(items) { item in
+                                HStack {
+                                    Button {
+                                        processor.toggleItem(id: item.id)
+                                    } label: {
+                                        Image(systemName: item.included ? "checkmark.circle.fill" : "circle")
+                                            .foregroundStyle(item.included ? .accent : .gray)
+                                    }
+                                    .buttonStyle(.plain)
+
+                                    VStack(alignment: .leading) {
+                                        Text(item.name)
+                                        if item.quantity > 0 && (item.quantity != 1 || !item.unit.isEmpty) {
+                                            Text("\(formatQuantity(item.quantity)) \(item.unit)")
+                                                .font(.caption)
+                                                .foregroundStyle(.secondary)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    if isRecipeMode {
+                        Button("Save Recipe") {
+                            saveRecipe(items.filter(\.included))
+                            processor.reset()
+                            dismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(items.filter(\.included).isEmpty)
+                        .padding()
+                    } else {
+                        Button("Add \(items.filter(\.included).count) Items") {
+                            addGroceryItems(items.filter(\.included))
+                            processor.reset()
+                            dismiss()
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(items.filter(\.included).isEmpty)
+                        .padding()
+                    }
+                }
+            }
+            .navigationTitle(isRecipeMode ? "Scanned Recipe" : "Scanned Items")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Discard") {
+                        processor.reset()
+                        dismiss()
+                    }
+                }
+            }
+        }
+    }
+
+    private func addGroceryItems(_ items: [ScanProcessor.ParsedItem]) {
+        guard let list = groceryList else { return }
+        for item in items {
+            let groceryItem = GroceryItem(
+                name: item.name,
+                quantity: item.quantity,
+                unit: item.unit,
+                category: item.category
+            )
+            groceryItem.groceryList = list
+            modelContext.insert(groceryItem)
+        }
+    }
+
+    private func saveRecipe(_ items: [ScanProcessor.ParsedItem]) {
+        let ingredients = items.enumerated().map { index, item in
+            Ingredient(
+                name: item.name,
+                quantity: item.quantity,
+                unit: item.unit,
+                category: item.category,
+                displayOrder: index
+            )
+        }
+        let recipe = Recipe(
+            name: recipeTitle.isEmpty ? "Scanned Recipe" : recipeTitle,
+            ingredients: ingredients
+        )
+        modelContext.insert(recipe)
+    }
+
+    private func formatQuantity(_ qty: Double) -> String {
+        if qty == Double(Int(qty)) { return "\(Int(qty))" }
+        return String(format: "%.1f", qty)
     }
 }

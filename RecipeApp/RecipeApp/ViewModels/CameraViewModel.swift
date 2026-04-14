@@ -18,6 +18,12 @@ class CameraViewModel: NSObject {
     var isTooDim = false
     var errorMessage: String?
 
+    /// Optional callback fired on each video frame (on a background queue).
+    /// Used by barcode scanner to piggyback on the existing video output
+    /// without adding a second AVCaptureVideoDataOutput (which AVCaptureSession
+    /// does not support).
+    var onVideoFrame: ((CMSampleBuffer) -> Void)?
+
     // MARK: - Camera Session
 
     let session = AVCaptureSession()
@@ -171,6 +177,10 @@ extension CameraViewModel: AVCaptureVideoDataOutputSampleBufferDelegate {
         didOutput sampleBuffer: CMSampleBuffer,
         from connection: AVCaptureConnection
     ) {
+        // Forward frame to observer (e.g. barcode detection)
+        onVideoFrame?(sampleBuffer)
+
+        // Brightness metering
         guard
             let metadata = CMCopyDictionaryOfAttachments(
                 allocator: nil,

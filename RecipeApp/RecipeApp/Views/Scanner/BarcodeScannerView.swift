@@ -19,11 +19,11 @@ struct BarcodeScannerView: View {
                 CameraPreviewView(session: cameraVM.session)
                     .ignoresSafeArea()
 
-                // Coaching overlay
+                // Coaching overlay (hit testing disabled — barcode scanning is automatic)
                 CameraCoachingOverlay(
                     tiltWarning: cameraVM.tiltWarning,
                     brightnessWarning: cameraVM.brightnessWarning,
-                    onCapture: {}  // Barcode scanning is automatic, no manual capture
+                    onCapture: {}
                 )
                 .allowsHitTesting(false)
 
@@ -47,11 +47,12 @@ struct BarcodeScannerView: View {
                 }
             }
             .onAppear {
+                configureBarcodeDetection()
                 cameraVM.configure()
                 cameraVM.startSession()
-                startBarcodeDetection()
             }
             .onDisappear {
+                cameraVM.onVideoFrame = nil
                 cameraVM.stopSession()
             }
         }
@@ -134,35 +135,14 @@ struct BarcodeScannerView: View {
         barcodeVM.reset()
     }
 
-    /// Starts continuous barcode detection on the video feed.
-    private func startBarcodeDetection() {
-        let videoOutput = AVCaptureVideoDataOutput()
-        videoOutput.setSampleBufferDelegate(
-            BarcodeScanDelegate(viewModel: barcodeVM),
-            queue: DispatchQueue(label: "barcode.scan")
-        )
-        if cameraVM.session.canAddOutput(videoOutput) {
-            cameraVM.session.addOutput(videoOutput)
+    /// Hooks barcode detection into the camera's existing video output
+    /// via the frame observer callback — no second AVCaptureVideoDataOutput needed.
+    private func configureBarcodeDetection() {
+        let request = barcodeVM.makeBarcodeRequest()
+        cameraVM.onVideoFrame = { sampleBuffer in
+            guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
+            let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+            try? handler.perform([request])
         }
-    }
-}
-
-/// Delegate that runs barcode detection on each video frame.
-class BarcodeScanDelegate: NSObject, AVCaptureVideoDataOutputSampleBufferDelegate {
-    let viewModel: BarcodeViewModel
-    private lazy var request = viewModel.makeBarcodeRequest()
-
-    init(viewModel: BarcodeViewModel) {
-        self.viewModel = viewModel
-    }
-
-    func captureOutput(
-        _ output: AVCaptureOutput,
-        didOutput sampleBuffer: CMSampleBuffer,
-        from connection: AVCaptureConnection
-    ) {
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-        let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
-        try? handler.perform([request])
     }
 }
