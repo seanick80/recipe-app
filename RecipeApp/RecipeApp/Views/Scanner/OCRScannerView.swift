@@ -76,12 +76,11 @@ struct OCRScannerView: View {
     // MARK: - Capture
 
     private func captureAndProcess() async {
-        cameraVM.stopSession()
-
         guard let image = await cameraVM.capturePhoto() else {
-            cameraVM.startSession()
             return
         }
+
+        cameraVM.stopSession()
 
         // Hand off to background processor and dismiss immediately
         switch mode {
