@@ -159,7 +159,7 @@ class ScanProcessor {
         }
 
         let fullText = lines.joined(separator: "\n")
-        let parsed = parseOCRRecipe(fullText)
+        let parsed = parseRecipeText(fullText)
 
         // Convert parsed recipe ingredients to ParsedItems for review
         var items: [ParsedItem] = []

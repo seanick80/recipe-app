@@ -251,7 +251,7 @@ struct ScanReviewSheet: View {
                                         processor.toggleItem(id: item.id)
                                     } label: {
                                         Image(systemName: item.included ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(item.included ? .accent : .gray)
+                                            .foregroundStyle(item.included ? Color.accentColor : .gray)
                                     }
                                     .buttonStyle(.plain)
 
