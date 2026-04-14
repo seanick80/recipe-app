@@ -74,7 +74,10 @@ fi
 # 4. CRLF detection on tracked text files
 # ---------------------------------------------------------------------------
 info "checking for CRLF line endings in tracked text files"
-CRLF_FILES=$(git ls-files --eol 2>/dev/null | awk '$2 ~ /crlf/ && $3 !~ /^-text$/ { print $4 }' || true)
+# Check the index column ($1 = i/...) not the working-tree column ($2 = w/...).
+# On Windows with core.autocrlf=true the working copy is CRLF by design,
+# but the index (what gets committed) must be LF.
+CRLF_FILES=$(git ls-files --eol 2>/dev/null | awk '$1 ~ /crlf/ && $3 !~ /^-text$/ { print $4 }' || true)
 if [[ -n "$CRLF_FILES" ]]; then
     err "files stored with CRLF (run: git add --renormalize .):"
     printf '    %s\n' $CRLF_FILES >&2

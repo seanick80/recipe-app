@@ -37,4 +37,6 @@
 *.p8          binary
 *.p12         binary
 *.mobileprovision binary
-*.mlpackage/** binary
+
+# CoreML model packages — stored via Git LFS (too large for regular git)
+RecipeApp/RecipeApp/MLModels/*.mlpackage/** filter=lfs diff=lfs merge=lfs -text

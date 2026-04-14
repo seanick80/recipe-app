@@ -18,3 +18,8 @@ echo "# pre-push: full build + config validation"
 echo "################################################################"
 
 ./scripts/build.sh full
+
+# Git LFS pre-push hook — uploads tracked large files.
+if command -v git-lfs >/dev/null 2>&1; then
+    git lfs pre-push "$@"
+fi
