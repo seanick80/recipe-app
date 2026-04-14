@@ -56,8 +56,21 @@ def build_food_classifier(dest: str) -> None:
             h = w = size
     print(f"  Input size: {h}×{w}")
 
+    # Wrap the model so it returns a plain logits tensor instead of a
+    # dict-like ImageClassifierOutput (torch.jit.trace cannot handle dicts).
+    class LogitsWrapper(torch.nn.Module):
+        def __init__(self, hf_model: torch.nn.Module) -> None:
+            super().__init__()
+            self.hf_model = hf_model
+
+        def forward(self, pixel_values: torch.Tensor) -> torch.Tensor:
+            return self.hf_model(pixel_values).logits
+
+    wrapper = LogitsWrapper(model)
+    wrapper.eval()
+
     dummy_input = torch.randn(1, 3, h, w)
-    traced_model = torch.jit.trace(model, dummy_input)
+    traced_model = torch.jit.trace(wrapper, dummy_input)
 
     print("Converting to CoreML...")
     mlmodel = ct.convert(
