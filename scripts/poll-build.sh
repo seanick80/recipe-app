@@ -13,6 +13,13 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+
+# Find python — macOS/Linux usually have python3, Windows Git Bash may not
+PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "")
+if [[ -z "$PYTHON" ]]; then
+    echo "python not found on PATH" >&2
+    exit 1
+fi
 ARTIFACT_DIR="$REPO_ROOT/build/ci-artifacts"
 
 # Load .env
@@ -36,7 +43,7 @@ if [[ $# -ge 1 ]]; then
 else
     # Fetch latest build ID from the apps list endpoint
     BUILD_ID=$(curl -s "${AUTH[@]}" "$API/apps" \
-        | python -c "
+        | $PYTHON -c "
 import sys, json
 data = json.load(sys.stdin)
 apps = data.get('applications', [])
@@ -63,7 +70,7 @@ download_artifacts() {
     local final_status="$2"
 
     # List all artifacts
-    echo "$response" | python -c "
+    echo "$response" | $PYTHON -c "
 import sys, json
 build = json.load(sys.stdin)['build']
 arts = build.get('artefacts', [])
@@ -75,7 +82,7 @@ if arts:
 
     # Find the artifact zip containing xctest.log (not the IPA)
     local artifact_url
-    artifact_url=$(echo "$response" | python -c "
+    artifact_url=$(echo "$response" | $PYTHON -c "
 import sys, json
 build = json.load(sys.stdin)['build']
 for a in build.get('artefacts', []):
@@ -150,7 +157,7 @@ INTERVAL=15
 while true; do
     RESPONSE=$(curl -s "${AUTH[@]}" "$API/builds/$BUILD_ID")
 
-    STATUS=$(echo "$RESPONSE" | python -c "import sys,json; print(json.load(sys.stdin)['build']['status'])" 2>/dev/null)
+    STATUS=$(echo "$RESPONSE" | $PYTHON -c "import sys,json; print(json.load(sys.stdin)['build']['status'])" 2>/dev/null)
 
     case "$STATUS" in
         queued|preparing)

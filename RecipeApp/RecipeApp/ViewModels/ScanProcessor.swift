@@ -165,10 +165,10 @@ class ScanProcessor {
         var items: [ParsedItem] = []
 
         // Add title as a non-ingredient marker if found
-        if let title = parsed.title, !title.isEmpty {
+        if !parsed.title.isEmpty {
             items.append(
                 ParsedItem(
-                    name: "Recipe: \(title)",
+                    name: "Recipe: \(parsed.title)",
                     quantity: 0,
                     unit: "",
                     category: "Recipe"
