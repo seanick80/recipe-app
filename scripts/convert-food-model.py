@@ -30,11 +30,11 @@ HF_MODEL_ID = "nateraw/food"
 def build_food_classifier(dest: str) -> None:
     """Download the HF model, trace to TorchScript, convert to CoreML."""
     import coremltools as ct
-    from transformers import AutoFeatureExtractor, AutoModelForImageClassification
+    from transformers import AutoImageProcessor, AutoModelForImageClassification
 
     print(f"Downloading {HF_MODEL_ID} from HuggingFace...")
     model = AutoModelForImageClassification.from_pretrained(HF_MODEL_ID)
-    extractor = AutoFeatureExtractor.from_pretrained(HF_MODEL_ID)
+    processor = AutoImageProcessor.from_pretrained(HF_MODEL_ID)
     model.eval()
 
     # Get class labels from the model config (id2label mapping).
@@ -45,14 +45,15 @@ def build_food_classifier(dest: str) -> None:
     ]
     print(f"  {len(class_labels)} classes: {class_labels[:5]} ...")
 
-    # Trace the model with a dummy input.
-    input_size = extractor.size
-    # Handle different extractor size formats.
-    if isinstance(input_size, dict):
-        h = input_size.get("height", input_size.get("shortest_edge", 224))
-        w = input_size.get("width", input_size.get("shortest_edge", 224))
-    else:
-        h = w = 224
+    # Determine input size from the processor config.
+    h = w = 224
+    if hasattr(processor, "size"):
+        size = processor.size
+        if isinstance(size, dict):
+            h = size.get("height", size.get("shortest_edge", 224))
+            w = size.get("width", size.get("shortest_edge", 224))
+        elif isinstance(size, int):
+            h = w = size
     print(f"  Input size: {h}×{w}")
 
     dummy_input = torch.randn(1, 3, h, w)
