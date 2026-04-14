@@ -103,19 +103,22 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 - [x] Keyword-based category auto-assignment
 
 ### Milestone 2D: On-Device YOLO Food Detection
-- [ ] Source pre-trained food YOLO model (BinhQuocNguyen/food-recognition-model)
-- [ ] Export to CoreML
-- [ ] Integrate with camera pipeline — bounding boxes + class labels
+- [x] Source pre-trained food YOLO model (BinhQuocNguyen/food-recognition-model)
+- [x] Export to CoreML (`scripts/convert-food-model.py`)
+- [x] `FoodDetectionViewModel` — CoreML inference wrapper with state machine
+- [x] Integrate with camera pipeline (`PantryCaptureView`)
 - [ ] Test accuracy on real fridge/pantry photos
-- Estimated effort: 2-3 sessions
+- [x] Text-based grocery categorizer (`GroceryCategorizer.swift`, 200+ keywords, 99 tests)
+- [x] Replaced `guessCategory()` in `ScanProcessor` with comprehensive categorizer
 
 ### Milestone 2E: Confirmation & Correction UI
-- [ ] Confidence-based triage (auto-add > 0.85 / confirm 0.55-0.85 / unrecognized < 0.55)
-- [ ] Card-swipe review pattern
+- [x] Confidence-based triage (auto-add ≥ 0.85 / confirm 0.55-0.85 / reject < 0.55)
+- [x] Card-swipe review pattern (`DetectionReviewSheet`)
 - [ ] Voice correction via `SFSpeechRecognizer` (simple dictation)
 - [ ] Shelf-level and item-level retake flows
-- [ ] `PantryItem` model + CloudKit sync
-- Estimated effort: 2-3 sessions
+- [x] `PantryItem` model + CloudKit sync (`@Model` with safe defaults)
+- [x] `PantryViewModel` — triage orchestration, confirm/reject/edit actions
+- [x] Pantry tab in `ContentView` with grouped item list
 
 ### Milestone 2F: Recipe Photo Import — OCR Tier
 - [ ] Photo capture + crop/rotate
@@ -237,15 +240,16 @@ All parsing and decision logic is extracted into pure Swift modules in `Models/`
 that have zero Apple-framework dependencies. The iOS app imports these same
 files, but they compile and test independently on Windows.
 
-**Model + logic files (all implemented, 286 tests passing):**
+**Model + logic files (all implemented, 388 tests passing):**
 - `Models/TestHelpers.swift` — factory methods, assertion helpers
 - `Models/TestModels.swift` — recipe + grocery model tests (42 tests)
 - `Models/TestShopping.swift` — shopping template tests (63 tests)
 - `Models/ListLineParser.swift` + `Models/TestListParser.swift` — handwritten list → items (57 tests)
-- `Models/OCRParser.swift` + `Models/TestOCR.swift` — OCR text → structured recipe (42 tests)
+- `Models/OCRParser.swift` + `Models/TestOCR.swift` — OCR text → structured recipe (45 tests)
 - `Models/DetectionClassifier.swift` + `Models/TestDetection.swift` — confidence triage (26 tests)
 - `Models/BarcodeProductMapper.swift` + `Models/TestBarcode.swift` — OFF JSON → product (22 tests)
 - `Models/PantryItemMapper.swift` + `Models/TestPantry.swift` — YOLO → PantryItem (34 tests)
+- `Models/GroceryCategorizer.swift` + `Models/TestGroceryCategorizer.swift` — text → grocery category (99 tests)
 
 ### Tier 2: XCTest on Codemagic Simulator (~20% of logic)
 
@@ -289,7 +293,9 @@ GroceryItem (sourceRecipeName, sourceRecipeId). Split UnitPicker into recipe vs
 shopping context. All additive, zero migration risk. See `SCHEMA_REVIEW.md`.
 Model tests: 12 → 42 (286 total across all suites).
 
-**Uncommitted local-only change**: `poll-build.sh` fix to skip IPA artifacts
-when looking for xctest.log zip. Commit on next push.
-
-Next: Phase 2D (YOLO food detection) and 2E (confirmation UI).
+**Phase 2D–2E in progress** (2026-04-14) — YOLO food detection pipeline and
+confirmation UI built. CoreML model conversion script, FoodDetectionViewModel,
+PantryViewModel (triage orchestration), PantryItem SwiftData model, Pantry tab
+with capture + detection review sheet. GroceryCategorizer (200+ keywords, 99
+tests) replaces old `guessCategory()`. Voice correction and retake flows deferred.
+388 tests passing across 8 suites.

@@ -150,10 +150,10 @@ class ScanProcessor {
                     name: parsed.name,
                     quantity: parsed.quantity,
                     unit: parsed.unit,
-                    category: guessCategory(parsed.name)
+                    category: categorizeGroceryItem(parsed.name)
                 )
             }
-            return ParsedItem(name: trimmed, quantity: 1, unit: "", category: "Other")
+            return ParsedItem(name: trimmed, quantity: 1, unit: "", category: categorizeGroceryItem(trimmed))
         }
 
         return .success(items)
@@ -191,7 +191,7 @@ class ScanProcessor {
                     name: ingredient.name,
                     quantity: ingredient.quantity,
                     unit: ingredient.unit,
-                    category: guessCategory(ingredient.name)
+                    category: categorizeGroceryItem(ingredient.name)
                 )
             )
         }
@@ -215,32 +215,4 @@ class ScanProcessor {
         case invalidImage
         var errorDescription: String? { "Could not read the captured image." }
     }
-}
-
-/// Simple keyword-based category guess for OCR-parsed items.
-private func guessCategory(_ name: String) -> String {
-    let lower = name.lowercased()
-    let categoryKeywords: [(keywords: [String], category: String)] = [
-        (["milk", "cheese", "yogurt", "butter", "cream", "egg"], "Dairy"),
-        (["chicken", "beef", "pork", "fish", "meat", "salmon", "shrimp", "bacon", "sausage"], "Meat"),
-        (
-            [
-                "apple", "banana", "lettuce", "tomato", "onion", "potato", "carrot", "pepper", "garlic",
-                "avocado", "broccoli", "spinach", "cucumber", "celery", "mushroom", "grape", "berry",
-            ], "Produce"
-        ),
-        (["bread", "bagel", "muffin", "roll", "bun", "croissant"], "Bakery"),
-        (["rice", "pasta", "flour", "sugar", "oil", "can", "sauce", "soup", "bean", "cereal"], "Dry & Canned"),
-        (["frozen", "ice cream", "pizza"], "Frozen"),
-        (["chip", "cookie", "cracker", "candy", "chocolate", "snack", "nut"], "Snacks"),
-        (["water", "juice", "soda", "coffee", "tea", "drink", "beer", "wine"], "Beverages"),
-        (["ketchup", "mustard", "mayo", "dressing", "vinegar", "hot sauce", "soy sauce"], "Condiments"),
-        (["paper", "towel", "soap", "detergent", "trash bag", "sponge", "cleaner"], "Household"),
-    ]
-    for (keywords, category) in categoryKeywords {
-        for keyword in keywords {
-            if lower.contains(keyword) { return category }
-        }
-    }
-    return "Other"
 }

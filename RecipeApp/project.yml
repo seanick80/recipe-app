@@ -24,6 +24,10 @@ targets:
     platform: iOS
     sources:
       - path: RecipeApp
+      - path: RecipeApp/MLModels
+        type: folder
+        optional: true
+        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp

@@ -195,6 +195,7 @@ struct TestRunner {
         allPassed = runDetectionTests() && allPassed
         allPassed = runBarcodeTests() && allPassed
         allPassed = runPantryTests() && allPassed
+        allPassed = runGroceryCategorizerTests() && allPassed
 
         print("\n=== Done ===")
         if !allPassed {

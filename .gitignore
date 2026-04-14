@@ -28,6 +28,12 @@ Thumbs.db
 # Claude Code
 .claude/
 
+# CoreML models are checked in under RecipeApp/RecipeApp/MLModels/.
+# Regenerate with: scripts/update-models.sh (requires macOS + Python).
+# Ignore .mlmodel files anywhere ELSE (e.g. build artifacts, caches).
+*.mlmodel
+!RecipeApp/RecipeApp/MLModels/*.mlmodel
+
 # CI artifacts (downloaded by poll-build.sh)
 build/
 

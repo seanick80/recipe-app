@@ -18,6 +18,11 @@ struct ContentView: View {
                     Label("Scan", systemImage: "barcode.viewfinder")
                 }
 
+            PantryTabView()
+                .tabItem {
+                    Label("Pantry", systemImage: "refrigerator")
+                }
+
             GroceryListView()
                 .tabItem {
                     Label("Lists", systemImage: "list.bullet")

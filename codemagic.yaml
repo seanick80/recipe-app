@@ -56,6 +56,7 @@ workflows:
              Models/DetectionClassifier.swift \
              Models/BarcodeProductMapper.swift \
              Models/PantryItemMapper.swift \
+             Models/GroceryCategorizer.swift \
              RecipeApp/RecipeApp/Parsers/
       - name: Generate Xcode project
         script: |
@@ -98,3 +99,67 @@ workflows:
         # source control. Update it in the Codemagic UI, not here.
         recipients:
           - $RECIPIENT_EMAIL
+
+  # -----------------------------------------------------------------------
+  # ML Model Conversion — manual workflow
+  # -----------------------------------------------------------------------
+  # Converts upstream ML models to CoreML format. Run manually from the
+  # Codemagic UI when switching models or updating conversion settings.
+  # Download the .mlmodel artifacts, commit them to the repo, and push.
+  #
+  # No automatic trigger — select "ML Model Conversion" in the Codemagic
+  # dashboard and click "Start new build".
+  ml-model-conversion:
+    name: ML Model Conversion
+    max_build_duration: 30
+    instance_type: mac_mini_m2
+    environment:
+      xcode: latest
+    scripts:
+      - name: Install Python dependencies
+        script: |
+          pip3 install coremltools tensorflow huggingface_hub Pillow numpy
+      - name: Convert models
+        script: |
+          python3 scripts/convert-food-model.py
+      - name: Show model sizes
+        script: |
+          echo "=== Converted models ==="
+          ls -lh RecipeApp/RecipeApp/MLModels/*.mlmodel
+      - name: Install xcodegen
+        script: |
+          brew install xcodegen
+      - name: Prepare Xcode project for tests
+        script: |
+          mkdir -p RecipeApp/RecipeApp/Parsers
+          cp Models/ListLineParser.swift \
+             Models/OCRParser.swift \
+             Models/DetectionClassifier.swift \
+             Models/BarcodeProductMapper.swift \
+             Models/PantryItemMapper.swift \
+             Models/GroceryCategorizer.swift \
+             RecipeApp/RecipeApp/Parsers/
+          cd RecipeApp
+          xcodegen generate
+      - name: Run ML model tests
+        script: |
+          mkdir -p /tmp/xcodebuild_logs
+          cd RecipeApp
+          set -o pipefail
+          xcodebuild test \
+            -project RecipeApp.xcodeproj \
+            -scheme RecipeApp \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -only-testing:RecipeAppTests/MLModelTests \
+            -resultBundlePath ../build/ml-test-results \
+            2>&1 | tee /tmp/xcodebuild_logs/ml-test.log | xcpretty
+      - name: Print download instructions
+        script: |
+          echo ""
+          echo "Download .mlmodel files from the Artifacts tab, then:"
+          echo "  cp ~/Downloads/*.mlmodel RecipeApp/RecipeApp/MLModels/"
+          echo "  git add RecipeApp/RecipeApp/MLModels/*.mlmodel"
+          echo "  git commit -m 'Update CoreML models'"
+    artifacts:
+      - RecipeApp/RecipeApp/MLModels/*.mlmodel
+      - /tmp/xcodebuild_logs/*.log
