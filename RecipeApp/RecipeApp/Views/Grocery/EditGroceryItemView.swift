@@ -1,15 +1,25 @@
+import SwiftData
 import SwiftUI
 
 struct EditGroceryItemView: View {
+    @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Bindable var item: GroceryItem
+
+    @Query(sort: \ShoppingTemplate.sortOrder) private var templates: [ShoppingTemplate]
 
     @State private var name: String = ""
     @State private var quantity: String = ""
     @State private var unit: String = ""
     @State private var category: String = ""
+    @State private var addToStaples: Bool = false
 
     let categories = ShoppingViewModel.categoryOrder
+
+    private var isAlreadyStaple: Bool {
+        guard let template = templates.first else { return false }
+        return template.items?.contains { $0.name == item.name } ?? false
+    }
 
     var body: some View {
         NavigationStack {
@@ -24,6 +34,21 @@ struct EditGroceryItemView: View {
                 Picker("Category", selection: $category) {
                     ForEach(categories, id: \.self) { Text($0) }
                 }
+
+                if !templates.isEmpty {
+                    Section {
+                        if isAlreadyStaple {
+                            HStack {
+                                Image(systemName: "checkmark.circle.fill")
+                                    .foregroundStyle(.green)
+                                Text("Already in staples")
+                                    .foregroundStyle(.secondary)
+                            }
+                        } else {
+                            Toggle("Add to weekly staples", isOn: $addToStaples)
+                        }
+                    }
+                }
             }
             .navigationTitle("Edit Item")
             .navigationBarTitleDisplayMode(.inline)
@@ -37,6 +62,18 @@ struct EditGroceryItemView: View {
                         item.quantity = Double(quantity) ?? 1
                         item.unit = unit
                         item.category = category
+                        if addToStaples, let template = templates.first {
+                            let nextOrder = (template.items?.count ?? 0)
+                            let templateItem = TemplateItem(
+                                name: name,
+                                quantity: Double(quantity) ?? 1,
+                                unit: unit,
+                                category: category,
+                                sortOrder: nextOrder
+                            )
+                            templateItem.template = template
+                            modelContext.insert(templateItem)
+                        }
                         dismiss()
                     }
                     .disabled(name.isEmpty)

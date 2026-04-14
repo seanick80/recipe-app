@@ -19,8 +19,14 @@ struct ScannerTabView: View {
     @State private var showingCameraPermissionAlert = false
     @State private var scanProcessor = ScanProcessor()
     @State private var showingScanReview = false
+    @State private var selectedListID: PersistentIdentifier?
 
-    private var activeList: GroceryList? { activeLists.first }
+    private var selectedList: GroceryList? {
+        if let id = selectedListID {
+            return activeLists.first { $0.persistentModelID == id }
+        }
+        return activeLists.first
+    }
 
     var body: some View {
         NavigationStack {
@@ -85,7 +91,7 @@ struct ScannerTabView: View {
                 } header: {
                     Text("Scan")
                 } footer: {
-                    if activeList == nil {
+                    if selectedList == nil {
                         Text(
                             "Create a shopping list first to add scanned items."
                         )
@@ -93,8 +99,8 @@ struct ScannerTabView: View {
                 }
 
                 if !activeLists.isEmpty {
-                    Section("Active List") {
-                        if let list = activeList {
+                    Section("Add To") {
+                        if activeLists.count == 1, let list = activeLists.first {
                             HStack {
                                 VStack(alignment: .leading) {
                                     Text(list.name)
@@ -109,37 +115,49 @@ struct ScannerTabView: View {
                                 Image(systemName: "cart.fill")
                                     .foregroundStyle(.secondary)
                             }
+                        } else {
+                            Picker("List", selection: $selectedListID) {
+                                ForEach(activeLists) { list in
+                                    Text(list.name)
+                                        .tag(Optional(list.persistentModelID))
+                                }
+                            }
                         }
                     }
                 }
             }
             .navigationTitle("Scan")
             .sheet(isPresented: $showingBarcodeScanner) {
-                BarcodeScannerView(groceryList: activeList)
+                BarcodeScannerView(groceryList: selectedList)
             }
             .sheet(isPresented: $showingListScanner) {
                 OCRScannerView(
                     mode: .shoppingList,
-                    groceryList: activeList,
+                    groceryList: selectedList,
                     scanProcessor: scanProcessor
                 )
             }
             .sheet(isPresented: $showingRecipeScanner) {
                 OCRScannerView(
                     mode: .recipe,
-                    groceryList: activeList,
+                    groceryList: selectedList,
                     scanProcessor: scanProcessor
                 )
             }
             .sheet(isPresented: $showingScanReview) {
                 ScanReviewSheet(
                     processor: scanProcessor,
-                    groceryList: activeList
+                    groceryList: selectedList
                 )
             }
             .onChange(of: scanProcessor.hasResults) { _, hasResults in
                 if hasResults {
                     showingScanReview = true
+                }
+            }
+            .onAppear {
+                if selectedListID == nil, let first = activeLists.first {
+                    selectedListID = first.persistentModelID
                 }
             }
             .alert("Camera Access Required", isPresented: $showingCameraPermissionAlert) {
