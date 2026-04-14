@@ -102,9 +102,10 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 - [x] Retake flow if no text found
 - [x] Keyword-based category auto-assignment
 
-### Milestone 2D: On-Device YOLO Food Detection
-- [x] Source pre-trained food YOLO model (BinhQuocNguyen/food-recognition-model)
-- [x] Export to CoreML (`scripts/convert-food-model.py`)
+### Milestone 2D: On-Device Food Detection (CoreML ViT)
+- [x] Source pre-trained food model (nateraw/food — ViT-base-patch16-224, Food-101, 101 classes, Apache-2.0)
+- [x] Convert to CoreML .mlpackage via `scripts/convert-food-model.py` (PyTorch → TorchScript → coremltools → iOS17 ML Program)
+- [x] FoodClassifier.mlpackage (164MB) committed to repo via Git LFS
 - [x] `FoodDetectionViewModel` — CoreML inference wrapper with state machine
 - [x] Integrate with camera pipeline (`PantryCaptureView`)
 - [ ] Test accuracy on real fridge/pantry photos
@@ -141,6 +142,14 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 - [x] Simulator destination updated to `iPhone 17` (Xcode 26.2 runner only has iPhone 17-series)
 - [x] `.env` stores `CODEMAGIC_API_TOKEN` + `CODEMAGIC_APP_ID` (gitignored)
 - [x] `build/ci-artifacts/` for downloaded artifacts (gitignored)
+- [x] Codemagic dual-workflow: `ios-workflow` (auto on push) + `ml-model-conversion` (manual trigger)
+- [x] ML model conversion pipeline (`scripts/convert-food-model.py` → `ml-model-conversion` Codemagic workflow → `.mlpackage` artifact → Git LFS commit)
+- [x] Git LFS for CoreML models (`RecipeApp/RecipeApp/MLModels/*.mlpackage/**`) — required for GitHub 100MB limit
+- [x] MLModelTests in XCTests (XCTSkipUnless pattern — gracefully skips when model not in bundle, auto-activates when committed)
+- [x] HuggingFace token wired via `recipe_app_ml` Codemagic env group (HF_TOKEN)
+- [x] `recipe_app_notifications` Codemagic env group (RECIPIENT_EMAIL)
+- [x] `scripts/update-models.sh` — manual model update script (macOS only)
+- [x] CRLF lint check inspects git index (not working copy) — correct for Windows with core.autocrlf=true
 
 **Phase 2 checkpoint**: Working pantry scanner (barcode + OCR + YOLO, all free),
 recipe photo capture with OCR, shopping list photo import. Real user data on
@@ -293,9 +302,17 @@ GroceryItem (sourceRecipeName, sourceRecipeId). Split UnitPicker into recipe vs
 shopping context. All additive, zero migration risk. See `SCHEMA_REVIEW.md`.
 Model tests: 12 → 42 (286 total across all suites).
 
-**Phase 2D–2E in progress** (2026-04-14) — YOLO food detection pipeline and
-confirmation UI built. CoreML model conversion script, FoodDetectionViewModel,
-PantryViewModel (triage orchestration), PantryItem SwiftData model, Pantry tab
-with capture + detection review sheet. GroceryCategorizer (200+ keywords, 99
-tests) replaces old `guessCategory()`. Voice correction and retake flows deferred.
-388 tests passing across 8 suites.
+**Phase 2D–2E nearly complete** (2026-04-14) — CoreML food detection pipeline
+operational. nateraw/food ViT model converted to FoodClassifier.mlpackage (164MB,
+101 classes) and committed via Git LFS. FoodDetectionViewModel, PantryViewModel
+(triage orchestration), PantryItem SwiftData model, Pantry tab with capture +
+DetectionReviewSheet all implemented. GroceryCategorizer (200+ keywords, 99 tests)
+replaces old `guessCategory()`. Codemagic dual-workflow (ios-workflow +
+ml-model-conversion) operational. MLModelTests added to XCTests with XCTSkipUnless
+pattern. AVFoundation import added to PantryTabView.swift (was missing, caused CI
+build failure). 388 tests across 8 suites (pure Swift) + MLModelTests in XCTests.
+
+**Remaining for Phase 2D–2E**: voice correction via SFSpeechRecognizer, shelf-level
+and item-level retake flows, real-world accuracy testing on fridge/pantry photos.
+
+**Next phase**: Phase 2F — Recipe Photo Import (OCR tier).
