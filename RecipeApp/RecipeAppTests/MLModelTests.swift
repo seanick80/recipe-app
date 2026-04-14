@@ -18,7 +18,7 @@ final class MLModelTests: XCTestCase {
         try XCTSkipUnless(
             url != nil,
             "FoodClassifier.mlmodelc not in bundle — skipping. "
-                + "Run scripts/update-models.sh on macOS and commit the .mlmodel."
+                + "Run scripts/update-models.sh on macOS and commit the .mlpackage."
         )
         let modelURL = url!
 

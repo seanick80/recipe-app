@@ -30,9 +30,9 @@ Thumbs.db
 
 # CoreML models are checked in under RecipeApp/RecipeApp/MLModels/.
 # Regenerate with: scripts/update-models.sh (requires macOS + Python).
-# Ignore .mlmodel files anywhere ELSE (e.g. build artifacts, caches).
-*.mlmodel
-!RecipeApp/RecipeApp/MLModels/*.mlmodel
+# Ignore .mlpackage dirs anywhere ELSE (e.g. build artifacts, caches).
+*.mlpackage
+!RecipeApp/RecipeApp/MLModels/*.mlpackage
 
 # CI artifacts (downloaded by poll-build.sh)
 build/

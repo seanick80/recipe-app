@@ -37,4 +37,4 @@
 *.p8          binary
 *.p12         binary
 *.mobileprovision binary
-*.mlmodel binary
+*.mlpackage/** binary

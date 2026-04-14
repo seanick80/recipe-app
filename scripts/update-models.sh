@@ -10,7 +10,7 @@
 #   - Changing class labels or category mappings
 #   - Updating coremltools conversion options (quantization, etc.)
 #
-# The converted .mlmodel files are checked into git under
+# The converted .mlpackage dirs are checked into git under
 # RecipeApp/RecipeApp/MLModels/. CI does NOT regenerate them — it uses
 # whatever is committed.
 #
@@ -47,8 +47,7 @@ if $DRY_RUN; then
     echo "[dry-run] Would run: $PYTHON $CONVERT_SCRIPT"
     echo "[dry-run] Output dir: $MODELS_DIR"
     echo "[dry-run] Models would be:"
-    echo "  - $MODELS_DIR/FoodClassifier.mlmodel"
-    echo "  - $MODELS_DIR/GroceryCategoryClassifier.mlmodel"
+    echo "  - $MODELS_DIR/FoodClassifier.mlpackage"
     exit 0
 fi
 
@@ -60,10 +59,10 @@ echo "==> Converting models"
 
 echo ""
 echo "==> Models updated:"
-ls -lh "$MODELS_DIR"/*.mlmodel 2>/dev/null || echo "  (none found — check for errors above)"
+du -sh "$MODELS_DIR"/*.mlpackage 2>/dev/null || echo "  (none found — check for errors above)"
 
 echo ""
 echo "==> Next steps:"
 echo "  1. Review model sizes above"
-echo "  2. git add RecipeApp/RecipeApp/MLModels/*.mlmodel"
+echo "  2. git add RecipeApp/RecipeApp/MLModels/*.mlpackage"
 echo "  3. Commit and push"

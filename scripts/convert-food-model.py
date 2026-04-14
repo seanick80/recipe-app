@@ -2,7 +2,7 @@
 """Download nateraw/food (ViT Food-101) from HuggingFace and convert to CoreML.
 
 Produces:
-  FoodClassifier.mlmodel — image → food label + confidence (101 classes)
+  FoodClassifier.mlpackage — image → food label + confidence (101 classes)
 
 Source model: nateraw/food (ViT-base-patch16-224, fine-tuned on Food-101)
   - 1.9M+ downloads, Apache-2.0 license
@@ -96,7 +96,12 @@ def build_food_classifier(dest: str) -> None:
 
     os.makedirs(os.path.dirname(dest), exist_ok=True)
     mlmodel.save(dest)
-    size_mb = os.path.getsize(dest) / 1_000_000
+    # .mlpackage is a directory; sum all file sizes inside it.
+    total = 0
+    for dirpath, _, filenames in os.walk(dest):
+        for f in filenames:
+            total += os.path.getsize(os.path.join(dirpath, f))
+    size_mb = total / 1_000_000
     print(f"Saved FoodClassifier to {dest} ({size_mb:.1f} MB)")
 
 
@@ -111,10 +116,10 @@ def main() -> None:
     )
     args = parser.parse_args()
 
-    food_dest = os.path.join(MODELS_DIR, "FoodClassifier.mlmodel")
+    food_dest = os.path.join(MODELS_DIR, "FoodClassifier.mlpackage")
 
     if args.skip_if_exists and os.path.exists(food_dest):
-        print("FoodClassifier.mlmodel already exists, skipping (--skip-if-exists).")
+        print("FoodClassifier.mlpackage already exists, skipping (--skip-if-exists).")
         return
 
     build_food_classifier(food_dest)

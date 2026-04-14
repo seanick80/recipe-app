@@ -127,7 +127,7 @@ workflows:
       - name: Show model sizes
         script: |
           echo "=== Converted models ==="
-          ls -lh RecipeApp/RecipeApp/MLModels/*.mlmodel
+          du -sh RecipeApp/RecipeApp/MLModels/*.mlpackage
       - name: Install xcodegen
         script: |
           brew install xcodegen
@@ -158,10 +158,10 @@ workflows:
       - name: Print download instructions
         script: |
           echo ""
-          echo "Download .mlmodel files from the Artifacts tab, then:"
-          echo "  cp ~/Downloads/*.mlmodel RecipeApp/RecipeApp/MLModels/"
-          echo "  git add RecipeApp/RecipeApp/MLModels/*.mlmodel"
+          echo "Download .mlpackage dirs from the Artifacts tab, then:"
+          echo "  cp -r ~/Downloads/*.mlpackage RecipeApp/RecipeApp/MLModels/"
+          echo "  git add RecipeApp/RecipeApp/MLModels/*.mlpackage"
           echo "  git commit -m 'Update CoreML models'"
     artifacts:
-      - RecipeApp/RecipeApp/MLModels/*.mlmodel
+      - RecipeApp/RecipeApp/MLModels/*.mlpackage
       - /tmp/xcodebuild_logs/*.log

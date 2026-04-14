@@ -48,7 +48,7 @@ class FoodDetectionViewModel {
 
     /// Attempts to load the FoodClassifier CoreML model. Returns false if the
     /// model bundle is not present (expected during development before the
-    /// .mlmodel is added to the Xcode project).
+    /// .mlpackage is added to the Xcode project).
     @discardableResult
     func loadModel() -> Bool {
         if mlModel != nil { return true }
