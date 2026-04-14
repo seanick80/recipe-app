@@ -43,7 +43,7 @@ if [[ -z "$PYTHON" ]]; then
 fi
 
 if $DRY_RUN; then
-    echo "[dry-run] Would install: coremltools tensorflow huggingface_hub Pillow numpy"
+    echo "[dry-run] Would install: coremltools torch transformers Pillow numpy"
     echo "[dry-run] Would run: $PYTHON $CONVERT_SCRIPT"
     echo "[dry-run] Output dir: $MODELS_DIR"
     echo "[dry-run] Models would be:"
@@ -53,7 +53,7 @@ if $DRY_RUN; then
 fi
 
 echo "==> Installing Python dependencies"
-pip3 install --quiet coremltools tensorflow huggingface_hub Pillow numpy
+pip3 install --quiet coremltools torch transformers Pillow numpy
 
 echo "==> Converting models"
 "$PYTHON" "$CONVERT_SCRIPT"

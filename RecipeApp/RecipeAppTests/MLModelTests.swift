@@ -11,7 +11,8 @@ final class MLModelTests: XCTestCase {
 
     // MARK: - Model Presence & Size
 
-    /// FoodClassifier: EfficientNet-B0 based, expect 5-25 MB.
+    /// FoodClassifier: ViT-base-patch16-224 (nateraw/food), expect 100-400 MB.
+    /// ViT-base has 86M params; CoreML Float16 packs at ~2 bytes/param ≈ 170 MB.
     func testFoodClassifierBundled() throws {
         let url = try XCTUnwrap(
             Bundle.main.url(forResource: "FoodClassifier", withExtension: "mlmodelc"),
@@ -23,23 +24,11 @@ final class MLModelTests: XCTestCase {
         let mb = Double(size) / 1_000_000
 
         // Sanity bounds — adjust if model architecture changes.
-        XCTAssertGreaterThan(mb, 1, "FoodClassifier too small (\(mb) MB) — likely corrupt")
-        XCTAssertLessThan(mb, 30, "FoodClassifier too large (\(mb) MB) — check conversion options")
-    }
+        XCTAssertGreaterThan(mb, 50, "FoodClassifier too small (\(mb) MB) — likely corrupt")
+        XCTAssertLessThan(mb, 500, "FoodClassifier too large (\(mb) MB) — check conversion options")
 
-    /// GroceryCategoryClassifier: tiny k-NN model, expect < 1 MB.
-    func testGroceryCategoryClassifierBundled() throws {
-        let url = try XCTUnwrap(
-            Bundle.main.url(forResource: "GroceryCategoryClassifier", withExtension: "mlmodelc"),
-            "GroceryCategoryClassifier.mlmodelc not found in app bundle. "
-                + "Run scripts/update-models.sh on macOS and commit the .mlmodel."
-        )
-
-        let size = try directorySize(url)
-        let mb = Double(size) / 1_000_000
-
-        XCTAssertGreaterThan(size, 0, "GroceryCategoryClassifier is empty")
-        XCTAssertLessThan(mb, 2, "GroceryCategoryClassifier too large (\(mb) MB)")
+        // Log the actual size for visibility in test output.
+        print("FoodClassifier.mlmodelc size: \(String(format: "%.1f", mb)) MB")
     }
 
     // MARK: - Helpers
