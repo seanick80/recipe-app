@@ -106,6 +106,15 @@ class ScanProcessor {
         state = .ready(items: items)
     }
 
+    /// Updates the name of an item by ID.
+    func updateItemName(id: UUID, name: String) {
+        guard case .ready(var items) = state,
+            let index = items.firstIndex(where: { $0.id == id })
+        else { return }
+        items[index].name = name
+        state = .ready(items: items)
+    }
+
     // MARK: - Background OCR (off main thread)
 
     private static func runOCR(image: UIImage) throws -> [String] {

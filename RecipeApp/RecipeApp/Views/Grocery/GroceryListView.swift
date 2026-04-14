@@ -72,6 +72,7 @@ struct GroceryListDetailView: View {
     @Environment(\.modelContext) private var modelContext
     @Bindable var groceryList: GroceryList
     @State private var showingAddItem = false
+    @State private var editingItem: GroceryItem?
 
     var categorizedItems: [(String, [GroceryItem])] {
         let allItems = groceryList.items ?? []
@@ -94,6 +95,10 @@ struct GroceryListDetailView: View {
                 Section(category) {
                     ForEach(items) { item in
                         GroceryItemRow(item: item)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                editingItem = item
+                            }
                     }
                     .onDelete { offsets in
                         for index in offsets {
@@ -131,6 +136,9 @@ struct GroceryListDetailView: View {
         }
         .sheet(isPresented: $showingAddItem) {
             AddGroceryItemView(groceryList: groceryList)
+        }
+        .sheet(item: $editingItem) { item in
+            EditGroceryItemView(item: item)
         }
         .overlay {
             if (groceryList.items ?? []).isEmpty {

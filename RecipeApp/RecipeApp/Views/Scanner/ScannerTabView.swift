@@ -256,7 +256,13 @@ struct ScanReviewSheet: View {
                                     .buttonStyle(.plain)
 
                                     VStack(alignment: .leading) {
-                                        Text(item.name)
+                                        TextField(
+                                            "Item name",
+                                            text: Binding(
+                                                get: { item.name },
+                                                set: { processor.updateItemName(id: item.id, name: $0) }
+                                            )
+                                        )
                                         if item.quantity > 0 && (item.quantity != 1 || !item.unit.isEmpty) {
                                             Text("\(formatQuantity(item.quantity)) \(item.unit)")
                                                 .font(.caption)
