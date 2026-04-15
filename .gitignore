@@ -37,6 +37,12 @@ Thumbs.db
 # CI artifacts (downloaded by poll-build.sh)
 build/
 
+# Layout bench: results are generated locally, not tracked
+data/layout-bench/results/
+# Test images are personal photos — not tracked (too large, possibly private)
+data/layout-bench/images/*
+!data/layout-bench/images/.gitkeep
+
 # Env
 .env
 

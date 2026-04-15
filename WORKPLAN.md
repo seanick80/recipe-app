@@ -124,9 +124,17 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 ### Milestone 2F: Recipe Photo Import — OCR Tier
 - [ ] Photo capture + crop/rotate
 - [ ] On-device OCR text extraction
-- [ ] Review/edit screen with all fields editable
+- [ ] Review/edit screen with all fields editable (title, ingredients, instructions separately)
 - [ ] Save to recipe collection
-- Estimated effort: 1-2 sessions
+- Known issue: `ScanProcessor.runOCRAndParseRecipe()` collapses instructions into a single
+  summary line ("Instructions (N steps)") — actual step text is discarded. Review UI is
+  ingredient-shaped (`ParsedItem`) and doesn't have a place for instruction steps. Also, when
+  OCR merges section headers with body text (e.g. "Method 1. Preheat..." as one line), the
+  parser's `hasPrefix("method")` check fails and everything falls into the no-headers fallback
+  which only tries to parse as ingredients. Layout analysis bench (`scripts/layout-bench/`)
+  was built to address this — zone detection should separate ingredients from instructions
+  before parsing.
+- Estimated effort: 2-3 sessions (includes layout analysis integration)
 
 ### Milestone 2G: Shopping List Photo Import — OCR Tier
 - [ ] Photograph handwritten or printed shopping list
@@ -134,6 +142,34 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 - [ ] Review/edit screen: each line becomes a `GroceryItem` candidate
 - [ ] Confirm, edit, or remove items before adding to active list
 - Estimated effort: 1 session
+
+### Layout Analysis Evaluation (during Phase 2, informs Phase 2F)
+- [x] Local evaluation pipeline (`scripts/layout-bench/`) — Python/PyTorch, runs on Windows
+- [x] Heuristic baseline model: EasyOCR + per-line spatial clustering + regex pattern matching
+- [x] OCR-classify model: EasyOCR → merge into spatial blocks → classify by text content
+- [x] DiT/DETR model (DocLayNet): needs better checkpoint, currently non-functional
+- [x] Visualization: color-coded bounding box overlays + side-by-side comparison
+- [x] 15 test images from personal cookbook + web recipes
+- [ ] Improve block merging (too many per-line fragments on dense pages)
+- [ ] Margin note / handwriting filtering (zucchini_slice: scaling notes imported as content)
+- [ ] Image quality gate: low OCR confidence → "retake" prompt instead of ingesting garbage
+- [ ] Multi-component recipe support (sub-recipes with own ingredients + assembly block)
+- [ ] Integrate winning approach into iOS `ScanProcessor` pipeline
+
+**Benchmark findings (2026-04-15):**
+- `ocr-classify` is the most promising approach — content-based classification gets
+  ingredients/instructions right on clean layouts (chocChip, ricotta_ravioli, sheetpan_chicken)
+- Dense two-column cookbook spreads (sichuan_fish) overwhelm per-line OCR — need better
+  block merging or column detection
+- Rotated/angled pages (habanero_jelly) need a quality gate, not better parsing
+- Handwritten margin notes (zucchini_slice) classified as other/title — correct, but the
+  iOS OCR pipeline doesn't use zone classification at all yet
+- Cursive handwriting is out of scope for now (EasyOCR can't read it)
+
+**Priority test images (personal cookbook from sister-in-law):**
+- `habanero_jelly.jpg` — rotated text, needs quality gate
+- `sheetpan_chicken.jpg` — "Anna's Marathon Chicken Bake", two-column, works well
+- `zucchini_slice.jpg` — margin notes problem, core motivating use case
 
 ### CI/Build Infrastructure Updates (during Phase 2)
 - [x] Codemagic XCTest results piped to separate `xctest.log` artifact
@@ -269,6 +305,8 @@ archive step. Test failure blocks the build.
 **XCTest files (implemented):**
 - `RecipeAppTests/RecipeModelTests.swift` — SwiftData model init + toggle
 - `RecipeAppTests/ShoppingTemplateTests.swift` — SwiftData template + archive + category
+- `RecipeAppTests/MLModelTests.swift` — FoodClassifier.mlpackage presence + size bounds
+  (uses `XCTSkipUnless` — gracefully skips when model not in bundle)
 
 ### Test expansion rule
 
@@ -312,7 +350,18 @@ ml-model-conversion) operational. MLModelTests added to XCTests with XCTSkipUnle
 pattern. AVFoundation import added to PantryTabView.swift (was missing, caused CI
 build failure). 388 tests across 8 suites (pure Swift) + MLModelTests in XCTests.
 
+**Bug fix** (2026-04-15) — `FoodDetectionViewModel.loadModel()` was never called,
+so pantry scanning silently returned empty results. Fixed in PR #1 (Fixes GM-5).
+
+**Layout analysis bench** (2026-04-15) — Built local evaluation pipeline
+(`scripts/layout-bench/`) for comparing document layout analysis approaches on
+recipe page images. Heuristic baseline (EasyOCR + spatial clustering + pattern
+matching) and DiT transformer model wired up. Runs on Windows, no CoreML needed.
+Goal: determine how to filter non-recipe content (phone numbers, ads, stray notes)
+before OCR parsing. Results inform 2F recipe photo import and may introduce a new
+layout detection stage to the scanning pipeline.
+
 **Remaining for Phase 2D–2E**: voice correction via SFSpeechRecognizer, shelf-level
 and item-level retake flows, real-world accuracy testing on fridge/pantry photos.
 
-**Next phase**: Phase 2F — Recipe Photo Import (OCR tier).
+**Next phase**: Layout analysis evaluation → Phase 2F (Recipe Photo Import).

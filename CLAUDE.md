@@ -5,6 +5,8 @@
   - `project.yml` — xcodegen config (source of truth; `.xcodeproj` is generated and gitignored)
   - `RecipeApp/RecipeApp.entitlements` — CloudKit service + container identifier
 - `Models/` — Pure Swift models compilable on Windows (for local testing)
+- `scripts/layout-bench/` — Local document layout analysis benchmark (Python/PyTorch, Windows)
+- `data/layout-bench/` — Test images + ground truth for layout bench (images gitignored)
 - `server/` — Python FastAPI backend (future sync; not needed for single-user persistence)
 - `database/` — SQL schema and seed data
 

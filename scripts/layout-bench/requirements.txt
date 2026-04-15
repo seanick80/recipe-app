@@ -1,0 +1,10 @@
+# Layout analysis benchmarking — local evaluation pipeline
+# Install: pip install -r scripts/layout-bench/requirements.txt
+
+torch>=2.0
+torchvision>=0.15
+transformers>=4.30
+Pillow>=10.0
+matplotlib>=3.7
+easyocr>=1.7
+numpy>=1.24
