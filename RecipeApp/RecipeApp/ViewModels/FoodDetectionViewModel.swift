@@ -79,6 +79,14 @@ class FoodDetectionViewModel {
     func detect(image: UIImage) {
         state = .detecting
 
+        if !loadModel() {
+            state = .failed(
+                message: "Food detection model not available. "
+                    + "Ensure FoodClassifier.mlpackage is included in the app bundle."
+            )
+            return
+        }
+
         Task.detached(priority: .userInitiated) { [weak self] in
             let result = await Self.runDetection(image: image, model: self?.mlModel)
             await MainActor.run {
@@ -114,9 +122,7 @@ class FoodDetectionViewModel {
         }
 
         guard let vnModel = model else {
-            // Model not loaded — return empty results gracefully so callers
-            // can degrade without crashing.
-            return .success([])
+            return .failure(DetectionError.modelNotLoaded)
         }
 
         let handler = VNImageRequestHandler(cgImage: cgImage, options: [:])
@@ -153,11 +159,14 @@ class FoodDetectionViewModel {
 
     enum DetectionError: LocalizedError {
         case invalidImage
+        case modelNotLoaded
 
         var errorDescription: String? {
             switch self {
             case .invalidImage:
                 return "Could not read the captured image."
+            case .modelNotLoaded:
+                return "Food detection model not available."
             }
         }
     }

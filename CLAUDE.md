@@ -105,8 +105,18 @@ cd server && pytest
 ```
 
 Pure Swift test suites in `Models/`: Recipe (42), Shopping (63), ListParser (57),
-OCR (45), Detection (26), Barcode (22), Pantry (34), GroceryCategorizer (99). XCTests in `RecipeAppTests/`
-run on Codemagic simulator before archive.
+OCR (45), Detection (26), Barcode (22), Pantry (34), GroceryCategorizer (99).
+
+XCTests in `RecipeAppTests/` run on Codemagic simulator before archive:
+- `RecipeModelTests.swift` — SwiftData model init + toggle
+- `ShoppingTemplateTests.swift` — SwiftData template + archive + category
+- `MLModelTests.swift` — validates FoodClassifier.mlpackage presence + size bounds;
+  uses `XCTSkipUnless` so the suite gracefully skips when the model is not in the
+  bundle (e.g. a build without LFS), and auto-activates once the model is committed.
+
+**Git LFS**: The CoreML model (`RecipeApp/RecipeApp/MLModels/FoodClassifier.mlpackage`)
+is stored in Git LFS. After a fresh clone, run `git lfs install && git lfs pull`
+to download the model binary before building.
 
 ## Bug reporting workflow (Linear + GitHub)
 
