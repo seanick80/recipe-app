@@ -247,6 +247,66 @@ func testImageQualityAssessmentCodable() {
     checkCodableRoundTrip(assessment, "ImageQualityAssessment Codable round-trip")
 }
 
+// MARK: Section Header Detection
+
+func testSectionHeaderIngredients() {
+    checkEqual(sectionFromHeader("Ingredients"), .ingredients, "bare 'Ingredients' header")
+    checkEqual(sectionFromHeader("INGREDIENTS"), .ingredients, "uppercase 'INGREDIENTS'")
+    checkEqual(sectionFromHeader("Ingredients:"), .ingredients, "'Ingredients:' with colon")
+    checkEqual(sectionFromHeader("  Ingredients  "), .ingredients, "'Ingredients' with whitespace")
+    checkEqual(sectionFromHeader("ingredient list"), .ingredients, "'ingredient list'")
+    checkEqual(sectionFromHeader("What you need"), .ingredients, "'What you need' header")
+}
+
+func testSectionHeaderInstructions() {
+    checkEqual(sectionFromHeader("Method"), .instructions, "'Method' header")
+    checkEqual(sectionFromHeader("Directions"), .instructions, "'Directions' header")
+    checkEqual(sectionFromHeader("Instructions:"), .instructions, "'Instructions:' header")
+    checkEqual(sectionFromHeader("Step 1"), .instructions, "'Step 1' starts instructions")
+    checkEqual(sectionFromHeader("Step 2"), .instructions, "'Step 2' maps to instructions")
+    checkEqual(sectionFromHeader("Preparation"), .instructions, "'Preparation' header")
+}
+
+func testSectionHeaderNonHeader() {
+    check(sectionFromHeader("5 Free Range Eggs") == nil, "ingredient line is not a header")
+    check(sectionFromHeader("Preheat oven to 170°C") == nil, "instruction body is not a header")
+    check(
+        sectionFromHeader("This particular zucchini slice recipe is the best") == nil,
+        "intro paragraph is not a header"
+    )
+    check(sectionFromHeader("") == nil, "empty line is not a header")
+    check(sectionFromHeader("a") == nil, "single char is not a header")
+    // "Key ingredients in zucchini slice:" contains the word 'ingredient' but
+    // is a sentence, not a standalone header. Short-enough that the 30-char
+    // ceiling catches it, but it still shouldn't match.
+    check(
+        sectionFromHeader("Key ingredients in zucchini slice") == nil,
+        "sentence containing 'ingredients' is not a header"
+    )
+}
+
+// MARK: Metadata Junk Filter
+
+func testMetadataJunkNutritionWidgets() {
+    check(isLikelyMetadataJunk("270•"), "'270•' is junk")
+    check(isLikelyMetadataJunk("615°"), "'615°' is junk")
+    check(isLikelyMetadataJunk("360."), "'360.' is junk")
+    check(isLikelyMetadataJunk("108."), "'108.' is junk")
+    check(isLikelyMetadataJunk("160g."), "'160g.' is junk (bare weight widget)")
+    check(isLikelyMetadataJunk("x1,8"), "'x1,8' is junk (scaling widget)")
+    check(isLikelyMetadataJunk("•"), "lone bullet is junk")
+    check(isLikelyMetadataJunk("  "), "whitespace is junk")
+}
+
+func testMetadataJunkRealContent() {
+    check(!isLikelyMetadataJunk("5 Free Range Eggs"), "ingredient line is not junk")
+    check(!isLikelyMetadataJunk("200g rindless bacon, chopped"), "weight + food is not junk")
+    check(!isLikelyMetadataJunk("Preheat oven to 170°C fan forced."), "instruction is not junk")
+    check(!isLikelyMetadataJunk("Step 2"), "step marker is not junk")
+    check(!isLikelyMetadataJunk("Method"), "section header is not junk")
+    check(!isLikelyMetadataJunk("1 large onion, finely chopped"), "ingredient is not junk")
+}
+
 // MARK: - Test Runner
 
 func runQualityGateTests() -> Bool {
@@ -271,6 +331,11 @@ func runQualityGateTests() -> Bool {
     testGroupLinesAdjacentMerge()
     testGroupLinesLargeGap()
     testGroupLinesSortsByY()
+    testSectionHeaderIngredients()
+    testSectionHeaderInstructions()
+    testSectionHeaderNonHeader()
+    testMetadataJunkNutritionWidgets()
+    testMetadataJunkRealContent()
 
     return printTestSummary("Quality Gate Tests")
 }

@@ -228,6 +228,83 @@ func groupLinesIntoBlocks(
     return blocks
 }
 
+// MARK: - Section Header Routing
+//
+// Recipe OCR produces lines in reading order. Rather than trust geometric
+// block grouping (fragile on multi-column pages and dense web layouts),
+// we walk the lines in order and use explicit section headers like
+// "Ingredients", "Method", "Step 1" to route each subsequent line to the
+// correct bucket. This is far more reliable than content-based block
+// classification.
+
+/// Semantic section of a recipe, identified from explicit headers in the OCR.
+enum RecipeSection: String, Codable, Equatable {
+    /// Title + narrative + nutrition widgets (before "Ingredients").
+    case intro
+    /// Between "Ingredients" and "Method".
+    case ingredients
+    /// After "Method" / "Step 1".
+    case instructions
+}
+
+/// If the line is a standalone section header, returns the section it
+/// introduces. Otherwise nil.
+///
+/// Matches whole-line headers only — phrases embedded in paragraphs don't
+/// count, to avoid misreading body sentences that happen to contain the word
+/// "ingredients".
+func sectionFromHeader(_ line: String) -> RecipeSection? {
+    let trimmed =
+        line
+        .trimmingCharacters(in: .whitespacesAndNewlines)
+        .trimmingCharacters(in: CharacterSet(charactersIn: ":.·•*"))
+        .trimmingCharacters(in: .whitespaces)
+        .lowercased()
+
+    // Only short, header-like strings (< 30 chars keeps out paragraphs that
+    // happen to mention "ingredients" in prose).
+    guard trimmed.count >= 4, trimmed.count < 30 else { return nil }
+
+    switch trimmed {
+    case "ingredients", "ingredient list", "what you need", "what you'll need":
+        return .ingredients
+    case "method", "directions", "direction", "instructions", "instruction",
+        "preparation", "procedure", "steps", "how to make", "how to make it":
+        return .instructions
+    default:
+        // "Step 1", "Step 2", "step 3" — anywhere a step header appears,
+        // we're in the instruction section.
+        if trimmed.hasPrefix("step ") || trimmed.hasPrefix("step\t") {
+            return .instructions
+        }
+        return nil
+    }
+}
+
+/// True if the line is metadata noise with no real content — e.g. orphan
+/// digits from nutrition widgets ("270•", "615°", "108."), bare unit tokens
+/// ("160g."), or decorative symbols. These appear around recipe headers on
+/// web pages and should be dropped before parsing.
+func isLikelyMetadataJunk(_ line: String) -> Bool {
+    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return true }
+
+    // A line is junk if, after stripping digits / punctuation / common unit
+    // suffixes, there's no alphabetic content left (or only a lone unit letter).
+    let unitRegex = "(?i)\\b\\d+(\\.\\d+)?\\s*(g|kg|ml|l|oz|lb)\\b"
+    let stripCharacters = CharacterSet(charactersIn: "0123456789.,°•·*:;×xX/\\-+()[] \t")
+    let stripped =
+        trimmed
+        .replacingOccurrences(of: unitRegex, with: "", options: .regularExpression)
+        .trimmingCharacters(in: .whitespaces)
+        .components(separatedBy: stripCharacters)
+        .joined()
+
+    // After stripping digits/units/punctuation, very short residue (<= 1
+    // letter) means the line was essentially numeric.
+    return stripped.count <= 1
+}
+
 // MARK: - Helpers
 
 /// Median of a sorted array.

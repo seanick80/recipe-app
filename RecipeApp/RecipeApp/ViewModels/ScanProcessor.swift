@@ -7,11 +7,11 @@ import Vision
 /// it survives the camera sheet dismissal. After capture, the camera sheet
 /// dismisses immediately and processing continues here.
 ///
-/// The pipeline delegates algorithms to pure-Swift modules in `Models/`:
+/// The pipeline delegates algorithms to pure-Swift modules in `SharedLogic/`:
 ///   VNRecognizeTextRequest -> [OCRLine]
 ///     -> assessImageQuality  (retake gate)
 ///     -> separateHandwritten (drop margin notes)
-///     -> classifyZone        (recipe mode only: block -> ingredient/instruction)
+///     -> sectionFromHeader   (recipe mode: route each line by section header)
 ///     -> parseListLine / parseIngredientLine
 @Observable
 class ScanProcessor {
@@ -302,7 +302,19 @@ class ScanProcessor {
         return .success(items)
     }
 
-    // MARK: - Recipe path (zone-aware)
+    // MARK: - Recipe path (section-header routing)
+    //
+    // Earlier versions of this pipeline grouped lines into geometric blocks
+    // (by y-coordinate gaps) and then content-classified each block. That
+    // failed on dense web-recipe screenshots: everything fused into one
+    // block, got classified as "instructions", and 0 ingredients survived.
+    //
+    // The current approach walks the OCR lines in Vision's natural reading
+    // order and uses explicit section headers ("Ingredients", "Method",
+    // "Step 1") to route each subsequent line to the correct bucket. If a
+    // recipe has no headers (e.g. a cookbook page with just an ingredient
+    // list), the final fallback below rescues well-structured ingredient
+    // lines regardless of section.
 
     private static func runOCRAndParseRecipe(
         image: UIImage,
@@ -320,68 +332,69 @@ class ScanProcessor {
             return (.failure(error), "")
         }
 
-        let blocks = groupLinesIntoBlocks(printed)
-        DebugLog.shared.log(
-            category: "ocr.blocks",
-            message: "grouped lines into blocks",
-            details: [
-                "scanID": scanID,
-                "blocks": "\(blocks.count)",
-                "printedLines": "\(printed.count)",
-            ]
-        )
-
         var titleText = ""
         var ingredientItems: [ParsedItem] = []
         var instructionSteps: [String] = []
+        var currentSection: RecipeSection = .intro
+        var sectionTransitions: [String] = []
 
-        for (index, block) in blocks.enumerated() {
-            let blockText = block.map(\.text).joined(separator: "\n")
-            let classification = classifyZone(blockText)
-            DebugLog.shared.log(
-                category: "ocr.blocks",
-                message: "classified block \(index)",
-                details: [
-                    "scanID": scanID,
-                    "blockIndex": "\(index)",
-                    "label": "\(classification.label)",
-                    "confidence": String(format: "%.2f", classification.confidence),
-                    "text": blockText,
-                ]
-            )
-            switch classification.label {
-            case .title:
+        for line in printed {
+            let trimmed = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmed.isEmpty else { continue }
+
+            // A section header consumes the line and switches our routing.
+            if let section = sectionFromHeader(trimmed) {
+                if currentSection != section {
+                    sectionTransitions.append("\(currentSection) → \(section) @ \"\(trimmed)\"")
+                    currentSection = section
+                }
+                continue
+            }
+
+            // Drop nutrition-widget leftovers like "270•", "615°", "160g.".
+            if isLikelyMetadataJunk(trimmed) { continue }
+
+            switch currentSection {
+            case .intro:
+                // First non-junk line of a recipe page is treated as the title.
+                // Subsequent intro narrative is ignored (we don't want
+                // "This particular zucchini slice recipe..." polluting
+                // ingredients or instructions).
                 if titleText.isEmpty {
-                    titleText = cleanRecipeTitle(block.first?.text ?? blockText)
+                    titleText = cleanRecipeTitle(trimmed)
                 }
+
             case .ingredients:
-                for line in block {
-                    let trimmed = line.text.trimmingCharacters(in: .whitespaces)
-                    guard !trimmed.isEmpty else { continue }
-                    if let parsed = parseIngredientLine(trimmed) {
-                        ingredientItems.append(
-                            ParsedItem(
-                                name: parsed.name,
-                                quantity: parsed.quantity,
-                                unit: parsed.unit,
-                                category: categorizeGroceryItem(parsed.name)
-                            )
+                if let parsed = parseIngredientLine(trimmed) {
+                    ingredientItems.append(
+                        ParsedItem(
+                            name: parsed.name,
+                            quantity: parsed.quantity,
+                            unit: parsed.unit,
+                            category: categorizeGroceryItem(parsed.name)
                         )
-                    }
+                    )
                 }
+
             case .instructions:
-                for line in block {
-                    let cleaned = cleanInstructionLine(line.text)
-                    if !cleaned.isEmpty {
-                        instructionSteps.append(cleaned)
-                    }
+                let cleaned = cleanInstructionLine(trimmed)
+                if !cleaned.isEmpty {
+                    instructionSteps.append(cleaned)
                 }
-            case .metadata, .handwritten, .other:
-                // Currently ignored. A future pass can surface servings/times
-                // from metadata blocks, and apply scaling from handwritten notes.
-                break
             }
         }
+
+        DebugLog.shared.log(
+            category: "ocr.sections",
+            message: "section routing complete",
+            details: [
+                "scanID": scanID,
+                "finalSection": "\(currentSection)",
+                "transitions": sectionTransitions.joined(separator: " | "),
+                "ingredientCount": "\(ingredientItems.count)",
+                "instructionCount": "\(instructionSteps.count)",
+            ]
+        )
 
         // Assemble review items: title marker, ingredients, instruction summary.
         var items: [ParsedItem] = []

@@ -4,7 +4,13 @@
 - `RecipeApp/` — SwiftUI iOS app (MVVM + SwiftData + CloudKit)
   - `project.yml` — xcodegen config (source of truth; `.xcodeproj` is generated and gitignored)
   - `RecipeApp/RecipeApp.entitlements` — CloudKit service + container identifier
-- `Models/` — Pure Swift models compilable on Windows (for local testing)
+- `SharedLogic/` — Pure-Swift modules shipped into the iOS app (parsers,
+  classifiers, quality gate, debug log). Copied into
+  `RecipeApp/RecipeApp/Parsers/` at CI build time by codemagic.yaml. Must
+  compile with `swiftc` on Windows (no Apple frameworks).
+- `TestFixtures/` — Windows-only test mirrors of the SwiftData `@Model` types
+  (`Recipe.swift`, `GroceryItem.swift`, `ShoppingTemplate.swift`) plus all
+  `Test*.swift` suites. Never copied into the iOS bundle.
 - `scripts/layout-bench/` — Local document layout analysis benchmark (Python/PyTorch, Windows)
 - `data/layout-bench/` — Test images + ground truth for layout bench (images gitignored)
 - `server/` — Python FastAPI backend (future sync; not needed for single-user persistence)
@@ -21,7 +27,7 @@
   (`recipe-app-appstore-key`) tied to Team `3JR8WTJUV6`.
 - **Build pipeline**: Push to GitHub `master` → Codemagic installs xcodegen, runs
   `xcodegen generate`, then `xcode-project build-ipa` → signed IPA via email.
-- Local testing: Pure Swift models in `Models/` can be compiled with `swiftc` on Windows.
+- Local testing: Pure Swift modules in `SharedLogic/` + `TestFixtures/` can be compiled with `swiftc` on Windows.
 
 ## Identifiers (do not change casually; all safe to commit)
 - **Bundle ID**: `com.seanick80.recipeapp`
@@ -65,7 +71,7 @@ Git hooks in `.githooks/` are auto-installed per-clone with
 
 - `.swift-format` in the repo root is the canonical formatter config
   (4-space indent, 120-col lines, ordered imports).
-- Run `swift-format format -i -r --configuration .swift-format Models RecipeApp/RecipeApp`
+- Run `swift-format format -i -r --configuration .swift-format SharedLogic TestFixtures RecipeApp/RecipeApp`
   to autofix; `./scripts/lint.sh` runs `--mode lint` in CI.
 
 ## Secrets policy
@@ -106,8 +112,9 @@ psql recipe_app < database/seed.sql
 cd server && pytest
 ```
 
-Pure Swift test suites in `Models/`: Recipe (42), Shopping (63), ListParser (57),
-OCR (45), Detection (26), Barcode (22), Pantry (34), GroceryCategorizer (99).
+Pure Swift test suites in `TestFixtures/` (exercising `SharedLogic/` code):
+Recipe (42), Shopping (63), ListParser (57), OCR (45), Detection (26),
+Barcode (22), Pantry (34), GroceryCategorizer (99).
 
 XCTests in `RecipeAppTests/` run on Codemagic simulator before archive:
 - `RecipeModelTests.swift` — SwiftData model init + toggle

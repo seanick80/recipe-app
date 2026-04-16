@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # scripts/test.sh — run all tests runnable on the current host.
 #
-# On Windows: runs the pure-Swift Models/ tests via cmd.exe
+# On Windows: runs the pure-Swift TestFixtures/ tests via cmd.exe
 #   (Git Bash's swiftc invocation fails silently; we must route through cmd).
-# On macOS: runs both Models/ tests and (if Xcode available) xcodebuild tests.
+# On macOS: runs both TestFixtures/ tests and (if Xcode available) xcodebuild tests.
 #
 # Exit code: 0 on success, non-zero on any failure.
 
@@ -20,9 +20,9 @@ err()  { printf '  [test] FAIL: %s\n' "$*" >&2; FAIL=1; }
 echo "==> Testing Recipe App"
 
 # ---------------------------------------------------------------------------
-# 1. Pure-Swift Models/ tests (Windows-compatible)
+# 1. Pure-Swift SharedLogic/ + TestFixtures/ tests (Windows-compatible)
 # ---------------------------------------------------------------------------
-if [[ -f "Models/TestModels.swift" ]]; then
+if [[ -f "TestFixtures/TestModels.swift" ]]; then
     info "Compiling pure-Swift model tests"
     # Note: historical SESSION_STATE claimed swiftc had to be invoked via
     # cmd.exe from Git Bash on Windows; as of Swift 6.2.4 this is no longer
@@ -31,18 +31,43 @@ if [[ -f "Models/TestModels.swift" ]]; then
         MINGW*|MSYS*|CYGWIN*) OUT="test.exe" ;;
         *)                    OUT="test_bin" ;;
     esac
-    SWIFT_SOURCES=(Models/Recipe.swift Models/GroceryItem.swift Models/ShoppingTemplate.swift Models/ListLineParser.swift Models/OCRParser.swift Models/DetectionClassifier.swift Models/BarcodeProductMapper.swift Models/PantryItemMapper.swift Models/GroceryCategorizer.swift Models/ZoneClassifier.swift Models/QualityGate.swift Models/DebugLog.swift Models/TestHelpers.swift Models/TestShopping.swift Models/TestListParser.swift Models/TestOCR.swift Models/TestDetection.swift Models/TestBarcode.swift Models/TestPantry.swift Models/TestGroceryCategorizer.swift Models/TestZoneClassifier.swift Models/TestQualityGate.swift Models/TestDebugLog.swift Models/TestModels.swift)
+    SWIFT_SOURCES=(
+        SharedLogic/ListLineParser.swift
+        SharedLogic/OCRParser.swift
+        SharedLogic/DetectionClassifier.swift
+        SharedLogic/BarcodeProductMapper.swift
+        SharedLogic/PantryItemMapper.swift
+        SharedLogic/GroceryCategorizer.swift
+        SharedLogic/ZoneClassifier.swift
+        SharedLogic/QualityGate.swift
+        SharedLogic/DebugLog.swift
+        TestFixtures/Recipe.swift
+        TestFixtures/GroceryItem.swift
+        TestFixtures/ShoppingTemplate.swift
+        TestFixtures/TestHelpers.swift
+        TestFixtures/TestShopping.swift
+        TestFixtures/TestListParser.swift
+        TestFixtures/TestOCR.swift
+        TestFixtures/TestDetection.swift
+        TestFixtures/TestBarcode.swift
+        TestFixtures/TestPantry.swift
+        TestFixtures/TestGroceryCategorizer.swift
+        TestFixtures/TestZoneClassifier.swift
+        TestFixtures/TestQualityGate.swift
+        TestFixtures/TestDebugLog.swift
+        TestFixtures/TestModels.swift
+    )
     if ! swiftc "${SWIFT_SOURCES[@]}" -o "$OUT" 2>&1; then
         err "swiftc compilation failed"
     else
-        info "Running Models tests"
+        info "Running pure-Swift tests"
         if ! "./$OUT"; then
-            err "Models tests failed"
+            err "pure-Swift tests failed"
         fi
         rm -f "$OUT" test.lib test.exp
     fi
 else
-    info "no Models/TestModels.swift found — skipping pure-Swift tests"
+    info "no TestFixtures/TestModels.swift found — skipping pure-Swift tests"
 fi
 
 # ---------------------------------------------------------------------------

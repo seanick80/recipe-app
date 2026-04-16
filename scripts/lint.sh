@@ -29,13 +29,13 @@ echo "==> Linting Recipe App"
 if command -v swift-format >/dev/null 2>&1; then
     info "swift-format lint on Swift sources"
     if ! swift-format lint --recursive --strict \
-            Models RecipeApp/RecipeApp 2>/dev/null; then
-        err "swift-format found issues (run: swift-format format -i -r Models RecipeApp/RecipeApp)"
+            SharedLogic TestFixtures RecipeApp/RecipeApp 2>/dev/null; then
+        err "swift-format found issues (run: swift-format format -i -r SharedLogic TestFixtures RecipeApp/RecipeApp)"
     fi
 elif swift format --version >/dev/null 2>&1; then
     info "swift format lint on Swift sources"
     if ! swift format lint --recursive --strict \
-            Models RecipeApp/RecipeApp 2>/dev/null; then
+            SharedLogic TestFixtures RecipeApp/RecipeApp 2>/dev/null; then
         err "swift format found issues"
     fi
 else

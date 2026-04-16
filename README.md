@@ -32,7 +32,10 @@ RecipeApp/          SwiftUI iOS app (MVVM + SwiftData)
     Views/          SwiftUI views organized by feature
     ViewModels/     Observable view models
     Services/       API client and local storage (future use)
-Models/             Pure Swift models + tests (compilable on Windows)
+SharedLogic/        Pure-Swift modules shipped into the iOS app (copied into
+                    RecipeApp/RecipeApp/Parsers/ at CI build time)
+TestFixtures/       Windows-only mirrors of SwiftData types + Test*.swift
+                    suites exercising SharedLogic/ code
 server/             Python FastAPI backend
 database/           PostgreSQL schema and seed data
 ```
@@ -43,7 +46,7 @@ Install these locally for full dev workflow (Mac-only tools run on Codemagic, no
 
 | Tool             | Required? | Install                                                          | Purpose                                            |
 | ---------------- | --------- | ---------------------------------------------------------------- | -------------------------------------------------- |
-| Swift toolchain  | yes       | https://www.swift.org/install/ (Swift 6.2+)                      | Compile + run pure-Swift `Models/` tests           |
+| Swift toolchain  | yes       | https://www.swift.org/install/ (Swift 6.2+)                      | Compile + run pure-Swift `SharedLogic/` tests      |
 | Python 3         | yes       | https://www.python.org/downloads/ (3.10+)                        | YAML/XML validation in lint, future backend work   |
 | PyYAML           | yes       | `pip install pyyaml`                                             | Validates `project.yml` and `codemagic.yaml`       |
 | `swift-format`   | yes       | Bundled with Swift toolchain on Windows; `brew install swift-format` on macOS | Lint Swift source code                |
@@ -75,7 +78,7 @@ git config core.hooksPath .githooks
 
 ```bash
 ./scripts/lint.sh             # swift-format + YAML/XML validation + CRLF detection
-./scripts/test.sh             # pure-Swift Models/ tests + (future) pytest
+./scripts/test.sh             # pure-Swift SharedLogic/ + TestFixtures/ tests + (future) pytest
 ```
 
 ### Git hooks
