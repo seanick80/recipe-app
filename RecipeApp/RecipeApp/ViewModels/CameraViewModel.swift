@@ -159,14 +159,8 @@ class CameraViewModel: NSObject {
             // "Tilted" means "not aligned with any of the four cardinal
             // orientations" — not "not portrait". Previously this used bare
             // abs(roll) > threshold, which fired constantly as soon as the
-            // user rotated to landscape. Compute the distance from roll to
-            // the nearest multiple of π/2 (90°) so all four orientations are
-            // treated as equally level.
-            let roll = motion.attitude.roll
-            let quarterTurn = Double.pi / 2
-            let modulo = abs(roll.truncatingRemainder(dividingBy: quarterTurn))
-            let distanceFromCardinal = min(modulo, quarterTurn - modulo)
-
+            // user rotated to landscape. See CameraTilt.distanceFromCardinal.
+            let distanceFromCardinal = CameraTilt.distanceFromCardinal(roll: motion.attitude.roll)
             let tilted = distanceFromCardinal > Self.tiltThreshold
             self.isTooTilted = tilted
             self.tiltWarning = tilted ? "Hold phone more level" : nil
