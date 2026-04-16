@@ -1,11 +1,21 @@
 #!/usr/bin/env bash
 # scripts/generate-signing-identity.sh
 #
-# ONE-TIME CEREMONY. Issues a single long-lived iOS Development signing
-# identity, packages it as a password-protected .p12, and emits a
-# renewal-record markdown file you can save to a password manager or
-# saved email draft. Run this once, then upload the .p12 to Codemagic
-# and forget about it until the cert expires (1 year from issue).
+# ONE-TIME CEREMONY. Issues a single long-lived iOS signing identity
+# (Development OR Distribution), packages it as a password-protected
+# .p12, and emits a renewal-record markdown file you can save to a
+# password manager or saved email draft. Run this once per identity
+# type, upload the .p12 to Codemagic, and forget about it until the
+# cert expires (1 year from issue).
+#
+# Usage:
+#   ./scripts/generate-signing-identity.sh                   # development (default)
+#   ./scripts/generate-signing-identity.sh --type development
+#   ./scripts/generate-signing-identity.sh --type distribution
+#
+# The two types are independent identities on disk and in ASC:
+#   - development → secrets/ios_dev.p12,   uploaded as `ios_development_cert`
+#   - distribution → secrets/ios_dist.p12, uploaded as `ios_distribution_cert`
 #
 # Prerequisites (all handled before this script runs):
 #   - codemagic-cli-tools installed locally (pip install codemagic-cli-tools)
@@ -21,18 +31,68 @@
 #     nobody can reproduce. File-based password sources sidestep all of
 #     that. Create it with your editor directly, or:
 #       printf '%s' 'your-password-here' > secrets/p12_password.txt
+#     The same password file is reused across dev/dist ceremonies; if
+#     you want a per-identity password, rotate the file between runs.
 #
-# Outputs (all in secrets/, all gitignored):
+# Outputs for --type development (all in secrets/, all gitignored):
 #   - ios_dev.key                — RSA private key (delete after .p12 confirmed)
 #   - ios_dev.pem                — issued cert in PEM form (delete after .p12 confirmed)
 #   - ios_dev.p12                — password-protected bundle for Codemagic
 #   - ios_dev_cert_record.md     — renewal metadata (save to password manager/email)
-#   - cert-response.json         — raw ASC API response (delete after .p12 confirmed)
+#   - cert-response-dev.json     — raw ASC API response (delete after .p12 confirmed)
+#
+# Outputs for --type distribution (same shape, `dev` → `dist`):
+#   - ios_dist.key, ios_dist.pem, ios_dist.p12, ios_dist_cert_record.md,
+#   - cert-response-dist.json
 #
 # To rotate: revoke the old cert in the Apple Developer portal, delete
-# secrets/ios_dev.p12, re-run this script.
+# the .p12 for that type, re-run this script with the same --type flag.
 
 set -euo pipefail
+
+# ---------------------------------------------------------------------------
+# Parse --type flag (default: development)
+# ---------------------------------------------------------------------------
+IDENTITY_TYPE="development"
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+        --type)
+            IDENTITY_TYPE="${2:-}"
+            shift 2
+            ;;
+        --type=*)
+            IDENTITY_TYPE="${1#*=}"
+            shift
+            ;;
+        -h|--help)
+            sed -n '2,/^set -euo/p' "$0" | sed 's/^# \{0,1\}//'
+            exit 0
+            ;;
+        *)
+            printf 'ERROR: unknown argument: %s\n' "$1" >&2
+            exit 1
+            ;;
+    esac
+done
+
+case "$IDENTITY_TYPE" in
+    development)
+        PREFIX="dev"
+        HUMAN_TYPE="Development"
+        ASC_CERT_TYPE="IOS_DEVELOPMENT"
+        CODEMAGIC_REF_NAME="ios_development_cert"
+        ;;
+    distribution)
+        PREFIX="dist"
+        HUMAN_TYPE="Distribution"
+        ASC_CERT_TYPE="IOS_DISTRIBUTION"
+        CODEMAGIC_REF_NAME="ios_distribution_cert"
+        ;;
+    *)
+        printf 'ERROR: --type must be development or distribution (got: %s)\n' "$IDENTITY_TYPE" >&2
+        exit 1
+        ;;
+esac
 
 # ---------------------------------------------------------------------------
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
@@ -45,14 +105,14 @@ cd "$REPO_ROOT"
 # Relative paths sidestep the whole translation issue.
 SECRETS_DIR="secrets"
 
-PRIVATE_KEY="$SECRETS_DIR/ios_dev.key"
-CERT_PEM="$SECRETS_DIR/ios_dev.pem"
-P12_PATH="$SECRETS_DIR/ios_dev.p12"
+PRIVATE_KEY="$SECRETS_DIR/ios_${PREFIX}.key"
+CERT_PEM="$SECRETS_DIR/ios_${PREFIX}.pem"
+P12_PATH="$SECRETS_DIR/ios_${PREFIX}.p12"
 P12_PASSWORD_FILE="$SECRETS_DIR/p12_password.txt"
-RESPONSE_JSON="$SECRETS_DIR/cert-response.json"
-RECORD_MD="$SECRETS_DIR/ios_dev_cert_record.md"
+RESPONSE_JSON="$SECRETS_DIR/cert-response-${PREFIX}.json"
+RECORD_MD="$SECRETS_DIR/ios_${PREFIX}_cert_record.md"
 
-COMMON_NAME="iOS Development: Nick Harlson"
+COMMON_NAME="iOS ${HUMAN_TYPE}: Nick Harlson"
 
 # ---------------------------------------------------------------------------
 die() { printf 'ERROR: %s\n' "$*" >&2; exit 1; }
@@ -102,11 +162,11 @@ fi
 # would hit Apple's 1-cert-per-type limit with a 409 and leave us stuck.
 # Reuse the existing response instead.
 if [[ -f "$RESPONSE_JSON" ]]; then
-    info "cert-response.json already exists -> reusing (skipping ASC API create)"
+    info "$RESPONSE_JSON already exists -> reusing (skipping ASC API create)"
 else
-    info "submitting CSR to App Store Connect API"
+    info "submitting CSR to App Store Connect API ($ASC_CERT_TYPE)"
     app-store-connect certificates create \
-        --type IOS_DEVELOPMENT \
+        --type "$ASC_CERT_TYPE" \
         --certificate-key=@file:"$PRIVATE_KEY" \
         --json \
         > "$RESPONSE_JSON"
@@ -120,14 +180,25 @@ info "parsing response."
 # codemagic-cli-tools returns the JSON:API resource object. Attributes
 # of interest: displayName, serialNumber, certificateType, certificateContent
 # (base64-encoded DER), expirationDate, id (cert resource ID).
-python - "$RESPONSE_JSON" "$CERT_PEM" "$RECORD_MD" "$COMMON_NAME" "$P12_PATH" <<'PY'
+python - "$RESPONSE_JSON" "$CERT_PEM" "$RECORD_MD" "$COMMON_NAME" "$P12_PATH" \
+    "$ASC_CERT_TYPE" "$HUMAN_TYPE" "$CODEMAGIC_REF_NAME" "$PREFIX" <<'PY'
 import base64
 import json
 import sys
 import textwrap
 from pathlib import Path
 
-response_path, cert_pem_path, record_path, common_name, p12_path = sys.argv[1:]
+(
+    response_path,
+    cert_pem_path,
+    record_path,
+    common_name,
+    p12_path,
+    asc_cert_type,
+    human_type,
+    codemagic_ref_name,
+    prefix,
+) = sys.argv[1:]
 
 with open(response_path, encoding="utf-8") as f:
     data = json.load(f)
@@ -170,7 +241,7 @@ renewal_window_note = (
     else "Renewal window unknown - check cert expiry in Apple Developer portal."
 )
 
-record = f"""# Recipe App - iOS Development Signing Identity
+record = f"""# Recipe App - iOS {human_type} Signing Identity
 
 **DO NOT COMMIT.** This file is gitignored under `secrets/`.
 
@@ -179,7 +250,7 @@ record = f"""# Recipe App - iOS Development Signing Identity
 | Field | Value |
 | --- | --- |
 | Common Name | {display_name} |
-| Type | IOS_DEVELOPMENT |
+| Type | {asc_cert_type} |
 | Serial Number | {serial} |
 | Expiry | {expiry} |
 | ASC Resource ID | {resource_id} |
@@ -195,19 +266,19 @@ record = f"""# Recipe App - iOS Development Signing Identity
 1. Revoke this cert in Apple Developer portal -> Certificates ->
    find serial `{serial}` -> Revoke.
 2. Remove the expired identity from Codemagic (Teams -> Code signing
-   identities -> `ios_development_cert` -> Delete).
+   identities -> `{codemagic_ref_name}` -> Delete).
 3. Delete the old local artifacts:
-   `rm secrets/ios_dev.p12 secrets/ios_dev_cert_record.md secrets/p12_password.txt`
+   `rm secrets/ios_{prefix}.p12 secrets/ios_{prefix}_cert_record.md secrets/p12_password.txt`
 4. Re-run the ceremony from the repo root:
    ```bash
    source secrets/env.sh
    # Write the new password as raw bytes, no trailing newline. Never go
    # through shell variables — histexpand and friends will corrupt `!`.
    printf '%s' 'NEW-STRONG-PASSWORD-HERE' > secrets/p12_password.txt
-   ./scripts/generate-signing-identity.sh
+   ./scripts/generate-signing-identity.sh --type {human_type.lower()}
    ```
-5. Upload the new `secrets/ios_dev.p12` to Codemagic under the same
-   name `ios_development_cert` so no `codemagic.yaml` changes are needed.
+5. Upload the new `secrets/ios_{prefix}.p12` to Codemagic under the same
+   name `{codemagic_ref_name}` so no `codemagic.yaml` changes are needed.
 6. Save the new renewal record (this file, regenerated) to your
    password manager / saved email.
 
@@ -224,7 +295,7 @@ record = f"""# Recipe App - iOS Development Signing Identity
 ## P12 password
 
 The .p12 password is stored separately in your password manager under
-the entry "Recipe App - iOS Development cert .p12". This file does
+the entry "Recipe App - iOS {human_type} cert .p12". This file does
 NOT contain the password.
 """
 Path(record_path).write_text(record, encoding="utf-8")
@@ -286,11 +357,11 @@ echo "============================================================"
 cat "$RECORD_MD"
 echo ""
 echo "============================================================"
-echo "  NEXT STEPS (task #26)"
+echo "  NEXT STEPS"
 echo "============================================================"
 echo "1. Upload $P12_PATH to Codemagic:"
 echo "   Teams -> Code signing identities -> Upload iOS cert"
-echo "   Reference name: ios_development_cert"
+echo "   Reference name: $CODEMAGIC_REF_NAME"
 echo "   Password: (from your password manager)"
 echo "2. The .p12 password is in: $P12_PASSWORD_FILE"
 echo "   Copy it to Codemagic with:  cat $P12_PASSWORD_FILE"

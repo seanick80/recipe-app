@@ -85,25 +85,31 @@ fi
 if grep -Fq "CODE_SIGNING_ALLOWED=NO" codemagic.yaml; then
     err "codemagic.yaml still has CODE_SIGNING_ALLOWED=NO (remove for device builds)"
 fi
-# Signing uses Codemagic managed signing: environment.ios_signing with
-# distribution_type + bundle_identifier. Codemagic pulls our persistent
-# .p12 (reference: ios_development_cert) from its Code Signing Identities
-# store and fetches/creates a matching provisioning profile via the ASC
-# API integration before scripts run. Certificates-only ios_signing
-# shapes are rejected by Codemagic's schema validator.
+# Signing uses explicit pre-uploaded identities under environment.ios_signing:
+# the persistent IOS_DISTRIBUTION .p12 (reference: ios_distribution_cert)
+# and the matching App Store provisioning profile (reference:
+# ios_distribution_profile). Both are uploaded once to Codemagic's
+# Code Signing Identities / Provisioning Profiles stores and reused
+# across builds. Distribution (not Development) is required because
+# TestFlight rejects dev-signed IPAs at altool upload time.
 #
 # Per-build `certificates create` is forbidden: creating a new cert
-# every build burns a slot in Apple's 1-cert-per-type limit and orphans
-# the old private key on the ephemeral runner. See
+# every build burns a slot in Apple's cert cap and orphans the old
+# private key on the ephemeral runner. See
 # ~/.claude/.../memory/feedback_ci_signing.md for the reasoning.
 if ! grep -Fq "ios_signing:" codemagic.yaml; then
     err "codemagic.yaml missing environment.ios_signing block"
 fi
-if ! grep -Fq "ios_development_cert" codemagic.yaml; then
-    err "codemagic.yaml must reference stored signing identity 'ios_development_cert' under environment.ios_signing.certificates"
+if ! grep -Fq "ios_distribution_cert" codemagic.yaml; then
+    err "codemagic.yaml must reference stored signing identity 'ios_distribution_cert' under environment.ios_signing.certificates"
 fi
-if ! grep -Fq "ios_development_profile" codemagic.yaml; then
-    err "codemagic.yaml must reference stored provisioning profile 'ios_development_profile' under environment.ios_signing.provisioning_profiles"
+if ! grep -Fq "ios_distribution_profile" codemagic.yaml; then
+    err "codemagic.yaml must reference stored provisioning profile 'ios_distribution_profile' under environment.ios_signing.provisioning_profiles"
+fi
+# Regression guard: don't let a future edit accidentally re-introduce
+# Development signing (which would break TestFlight publish again).
+if grep -Eq '^\s*-\s*ios_development_(cert|profile)\s*$' codemagic.yaml; then
+    err "codemagic.yaml references ios_development_cert / ios_development_profile in a signing list — Distribution-only for TestFlight builds"
 fi
 if ! grep -Fq "provisioning_profiles:" codemagic.yaml; then
     err "codemagic.yaml missing environment.ios_signing.provisioning_profiles list"

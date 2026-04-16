@@ -12,29 +12,30 @@ workflows:
       # config (URLs, flags) here rather than hardcoding in yaml.
       groups:
         - recipe_app_notifications
-      # Explicit manual code signing. Both the iOS Development cert
-      # and the matching provisioning profile are pre-uploaded to
-      # Codemagic's Code Signing Identities / Provisioning Profiles
-      # stores and referenced by name here. Codemagic loads them into
-      # the build keychain before scripts run.
+      # Explicit manual code signing with App Store Distribution identities.
+      # Both the iOS Distribution cert and the matching App Store
+      # provisioning profile are pre-uploaded to Codemagic's Code Signing
+      # Identities / Provisioning Profiles stores and referenced by name
+      # here. Codemagic loads them into the build keychain before scripts
+      # run. Distribution (not Development) is required because TestFlight
+      # rejects dev-signed IPAs at altool upload time.
       #
-      # - ios_development_cert:    issued by scripts/generate-signing-identity.sh
-      #                            (ASC resource 3QHBXMYCGH, expires 2027-04-11)
-      # - ios_development_profile: created by `app-store-connect profiles create`
-      #                            against Bundle ID 4586SWVUT3 (ASC resource
-      #                            U3BL9G576X, expires 2027-04-11). Includes
-      #                            device R42YWH9Q22 (Nick's iPhone).
+      # - ios_distribution_cert:    issued by
+      #                             `scripts/generate-signing-identity.sh --type distribution`
+      # - ios_distribution_profile: created by
+      #                             `scripts/generate-distribution-profile.sh`
+      #                             (type IOS_APP_STORE, bound to the cert above)
       #
-      # Codemagic's managed signing (distribution_type+bundle_identifier)
-      # was tried first and failed with "No matching profiles found"
-      # because managed signing only fetches pre-uploaded profiles, it
-      # does not create new ones via ASC. See secrets/ios_dev_cert_record.md
-      # for cert + profile renewal procedures.
+      # An ios_development_cert + ios_development_profile pair also exists
+      # in Codemagic for historical reasons (sideloadable dev builds).
+      # They are not referenced here — TestFlight is now the only
+      # distribution channel. See secrets/ios_dist_cert_record.md for
+      # cert + profile renewal procedures.
       ios_signing:
         provisioning_profiles:
-          - ios_development_profile
+          - ios_distribution_profile
         certificates:
-          - ios_development_cert
+          - ios_distribution_cert
       xcode: latest
       cocoapods: default
     triggering:
