@@ -1,4 +1,4 @@
-import AVFoundation
+@preconcurrency import AVFoundation
 import Combine
 import CoreMotion
 import SwiftUI
@@ -6,8 +6,15 @@ import UIKit
 
 /// Manages the camera session for scanning features (barcode, OCR, pantry photos).
 /// Provides real-time video feed, photo capture, and device coaching (tilt, brightness).
+///
+/// Marked `@unchecked Sendable` because this class deliberately spans multiple
+/// concurrency domains (main actor for UI state, `sessionQueue` for AVCapture
+/// configuration, a private delegate queue for video frames). All main-thread
+/// state mutations are wrapped in `Task { @MainActor in ... }`; AV session
+/// state is only touched from `sessionQueue`. The compiler can't verify this
+/// discipline, so we assert it manually.
 @Observable
-class CameraViewModel: NSObject {
+final class CameraViewModel: NSObject, @unchecked Sendable {
     // MARK: - Published State
 
     var isSessionRunning = false
@@ -182,7 +189,7 @@ class CameraViewModel: NSObject {
             object: nil,
             queue: .main
         ) { [weak self] _ in
-            Task { @MainActor in self?.refreshBufferOrientation() }
+            Task { @MainActor [weak self] in self?.refreshBufferOrientation() }
         }
     }
 

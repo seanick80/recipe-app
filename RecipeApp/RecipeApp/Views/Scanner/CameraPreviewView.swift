@@ -28,6 +28,7 @@ struct CameraPreviewView: UIViewRepresentable {
         coordinator.detach()
     }
 
+    @MainActor
     final class Coordinator {
         private var observer: NSObjectProtocol?
         private weak var view: PreviewUIView?
@@ -36,13 +37,20 @@ struct CameraPreviewView: UIViewRepresentable {
             self.view = view
             UIDevice.current.beginGeneratingDeviceOrientationNotifications()
             applyCurrentRotation(to: view)
+            // NotificationCenter's closure is nonisolated `@Sendable`, but the
+            // observer is registered on `.main`, so the body runs on the main
+            // thread. `MainActor.assumeIsolated` is the correct escape hatch
+            // for calling back into our main-actor Coordinator from that
+            // closure without spawning a Task hop.
             observer = NotificationCenter.default.addObserver(
                 forName: UIDevice.orientationDidChangeNotification,
                 object: nil,
                 queue: .main
             ) { [weak self] _ in
-                guard let self, let view = self.view else { return }
-                self.applyCurrentRotation(to: view)
+                MainActor.assumeIsolated {
+                    guard let self, let view = self.view else { return }
+                    self.applyCurrentRotation(to: view)
+                }
             }
         }
 
@@ -51,13 +59,10 @@ struct CameraPreviewView: UIViewRepresentable {
                 NotificationCenter.default.removeObserver(observer)
             }
             observer = nil
-            // `UIDevice.current` is main-actor-isolated in iOS 17+; dismantleUIView
-            // runs on the main actor per SwiftUI's contract so the direct call is fine.
             UIDevice.current.endGeneratingDeviceOrientationNotifications()
             view = nil
         }
 
-        @MainActor
         func applyCurrentRotation(to view: PreviewUIView) {
             guard let connection = view.previewLayer.connection else { return }
             let angle = CameraRotation.videoRotationAngle()
