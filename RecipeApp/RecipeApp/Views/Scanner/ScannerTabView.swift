@@ -300,30 +300,7 @@ struct ScanReviewSheet: View {
                     List {
                         Section("Found \(items.filter(\.included).count) items") {
                             ForEach(items) { item in
-                                HStack {
-                                    Button {
-                                        processor.toggleItem(id: item.id)
-                                    } label: {
-                                        Image(systemName: item.included ? "checkmark.circle.fill" : "circle")
-                                            .foregroundStyle(item.included ? Color.accentColor : .gray)
-                                    }
-                                    .buttonStyle(.plain)
-
-                                    VStack(alignment: .leading) {
-                                        TextField(
-                                            "Item name",
-                                            text: Binding(
-                                                get: { item.name },
-                                                set: { processor.updateItemName(id: item.id, name: $0) }
-                                            )
-                                        )
-                                        if item.quantity > 0 && (item.quantity != 1 || !item.unit.isEmpty) {
-                                            Text("\(formatQuantity(item.quantity)) \(item.unit)")
-                                                .font(.caption)
-                                                .foregroundStyle(.secondary)
-                                        }
-                                    }
-                                }
+                                ScanReviewItemRow(item: item, processor: processor)
                             }
                         }
                     }
@@ -392,6 +369,62 @@ struct ScanReviewSheet: View {
             ingredients: ingredients
         )
         modelContext.insert(recipe)
+    }
+
+    private func formatQuantity(_ qty: Double) -> String {
+        if qty == Double(Int(qty)) { return "\(Int(qty))" }
+        return String(format: "%.1f", qty)
+    }
+}
+
+// MARK: - Scan Review Item Row
+
+/// One editable row in `ScanReviewSheet`. Owns local `@State` for the edit
+/// buffer so the TextField keeps its in-flight value between re-renders
+/// (GM-8: the old inline `Binding(get:set:)` captured a stale `ParsedItem`
+/// by value and reverted edits on focus loss).
+private struct ScanReviewItemRow: View {
+    let item: ScanProcessor.ParsedItem
+    @Bindable var processor: ScanProcessor
+    @State private var editedName: String = ""
+    @FocusState private var isFocused: Bool
+
+    var body: some View {
+        HStack {
+            Button {
+                processor.toggleItem(id: item.id)
+            } label: {
+                Image(systemName: item.included ? "checkmark.circle.fill" : "circle")
+                    .foregroundStyle(item.included ? Color.accentColor : .gray)
+            }
+            .buttonStyle(.plain)
+
+            VStack(alignment: .leading) {
+                TextField("Item name", text: $editedName)
+                    .focused($isFocused)
+                    .onAppear { editedName = item.name }
+                    .onChange(of: item.name) { _, newValue in
+                        // Keep local buffer in sync if the underlying item
+                        // changes from elsewhere (e.g. processor.reset()).
+                        if !isFocused { editedName = newValue }
+                    }
+                    .onSubmit { commit() }
+                    .onChange(of: isFocused) { _, focused in
+                        if !focused { commit() }
+                    }
+                if item.quantity > 0 && (item.quantity != 1 || !item.unit.isEmpty) {
+                    Text("\(formatQuantity(item.quantity)) \(item.unit)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+        }
+    }
+
+    private func commit() {
+        let trimmed = editedName.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty, trimmed != item.name else { return }
+        processor.updateItemName(id: item.id, name: trimmed)
     }
 
     private func formatQuantity(_ qty: Double) -> String {

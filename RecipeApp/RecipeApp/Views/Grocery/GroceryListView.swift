@@ -122,6 +122,7 @@ struct GroceryListDetailView: View {
     @Bindable var groceryList: GroceryList
     @State private var showingAddItem = false
     @State private var editingItem: GroceryItem?
+    @State private var showingClearAllConfirm = false
 
     var categorizedItems: [(String, [GroceryItem])] {
         let allItems = groceryList.items ?? []
@@ -182,6 +183,28 @@ struct GroceryListDetailView: View {
                 }
                 .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Button(role: .destructive) {
+                    showingClearAllConfirm = true
+                } label: {
+                    Label("Clear All", systemImage: "trash.slash")
+                }
+                .disabled((groceryList.items ?? []).isEmpty)
+            }
+        }
+        .confirmationDialog(
+            "Clear all items from \(groceryList.name)?",
+            isPresented: $showingClearAllConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Clear All Items", role: .destructive) {
+                for item in groceryList.items ?? [] {
+                    modelContext.delete(item)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This permanently removes every item in the list. The list itself stays.")
         }
         .sheet(isPresented: $showingAddItem) {
             AddGroceryItemView(groceryList: groceryList)

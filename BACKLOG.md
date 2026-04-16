@@ -33,6 +33,80 @@ at least catches regressions pre-delivery.
 
 ---
 
+## Scanner UX follow-ups
+
+These were noticed during dogfooding after GM-6/7/8 landed (2026-04-16).
+None are crash bugs — they're UX papercuts where the current behavior is
+"wrong shape" rather than broken.
+
+### Recipe-in-shopping-scan detection
+**Problem**: When the user photographs a recipe but fires it from the
+"Scan Shopping List" button, the OCR text obviously looks like a recipe
+(has "Ingredients:", "Method:", step numbers, etc.), but it gets jammed
+through the shopping-list parser anyway. The resulting grocery list is
+mostly garbage tokens from the method paragraphs.
+
+**Direction**: After OCR, peek at the text before choosing a parser.
+`QualityGate.sectionFromHeader` already recognizes recipe section
+headers — reuse that. If >= 2 recipe-shape markers are present in a
+shopping-list scan, surface a "This looks like a recipe — switch to
+Recipe mode?" prompt in the review sheet rather than just showing
+parser garbage.
+
+**Priority**: Medium. Real recipes fail silently today.
+
+### Per-tab scan button instead of global Scan tab
+**Problem**: The Scan tab is a hub that asks "what are you scanning?"
+before you've picked a list / recipe / pantry. Users land on a grocery
+list, want to scan into *that* list, and have to: leave the list →
+Scan tab → pick mode → then the list picker at the bottom defaults to
+"some list" which may not be the one they came from.
+
+**Direction**: Put scan buttons on the views that own the data:
+- Shopping list detail → "Scan into this list" (OCR + barcode)
+- Recipe list → "Scan recipe" (OCR only, mode=.recipe)
+- Pantry → "Scan pantry" (already has camera button in PantryView)
+
+The Scan tab stays as a fallback / debug surface for the scan log.
+
+**Priority**: Low-Medium. Current flow works, just takes extra taps.
+
+### Food-101 classifier is the wrong model for pantries
+**Problem**: The shipped `FoodClassifier.mlpackage` is a fine-tune of
+Food-101 ViT, whose 101 classes are all *plated dishes* ("baklava",
+"beef carpaccio", "huevos rancheros"). Photographing a pantry shelf
+shows tomato cans and cereal boxes and the model confidently picks a
+plated-dish label at 100%+ confidence. GM-7 clamped the display to
+100%, but the underlying "plated dish for raw pantry goods" problem
+remains.
+
+**Direction**: See "YOLOv3 — pantry object detection" section below.
+YOLOv3's COCO classes are also a poor match (only ~8 overlap with
+real pantry stock), so the honest answer is probably a fine-tuned
+detector on a grocery-store vocabulary. Until that's trained, the
+pantry scan feature should be marked experimental in the UI.
+
+**Priority**: Blocked on model work. Cosmetic fix (experimental
+badge) is cheap; real fix (new model) is a significant project.
+
+### Post-OCR text correction for common misreads
+**Problem**: Handwritten-list scans produce items like "E995" (should
+be "Eggs"), "Milz" (Milk), "Bbanana" (Banana). Current pipeline
+trusts Vision output verbatim and then runs `GroceryCategorizer`,
+which can't categorize these garbled tokens so they land in "Other".
+
+**Direction**: After `parseShoppingListText`, run each item name
+through a lightweight fuzzy match against `GroceryCategorizer`'s
+known-items vocabulary (edit distance 1-2, prefer exact substring
+matches). Surface corrections in the review sheet with a subtle
+"Did you mean X?" affordance rather than auto-replacing, so the
+user stays in control.
+
+**Priority**: Medium. This is the main reason handwritten-list scans
+feel "almost working but not quite".
+
+---
+
 ## On-device models to evaluate
 
 Both are listed in Apple's public CoreML model gallery, so they have

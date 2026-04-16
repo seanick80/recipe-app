@@ -145,6 +145,87 @@ func testParseUnitVariants() {
     checkEqual(r4!.unit, "bag", "bags → bag")
 }
 
+// MARK: - Fused Quantity+Unit (GM-6)
+//
+// Recipes commonly glue the number and unit together ("150g flour",
+// "60ml oil", "200g bacon") — the old parser defaulted these to
+// quantity=1 and jammed the fused token into the name.
+
+func testParseFusedGrams() {
+    let r = parseListLine("150g flour")
+    check(r != nil, "Fused grams parses")
+    checkEqual(r!.quantity, 150, "Fused grams quantity")
+    checkEqual(r!.unit, "g", "Fused grams unit")
+    checkEqual(r!.name, "flour", "Fused grams name")
+}
+
+func testParseFusedMilliliters() {
+    let r = parseListLine("60ml vegetable oil")
+    check(r != nil, "Fused ml parses")
+    checkEqual(r!.quantity, 60, "Fused ml quantity")
+    checkEqual(r!.unit, "ml", "Fused ml unit")
+    checkEqual(r!.name, "vegetable oil", "Fused ml name")
+}
+
+func testParseFusedWithAlternateUnitInParens() {
+    // Real-world zucchini-slice recipe line: "150g (1 cup) White Self Raising Flour, sifted"
+    let r = parseListLine("150g (1 cup) White Self Raising Flour, sifted")
+    check(r != nil, "Fused+paren parses")
+    checkEqual(r!.quantity, 150, "Fused+paren quantity picks outer metric value")
+    checkEqual(r!.unit, "g", "Fused+paren unit is g, not cup")
+    // The alternate unit in parens stays in the name — acceptable; better than
+    // dropping the "1 cup" hint entirely.
+    check(
+        r!.name.contains("White Self Raising Flour"),
+        "Fused+paren name preserves the actual ingredient"
+    )
+}
+
+func testParseFusedKg() {
+    let r = parseListLine("1.5kg potatoes")
+    check(r != nil, "Fused kg parses decimals")
+    checkEqual(r!.quantity, 1.5, "Fused kg decimal quantity")
+    checkEqual(r!.unit, "kg", "Fused kg unit")
+}
+
+func testParseFusedOz() {
+    let r = parseListLine("8oz cream cheese")
+    check(r != nil, "Fused oz parses")
+    checkEqual(r!.quantity, 8, "Fused oz quantity")
+    checkEqual(r!.unit, "oz", "Fused oz unit")
+    checkEqual(r!.name, "cream cheese", "Fused oz name")
+}
+
+func testParseBareNumberStillWinsOverFused() {
+    // "2g" would fuse-parse as qty=2, unit=g — but the space-separated
+    // "2 g something" case is unaffected.
+    let r = parseListLine("2 g sugar")
+    check(r != nil, "Bare 2 + g token still works")
+    checkEqual(r!.quantity, 2, "Bare 2 quantity")
+    // "g" is not in knownUnits (short-form not tracked there), so it
+    // lands as part of the name. That's the same behavior as before —
+    // important that fused-unit logic didn't disturb it.
+    checkEqual(r!.name, "g sugar", "Space-separated short unit unchanged")
+}
+
+func testParseFusedIgnoredWhenNotFused() {
+    // Token "grams" should not be treated as a unit.
+    let r = parseListLine("grams of truth")
+    check(r != nil, "Non-fused word starting with g parses")
+    checkEqual(r!.quantity, 1, "Non-fused quantity defaults to 1")
+    checkEqual(r!.unit, "", "Non-fused has no unit")
+    checkEqual(r!.name, "grams of truth", "Non-fused name preserved")
+}
+
+func testParseFusedWithTrailingPunctuation() {
+    // OCR / comma-separated lists often stick punctuation on the quantity.
+    let r = parseListLine("375g, zucchini, grated")
+    check(r != nil, "Fused+trailing comma parses")
+    checkEqual(r!.quantity, 375, "Fused+comma quantity")
+    checkEqual(r!.unit, "g", "Fused+comma unit")
+    check(r!.name.contains("zucchini"), "Fused+comma name preserved")
+}
+
 // MARK: - Test Runner
 
 func runListParserTests() -> Bool {
@@ -166,6 +247,14 @@ func runListParserTests() -> Bool {
     testParseMultiLineText()
     testParseTrailingPunctuation()
     testParseUnitVariants()
+    testParseFusedGrams()
+    testParseFusedMilliliters()
+    testParseFusedWithAlternateUnitInParens()
+    testParseFusedKg()
+    testParseFusedOz()
+    testParseBareNumberStillWinsOverFused()
+    testParseFusedIgnoredWhenNotFused()
+    testParseFusedWithTrailingPunctuation()
 
     return printTestSummary("List Parser Tests")
 }

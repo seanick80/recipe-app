@@ -105,6 +105,12 @@ func parseListLine(_ rawLine: String) -> ParsedListItem? {
     if let firstNum = parseQuantityToken(tokens[0]) {
         quantity = firstNum
         startIndex = 1
+    } else if let fused = parseFusedQuantityUnit(tokens[0]) {
+        // Handles tokens like "150g", "60ml", "2oz" where OCR / recipe
+        // formatting has glued the number and unit with no space.
+        quantity = fused.quantity
+        unit = fused.unit
+        startIndex = 1
     }
 
     // Check for "x3" or "×3" suffix at end of line
@@ -179,6 +185,48 @@ func parseQuantityToken(_ token: String) -> Double? {
     }
 
     return nil
+}
+
+/// Metric/imperial units that commonly appear fused to their quantity
+/// in printed recipes (e.g. "150g", "60ml", "2oz"). Only the short-form
+/// mass/volume units are recognized in fused form — word units like
+/// "cup" or "tbsp" are left to the space-separated path so ambiguous
+/// tokens like "cups" aren't misparsed.
+private let fusedUnitCanonicalForms: [String: String] = [
+    "g": "g", "kg": "kg",
+    "mg": "mg",
+    "ml": "ml", "l": "l",
+    "oz": "oz", "lb": "lb", "lbs": "lb",
+]
+
+/// Attempts to split a single fused token like "150g" or "60ml" into a
+/// quantity and unit. Returns nil if the token doesn't match
+/// `<number><short-unit>` exactly (trailing punctuation like a comma is
+/// ignored so "375g," still parses).
+func parseFusedQuantityUnit(_ token: String) -> (quantity: Double, unit: String)? {
+    // Strip trailing punctuation the ingredient line may have attached.
+    let trimmed = token.trimmingCharacters(in: CharacterSet(charactersIn: ",.;:"))
+    guard !trimmed.isEmpty else { return nil }
+
+    // Find the boundary between the numeric prefix and the alpha suffix.
+    var splitIndex = trimmed.startIndex
+    for ch in trimmed {
+        if ch.isNumber || ch == "." {
+            splitIndex = trimmed.index(after: splitIndex)
+        } else {
+            break
+        }
+    }
+    guard splitIndex > trimmed.startIndex, splitIndex < trimmed.endIndex else {
+        return nil
+    }
+
+    let numPart = String(trimmed[trimmed.startIndex..<splitIndex])
+    let unitPart = String(trimmed[splitIndex...]).lowercased()
+
+    guard let qty = Double(numPart), qty > 0 else { return nil }
+    guard let canonical = fusedUnitCanonicalForms[unitPart] else { return nil }
+    return (qty, canonical)
 }
 
 /// Parses trailing multiplier like "x3", "×2"

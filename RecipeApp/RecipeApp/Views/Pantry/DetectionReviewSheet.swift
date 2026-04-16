@@ -67,7 +67,7 @@ struct DetectionReviewSheet: View {
                                     .foregroundStyle(.secondary)
                                     .strikethrough()
                                 Spacer()
-                                Text("\(Int(item.confidence * 100))%")
+                                Text("\(Int(min(item.confidence, 1.0) * 100))%")
                                     .font(.caption2)
                                     .foregroundStyle(.red)
                                 Button {
@@ -173,7 +173,10 @@ struct DetectionItemRow: View {
                         .background(.blue.opacity(0.12))
                         .clipShape(Capsule())
 
-                    Text("\(Int(item.confidence * 100))%")
+                    // Raw CoreML confidences from Vision aren't always
+                    // softmax-normalized (see GM-7) — clamp before
+                    // rendering so the label is a real percentage.
+                    Text("\(Int(min(item.confidence, 1.0) * 100))%")
                         .font(.caption2)
                         .foregroundStyle(confidenceColor)
                 }
