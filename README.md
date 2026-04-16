@@ -25,19 +25,17 @@ A full-stack recipe and grocery list iOS app with local-first architecture.
 
 ## Project Structure
 
+Full layout and rationale: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
+Unscheduled ideas and explicit not-plans: [`BACKLOG.md`](BACKLOG.md).
+
 ```
 RecipeApp/          SwiftUI iOS app (MVVM + SwiftData)
-  RecipeApp/
-    Models/         SwiftData models (Recipe, Ingredient, GroceryList, GroceryItem)
-    Views/          SwiftUI views organized by feature
-    ViewModels/     Observable view models
-    Services/       API client and local storage (future use)
-SharedLogic/        Pure-Swift modules shipped into the iOS app (copied into
-                    RecipeApp/RecipeApp/Parsers/ at CI build time)
-TestFixtures/       Windows-only mirrors of SwiftData types + Test*.swift
-                    suites exercising SharedLogic/ code
-server/             Python FastAPI backend
-database/           PostgreSQL schema and seed data
+SharedLogic/        Pure-Swift modules shipped into the iOS app (copied
+                    into RecipeApp/RecipeApp/Parsers/ at CI build time)
+TestFixtures/       Windows-only test suites exercising SharedLogic/
+scripts/            build/test/lint + layout-bench
+server/             FastAPI skeleton (not deployed; future work)
+database/           PostgreSQL schema and seed data (not used by iOS today)
 ```
 
 ## Required Tools
@@ -122,12 +120,11 @@ This feature will be removed before any public/App Store release.
 
 ## Status
 
-- [x] Phase 1A: Environment setup + GitHub repo
-- [x] Phase 1B: Pure Swift model validation on Windows
-- [x] Phase 1C: SwiftUI Recipe views (list, detail, edit)
-- [x] Phase 1D: SwiftUI Grocery views (lists, items, generate from recipes)
-- [~] Phase 1E: Apple Developer Program + Codemagic CI + CloudKit + first device build (in progress — awaiting UDID registration)
-- [ ] Phase 2: Backend server + database
-- [ ] Phase 3: Meal planning + calendar
-- [ ] Phase 4: Pantry + camera features
-- [ ] Phase 5: Spouse voting + sharing
+Working single-user iOS build, signed and installing over the air via
+Codemagic. Scanner tab supports shopping-list OCR, recipe OCR (with
+section-header routing), barcode scanning, and pantry photo capture
+(CoreML Food-101 classifier). Multi-device CloudKit sync works against
+the user's private iCloud zone.
+
+See [`BACKLOG.md`](BACKLOG.md) for what's next and what's explicitly
+out of scope.

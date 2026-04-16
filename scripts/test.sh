@@ -24,9 +24,9 @@ echo "==> Testing Recipe App"
 # ---------------------------------------------------------------------------
 if [[ -f "TestFixtures/TestModels.swift" ]]; then
     info "Compiling pure-Swift model tests"
-    # Note: historical SESSION_STATE claimed swiftc had to be invoked via
-    # cmd.exe from Git Bash on Windows; as of Swift 6.2.4 this is no longer
-    # true — direct invocation works on Windows, macOS, and Linux.
+    # Note: earlier dev logs claimed swiftc had to be invoked via cmd.exe
+    # from Git Bash on Windows; as of Swift 6.2.4 this is no longer true —
+    # direct invocation works on Windows, macOS, and Linux.
     case "$(uname -s)" in
         MINGW*|MSYS*|CYGWIN*) OUT="test.exe" ;;
         *)                    OUT="test_bin" ;;
