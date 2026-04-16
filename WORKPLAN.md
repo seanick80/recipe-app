@@ -150,26 +150,27 @@ For detailed architecture decisions and rationale, see `ARCHITECTURE_PROPOSAL.md
 - [x] DiT/DETR model (DocLayNet): needs better checkpoint, currently non-functional
 - [x] Visualization: color-coded bounding box overlays + side-by-side comparison
 - [x] 15 test images from personal cookbook + web recipes
-- [ ] Improve block merging (too many per-line fragments on dense pages)
-- [ ] Margin note / handwriting filtering (zucchini_slice: scaling notes imported as content)
-- [ ] Image quality gate: low OCR confidence → "retake" prompt instead of ingesting garbage
+- [x] Improve block merging (column-aware merge + adaptive consolidation)
+- [x] Margin note / handwriting filtering (multi-signal detection: confidence + position + size)
+- [x] Image quality gate: low OCR confidence → "retake" prompt instead of ingesting garbage
 - [ ] Multi-component recipe support (sub-recipes with own ingredients + assembly block)
 - [ ] Integrate winning approach into iOS `ScanProcessor` pipeline
 
-**Benchmark findings (2026-04-15):**
+**Benchmark findings (2026-04-15, updated 2026-04-16):**
 - `ocr-classify` is the most promising approach — content-based classification gets
   ingredients/instructions right on clean layouts (chocChip, ricotta_ravioli, sheetpan_chicken)
-- Dense two-column cookbook spreads (sichuan_fish) overwhelm per-line OCR — need better
-  block merging or column detection
-- Rotated/angled pages (habanero_jelly) need a quality gate, not better parsing
-- Handwritten margin notes (zucchini_slice) classified as other/title — correct, but the
-  iOS OCR pipeline doesn't use zone classification at all yet
+- Column-aware merging + adaptive consolidation reduces region count by 60-80% (e.g.
+  sichuan_fish: 163 → 46 regions). Clean recipes hit 6-11 zones.
+- Quality gate correctly flags cursive (22% confidence) and habanero_jelly (32% confidence)
+  for retake while passing clean scans
+- Handwriting detection (3+ signal threshold: low confidence + margin position + size anomaly)
+  correctly identifies margin notes on sheetpan_chicken while avoiding false positives
 - Cursive handwriting is out of scope for now (EasyOCR can't read it)
 
 **Priority test images (personal cookbook from sister-in-law):**
-- `habanero_jelly.jpg` — rotated text, needs quality gate
-- `sheetpan_chicken.jpg` — "Anna's Marathon Chicken Bake", two-column, works well
-- `zucchini_slice.jpg` — margin notes problem, core motivating use case
+- `habanero_jelly.jpg` — rotated text, correctly caught by quality gate (RETAKE)
+- `sheetpan_chicken.jpg` — "Anna's Marathon Chicken Bake", two-column, works well (16 regions)
+- `zucchini_slice.jpg` — margin notes problem, core motivating use case (not in current set)
 
 ### CI/Build Infrastructure Updates (during Phase 2)
 - [x] Codemagic XCTest results piped to separate `xctest.log` artifact

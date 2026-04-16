@@ -16,6 +16,7 @@ LABEL_COLORS: dict[RegionLabel, str] = {
     RegionLabel.INGREDIENTS: "#4CAF50",   # green
     RegionLabel.INSTRUCTIONS: "#FF9800",  # orange
     RegionLabel.METADATA: "#9C27B0",      # purple
+    RegionLabel.HANDWRITTEN: "#795548",   # brown
     RegionLabel.OTHER: "#F44336",         # red
 }
 

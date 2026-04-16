@@ -15,6 +15,7 @@ class RegionLabel(enum.Enum):
     INGREDIENTS = "ingredients"
     INSTRUCTIONS = "instructions"
     METADATA = "metadata"  # servings, prep time, cook time, etc.
+    HANDWRITTEN = "handwritten"  # margin notes, annotations, scaling marks
     OTHER = "other"  # phone numbers, ads, page numbers, stray notes
 
 
@@ -53,8 +54,27 @@ class LayoutResult:
         return [r for r in self.regions if r.label == RegionLabel.TITLE]
 
     @property
+    def handwritten(self) -> list[Region]:
+        return [r for r in self.regions if r.label == RegionLabel.HANDWRITTEN]
+
+    @property
     def junk(self) -> list[Region]:
         return [r for r in self.regions if r.label == RegionLabel.OTHER]
+
+
+@dataclass
+class QualityAssessment:
+    """Image quality assessment for the quality gate."""
+
+    median_confidence: float  # median OCR confidence across all detections
+    low_confidence_ratio: float  # fraction of lines below 0.5 confidence
+    estimated_rotation: float  # degrees, 0 = upright
+    is_acceptable: bool  # True if image is good enough to parse
+    reason: str = ""  # why it was rejected (empty if acceptable)
+
+    @property
+    def should_retake(self) -> bool:
+        return not self.is_acceptable
 
 
 class LayoutModel(Protocol):

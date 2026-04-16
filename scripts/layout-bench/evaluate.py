@@ -26,7 +26,7 @@ SCRIPT_DIR = Path(__file__).resolve().parent
 sys.path.insert(0, str(SCRIPT_DIR))
 
 from models import MODELS  # noqa: E402 — lightweight, no heavy deps
-from models.base import LayoutResult, Region  # noqa: E402
+from models.base import LayoutResult, QualityAssessment, Region  # noqa: E402
 
 
 def _check_deps() -> None:
@@ -61,24 +61,35 @@ def find_images(image_dir: Path) -> list[Path]:
     return images
 
 
-def run_model(model_name: str, image_path: Path) -> LayoutResult:
-    """Run a single model on a single image and return results."""
+def run_model(
+    model_name: str,
+    image_path: Path,
+    max_regions: int = 10,
+) -> tuple[LayoutResult, QualityAssessment | None]:
+    """Run a single model on a single image and return results + quality."""
     from models import get_model
     from PIL import Image
 
     model = get_model(model_name)
+    # Pass max_regions to models that support consolidation.
+    if hasattr(model, "max_regions"):
+        model.max_regions = max_regions
     image = Image.open(image_path).convert("RGB")
 
     t0 = time.perf_counter()
     regions = model.analyze(image)
     elapsed_ms = (time.perf_counter() - t0) * 1000
 
-    return LayoutResult(
+    # Extract quality assessment if the model provides one.
+    quality = getattr(model, "quality_assessment", None)
+
+    result = LayoutResult(
         image_path=str(image_path),
         regions=regions,
         elapsed_ms=elapsed_ms,
         model_name=model_name,
     )
+    return result, quality
 
 
 def load_ground_truth(image_path: Path) -> list[dict] | None:
@@ -161,7 +172,11 @@ def _compute_iou(
     return intersection / union if union > 0 else 0.0
 
 
-def result_to_dict(result: LayoutResult, metrics: dict | None = None) -> dict:
+def result_to_dict(
+    result: LayoutResult,
+    metrics: dict | None = None,
+    quality: QualityAssessment | None = None,
+) -> dict:
     """Serialize a LayoutResult to a JSON-safe dict."""
     d: dict = {
         "image": result.image_path,
@@ -180,18 +195,40 @@ def result_to_dict(result: LayoutResult, metrics: dict | None = None) -> dict:
     }
     if metrics:
         d["metrics"] = metrics
+    if quality:
+        d["quality"] = {
+            "median_confidence": round(quality.median_confidence, 3),
+            "low_confidence_ratio": round(quality.low_confidence_ratio, 3),
+            "estimated_rotation": round(quality.estimated_rotation, 1),
+            "is_acceptable": quality.is_acceptable,
+            "reason": quality.reason,
+        }
     return d
 
 
-def print_summary(all_results: list[tuple[LayoutResult, dict | None]]) -> None:
+def print_summary(
+    all_results: list[tuple[LayoutResult, dict | None, QualityAssessment | None]],
+) -> None:
     """Print a human-readable summary table."""
     print("\n" + "=" * 72)
     print("LAYOUT ANALYSIS RESULTS")
     print("=" * 72)
 
-    for result, metrics in all_results:
+    for result, metrics, quality in all_results:
         stem = Path(result.image_path).stem
         print(f"\n  {stem} [{result.model_name}] — {result.elapsed_ms:.0f}ms")
+
+        # Quality gate.
+        if quality:
+            status = "OK" if quality.is_acceptable else "RETAKE"
+            print(
+                f"    quality: {status}"
+                f" (conf={quality.median_confidence:.0%},"
+                f" rotation={quality.estimated_rotation:.1f}°,"
+                f" low={quality.low_confidence_ratio:.0%})"
+            )
+            if quality.reason:
+                print(f"    reason: {quality.reason}")
 
         # Count by label.
         label_counts: dict[str, int] = {}
@@ -239,6 +276,12 @@ def main() -> None:
         action="store_true",
         help="Generate side-by-side comparison images",
     )
+    parser.add_argument(
+        "--max-regions",
+        type=int,
+        default=10,
+        help="Target max regions per image (consolidation stops here)",
+    )
     args = parser.parse_args()
 
     # Check dependencies before doing real work.
@@ -267,7 +310,7 @@ def main() -> None:
     print(f"Models:  {', '.join(model_names)}")
     print(f"Output:  {output_dir}")
 
-    all_results: list[tuple[LayoutResult, dict | None]] = []
+    all_results: list[tuple[LayoutResult, dict | None, QualityAssessment | None]] = []
     # Per-image results grouped for comparison.
     per_image: dict[str, list[LayoutResult]] = {}
 
@@ -278,18 +321,23 @@ def main() -> None:
 
         for model_name in model_names:
             print(f"  Running {model_name}...")
-            result = run_model(model_name, image_path)
+            result, quality = run_model(
+                model_name, image_path, max_regions=args.max_regions,
+            )
+
+            if quality and quality.should_retake:
+                print(f"    QUALITY GATE: {quality.reason}")
 
             metrics = None
             if ground_truth:
                 metrics = compute_metrics(result.regions, ground_truth)
 
-            all_results.append((result, metrics))
+            all_results.append((result, metrics, quality))
             per_image.setdefault(str(image_path), []).append(result)
 
             # Save annotated image.
             out_path = save_annotated(result, image, output_dir)
-            print(f"    → {out_path.name}")
+            print(f"    -> {out_path.name}")
 
     # Side-by-side comparisons.
     if args.compare and len(model_names) > 1:
@@ -297,12 +345,12 @@ def main() -> None:
         for image_path_str, results in per_image.items():
             image = Image.open(image_path_str).convert("RGB")
             out_path = save_comparison(results, image, output_dir)
-            print(f"  → {out_path.name}")
+            print(f"  -> {out_path.name}")
 
     # Save JSON results.
     json_results = [
-        result_to_dict(result, metrics)
-        for result, metrics in all_results
+        result_to_dict(result, metrics, quality)
+        for result, metrics, quality in all_results
     ]
     json_path = output_dir / "results.json"
     with open(json_path, "w") as f:
