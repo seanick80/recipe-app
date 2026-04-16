@@ -85,6 +85,27 @@ workflows:
           xcode-project build-ipa \
             --project RecipeApp.xcodeproj \
             --scheme RecipeApp
+      - name: Generate TestFlight release notes
+        # Pulls the last few feat:/fix: commits off master and formats them
+        # as a "What to Test" bullet list, preserving GM-N references.
+        # Built-in `publishing.app_store_connect` doesn't expose a
+        # whats-new hook, so we write to a file and pass it to the
+        # codemagic CLI in the next step.
+        script: |
+          ./scripts/generate-release-notes.sh > /tmp/release_notes.txt
+          echo "=== TestFlight release notes ==="
+          cat /tmp/release_notes.txt
+      - name: Publish to TestFlight
+        # Uses the same ASC API key integration as signing
+        # (`recipe-app-appstore-key`); the key needs App Manager or
+        # higher role for TestFlight uploads. `--testflight` alone
+        # submits for internal testing (ASC users); add `--beta-group`
+        # once an external group is configured in ASC.
+        script: |
+          app-store-connect publish \
+            --path 'RecipeApp/build/ios/ipa/*.ipa' \
+            --testflight \
+            --whats-new "$(cat /tmp/release_notes.txt)"
     artifacts:
       # The Build step cd's into RecipeApp/ before running
       # `xcode-project build-ipa`, so the IPA lands at
@@ -95,6 +116,7 @@ workflows:
       # publishes only the xcodebuild log.
       - RecipeApp/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
+      - /tmp/release_notes.txt
     publishing:
       email:
         # Address lives in the `recipe_app_notifications` Codemagic env var
