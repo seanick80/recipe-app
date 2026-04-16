@@ -19,6 +19,7 @@ struct ScannerTabView: View {
     @State private var showingCameraPermissionAlert = false
     @State private var scanProcessor = ScanProcessor()
     @State private var showingScanReview = false
+    @State private var showingDebugLog = false
     @State private var selectedListID: PersistentIdentifier?
 
     private var selectedList: GroceryList? {
@@ -98,6 +99,38 @@ struct ScannerTabView: View {
                     }
                 }
 
+                Section {
+                    Button {
+                        showingDebugLog = true
+                    } label: {
+                        HStack(spacing: 14) {
+                            Image(systemName: "doc.text.magnifyingglass")
+                                .font(.title2)
+                                .foregroundStyle(.purple)
+                                .frame(width: 32)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("Debug Log")
+                                    .font(.body.weight(.medium))
+                                    .foregroundStyle(.primary)
+                                Text("View & export scan pipeline events")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.right")
+                                .font(.caption)
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.vertical, 4)
+                    }
+                } header: {
+                    Text("Debug")
+                } footer: {
+                    Text(
+                        "Records every scan's OCR output, quality gate, and parser decisions. Remove before App Store release."
+                    )
+                }
+
                 if !activeLists.isEmpty {
                     Section("Add To") {
                         if activeLists.count == 1, let list = activeLists.first {
@@ -149,6 +182,9 @@ struct ScannerTabView: View {
                     processor: scanProcessor,
                     groceryList: selectedList
                 )
+            }
+            .sheet(isPresented: $showingDebugLog) {
+                DebugLogView()
             }
             .onChange(of: scanProcessor.hasResults) { _, hasResults in
                 if hasResults {

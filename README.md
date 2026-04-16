@@ -103,6 +103,20 @@ psql recipe_app < database/init.sql
 psql recipe_app < database/seed.sql
 ```
 
+## Privacy & Debug Logging
+
+This repo is currently a **debug build**. The Scan tab includes an on-device
+debug log (Scanner tab → Debug → Debug Log) that records every scan's
+intermediate pipeline output so problems can be diagnosed after the fact.
+
+The log **contains the OCR text extracted from every photo you scan** — i.e.
+whatever text appears in the ingredient lists, shopping lists, or
+handwritten margin notes you photograph. The log is stored only on device
+(`Documents/debug.jsonl`) and is never uploaded anywhere automatically.
+You choose when to export + share it via the in-app Share Log File button.
+
+This feature will be removed before any public/App Store release.
+
 ## Status
 
 - [x] Phase 1A: Environment setup + GitHub repo

@@ -71,8 +71,15 @@ class ScanProcessor {
         parsedInstructions = ""
         state = .processing
 
+        let scanID = Self.newScanID()
+        DebugLog.shared.log(
+            category: "ocr.start",
+            message: "shopping list scan",
+            details: ["scanID": scanID, "imgSize": "\(Int(image.size.width))x\(Int(image.size.height))"]
+        )
+
         Task.detached(priority: .userInitiated) { [weak self] in
-            let result = await Self.runOCRAndParseList(image: image)
+            let result = await Self.runOCRAndParseList(image: image, scanID: scanID)
             await MainActor.run {
                 guard let self else { return }
                 self.finishProcessing(result, instructions: "")
@@ -86,13 +93,26 @@ class ScanProcessor {
         parsedInstructions = ""
         state = .processing
 
+        let scanID = Self.newScanID()
+        DebugLog.shared.log(
+            category: "ocr.start",
+            message: "recipe scan",
+            details: ["scanID": scanID, "imgSize": "\(Int(image.size.width))x\(Int(image.size.height))"]
+        )
+
         Task.detached(priority: .userInitiated) { [weak self] in
-            let (result, instructions) = await Self.runOCRAndParseRecipe(image: image)
+            let (result, instructions) = await Self.runOCRAndParseRecipe(image: image, scanID: scanID)
             await MainActor.run {
                 guard let self else { return }
                 self.finishProcessing(result, instructions: instructions)
             }
         }
+    }
+
+    /// Short correlation ID included on every event from a single scan so
+    /// that one scan's log lines can be filtered out of a busy log.
+    private static func newScanID() -> String {
+        String(UUID().uuidString.prefix(8))
     }
 
     private func finishProcessing(
@@ -143,8 +163,13 @@ class ScanProcessor {
     /// Vision's `boundingBox` uses normalized coordinates with origin at the
     /// *bottom-left*. `NormalizedBox` uses origin at the top-left (matches
     /// typical image coords), so we flip the y-axis here.
-    private static func runOCR(image: UIImage) throws -> [OCRLine] {
+    private static func runOCR(image: UIImage, scanID: String) throws -> [OCRLine] {
         guard let cgImage = image.cgImage else {
+            DebugLog.shared.log(
+                category: "ocr.error",
+                message: "invalidImage",
+                details: ["scanID": scanID, "stage": "vision"]
+            )
             throw ScanError.invalidImage
         }
 
@@ -156,8 +181,15 @@ class ScanProcessor {
 
         try handler.perform([request])
 
-        guard let observations = request.results else { return [] }
-        return observations.compactMap { observation -> OCRLine? in
+        guard let observations = request.results else {
+            DebugLog.shared.log(
+                category: "ocr.vision",
+                message: "no observations",
+                details: ["scanID": scanID, "lines": "0"]
+            )
+            return []
+        }
+        let lines = observations.compactMap { observation -> OCRLine? in
             guard let top = observation.topCandidates(1).first else { return nil }
             let box = observation.boundingBox
             let normBox = NormalizedBox(
@@ -172,28 +204,69 @@ class ScanProcessor {
                 boundingBox: normBox
             )
         }
+
+        let confs = lines.map(\.confidence).sorted()
+        let medianConf = confs.isEmpty ? 0 : confs[confs.count / 2]
+        DebugLog.shared.log(
+            category: "ocr.vision",
+            message: "recognized text",
+            details: [
+                "scanID": scanID,
+                "lines": "\(lines.count)",
+                "medianConf": String(format: "%.3f", medianConf),
+                "text": lines.map(\.text).joined(separator: "\n"),
+            ]
+        )
+        return lines
     }
 
     /// Applies the quality gate and handwriting separation. Returns the printed
     /// lines if the image is acceptable, or throws `ScanError.lowQuality` with
     /// a user-friendly reason otherwise.
-    private static func gatedOCR(image: UIImage) throws -> [OCRLine] {
-        let lines = try runOCR(image: image)
+    private static func gatedOCR(image: UIImage, scanID: String) throws -> [OCRLine] {
+        let lines = try runOCR(image: image, scanID: scanID)
         let quality = assessImageQuality(lines: lines)
+        DebugLog.shared.log(
+            category: "ocr.quality",
+            message: quality.isAcceptable ? "acceptable" : "rejected",
+            details: [
+                "scanID": scanID,
+                "acceptable": quality.isAcceptable ? "true" : "false",
+                "reason": quality.reason,
+            ]
+        )
         guard quality.isAcceptable else {
             throw ScanError.lowQuality(reason: quality.reason)
         }
-        let (printed, _) = separateHandwritten(lines: lines)
+        let (printed, handwritten) = separateHandwritten(lines: lines)
+        DebugLog.shared.log(
+            category: "ocr.handwriting",
+            message: "separated printed vs handwritten",
+            details: [
+                "scanID": scanID,
+                "printed": "\(printed.count)",
+                "handwritten": "\(handwritten.count)",
+                "handwrittenText": handwritten.map(\.text).joined(separator: " | "),
+            ]
+        )
         return printed
     }
 
     // MARK: - Shopping list path
 
-    private static func runOCRAndParseList(image: UIImage) async -> Result<[ParsedItem], Error> {
+    private static func runOCRAndParseList(
+        image: UIImage,
+        scanID: String
+    ) async -> Result<[ParsedItem], Error> {
         let printed: [OCRLine]
         do {
-            printed = try gatedOCR(image: image)
+            printed = try gatedOCR(image: image, scanID: scanID)
         } catch {
+            DebugLog.shared.log(
+                category: "ocr.error",
+                message: error.localizedDescription,
+                details: ["scanID": scanID, "stage": "list"]
+            )
             return .failure(error)
         }
 
@@ -216,30 +289,66 @@ class ScanProcessor {
             )
         }
 
+        DebugLog.shared.log(
+            category: "ocr.parsed",
+            message: "list parse complete",
+            details: [
+                "scanID": scanID,
+                "mode": "list",
+                "items": "\(items.count)",
+                "itemNames": items.map(\.name).joined(separator: " | "),
+            ]
+        )
         return .success(items)
     }
 
     // MARK: - Recipe path (zone-aware)
 
     private static func runOCRAndParseRecipe(
-        image: UIImage
+        image: UIImage,
+        scanID: String
     ) async -> (Result<[ParsedItem], Error>, String) {
         let printed: [OCRLine]
         do {
-            printed = try gatedOCR(image: image)
+            printed = try gatedOCR(image: image, scanID: scanID)
         } catch {
+            DebugLog.shared.log(
+                category: "ocr.error",
+                message: error.localizedDescription,
+                details: ["scanID": scanID, "stage": "recipe"]
+            )
             return (.failure(error), "")
         }
 
         let blocks = groupLinesIntoBlocks(printed)
+        DebugLog.shared.log(
+            category: "ocr.blocks",
+            message: "grouped lines into blocks",
+            details: [
+                "scanID": scanID,
+                "blocks": "\(blocks.count)",
+                "printedLines": "\(printed.count)",
+            ]
+        )
 
         var titleText = ""
         var ingredientItems: [ParsedItem] = []
         var instructionSteps: [String] = []
 
-        for block in blocks {
+        for (index, block) in blocks.enumerated() {
             let blockText = block.map(\.text).joined(separator: "\n")
             let classification = classifyZone(blockText)
+            DebugLog.shared.log(
+                category: "ocr.blocks",
+                message: "classified block \(index)",
+                details: [
+                    "scanID": scanID,
+                    "blockIndex": "\(index)",
+                    "label": "\(classification.label)",
+                    "confidence": String(format: "%.2f", classification.confidence),
+                    "text": blockText,
+                ]
+            )
             switch classification.label {
             case .title:
                 if titleText.isEmpty {
@@ -299,6 +408,19 @@ class ScanProcessor {
         }
 
         let instructionsText = instructionSteps.joined(separator: "\n")
+        DebugLog.shared.log(
+            category: "ocr.parsed",
+            message: "recipe parse complete",
+            details: [
+                "scanID": scanID,
+                "mode": "recipe",
+                "title": titleText,
+                "ingredients": "\(ingredientItems.count)",
+                "steps": "\(instructionSteps.count)",
+                "ingredientNames": ingredientItems.map(\.name).joined(separator: " | "),
+                "instructionsText": instructionsText,
+            ]
+        )
         return (.success(items), instructionsText)
     }
 

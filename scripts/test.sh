@@ -31,7 +31,7 @@ if [[ -f "Models/TestModels.swift" ]]; then
         MINGW*|MSYS*|CYGWIN*) OUT="test.exe" ;;
         *)                    OUT="test_bin" ;;
     esac
-    SWIFT_SOURCES=(Models/Recipe.swift Models/GroceryItem.swift Models/ShoppingTemplate.swift Models/ListLineParser.swift Models/OCRParser.swift Models/DetectionClassifier.swift Models/BarcodeProductMapper.swift Models/PantryItemMapper.swift Models/GroceryCategorizer.swift Models/ZoneClassifier.swift Models/QualityGate.swift Models/TestHelpers.swift Models/TestShopping.swift Models/TestListParser.swift Models/TestOCR.swift Models/TestDetection.swift Models/TestBarcode.swift Models/TestPantry.swift Models/TestGroceryCategorizer.swift Models/TestZoneClassifier.swift Models/TestQualityGate.swift Models/TestModels.swift)
+    SWIFT_SOURCES=(Models/Recipe.swift Models/GroceryItem.swift Models/ShoppingTemplate.swift Models/ListLineParser.swift Models/OCRParser.swift Models/DetectionClassifier.swift Models/BarcodeProductMapper.swift Models/PantryItemMapper.swift Models/GroceryCategorizer.swift Models/ZoneClassifier.swift Models/QualityGate.swift Models/DebugLog.swift Models/TestHelpers.swift Models/TestShopping.swift Models/TestListParser.swift Models/TestOCR.swift Models/TestDetection.swift Models/TestBarcode.swift Models/TestPantry.swift Models/TestGroceryCategorizer.swift Models/TestZoneClassifier.swift Models/TestQualityGate.swift Models/TestDebugLog.swift Models/TestModels.swift)
     if ! swiftc "${SWIFT_SOURCES[@]}" -o "$OUT" 2>&1; then
         err "swiftc compilation failed"
     else

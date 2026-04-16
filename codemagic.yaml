@@ -57,6 +57,9 @@ workflows:
              Models/BarcodeProductMapper.swift \
              Models/PantryItemMapper.swift \
              Models/GroceryCategorizer.swift \
+             Models/QualityGate.swift \
+             Models/ZoneClassifier.swift \
+             Models/DebugLog.swift \
              RecipeApp/RecipeApp/Parsers/
       - name: Generate Xcode project
         script: |
@@ -140,6 +143,9 @@ workflows:
              Models/BarcodeProductMapper.swift \
              Models/PantryItemMapper.swift \
              Models/GroceryCategorizer.swift \
+             Models/QualityGate.swift \
+             Models/ZoneClassifier.swift \
+             Models/DebugLog.swift \
              RecipeApp/RecipeApp/Parsers/
           cd RecipeApp
           xcodegen generate
