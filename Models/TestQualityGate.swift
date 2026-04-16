@@ -161,6 +161,63 @@ func testSeparateEmptyInput() {
     checkEqual(handwritten.count, 0, "Empty input: no handwritten")
 }
 
+// MARK: Block Grouping
+
+func testGroupLinesEmpty() {
+    let blocks = groupLinesIntoBlocks([])
+    checkEqual(blocks.count, 0, "Empty input: no blocks")
+}
+
+func testGroupLinesSingleLine() {
+    let line = OCRLine(
+        text: "Hello",
+        confidence: 0.9,
+        boundingBox: NormalizedBox(x: 0.1, y: 0.3, width: 0.2, height: 0.03)
+    )
+    let blocks = groupLinesIntoBlocks([line])
+    checkEqual(blocks.count, 1, "Single line: one block")
+    checkEqual(blocks[0].count, 1, "Block has one line")
+}
+
+func testGroupLinesAdjacentMerge() {
+    // Three lines stacked tightly (same block).
+    let lines = [
+        OCRLine(text: "a", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.30, width: 0.2, height: 0.03)),
+        OCRLine(text: "b", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.34, width: 0.2, height: 0.03)),
+        OCRLine(text: "c", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.38, width: 0.2, height: 0.03)),
+    ]
+    let blocks = groupLinesIntoBlocks(lines)
+    checkEqual(blocks.count, 1, "Adjacent lines merge into one block")
+    checkEqual(blocks[0].count, 3, "Block contains all three lines")
+}
+
+func testGroupLinesLargeGap() {
+    // Two tight clusters separated by a large vertical gap.
+    let lines = [
+        OCRLine(text: "title1", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.10, width: 0.3, height: 0.03)),
+        OCRLine(text: "title2", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.14, width: 0.3, height: 0.03)),
+        // Big gap here (~0.40 units)
+        OCRLine(text: "body1", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.60, width: 0.3, height: 0.03)),
+        OCRLine(text: "body2", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.64, width: 0.3, height: 0.03)),
+    ]
+    let blocks = groupLinesIntoBlocks(lines)
+    checkEqual(blocks.count, 2, "Large gap splits into two blocks")
+    checkEqual(blocks[0].count, 2, "First block has 2 lines")
+    checkEqual(blocks[1].count, 2, "Second block has 2 lines")
+}
+
+func testGroupLinesSortsByY() {
+    // Input out of order — output should be top-to-bottom.
+    let lines = [
+        OCRLine(text: "bottom", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.80, width: 0.3, height: 0.03)),
+        OCRLine(text: "top", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.10, width: 0.3, height: 0.03)),
+    ]
+    let blocks = groupLinesIntoBlocks(lines)
+    checkEqual(blocks.count, 2, "Two well-separated lines -> 2 blocks")
+    checkEqual(blocks[0][0].text, "top", "First block is topmost line")
+    checkEqual(blocks[1][0].text, "bottom", "Second block is bottommost line")
+}
+
 // MARK: Data Types
 
 func testOCRLineCodable() {
@@ -209,6 +266,11 @@ func runQualityGateTests() -> Bool {
     testOCRLineCodable()
     testNormalizedBoxProperties()
     testImageQualityAssessmentCodable()
+    testGroupLinesEmpty()
+    testGroupLinesSingleLine()
+    testGroupLinesAdjacentMerge()
+    testGroupLinesLargeGap()
+    testGroupLinesSortsByY()
 
     return printTestSummary("Quality Gate Tests")
 }

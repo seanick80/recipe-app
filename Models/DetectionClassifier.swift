@@ -124,7 +124,7 @@ func deduplicateDetections(_ results: [DetectionResult]) -> [DetectionResult] {
     var best: [String: DetectionResult] = [:]
     for result in results {
         let key = result.label.lowercased()
-        if let existing = best[key] {
+        if let existing: DetectionResult = best[key] {
             if result.confidence > existing.confidence {
                 best[key] = result
             }

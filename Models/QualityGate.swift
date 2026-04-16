@@ -191,6 +191,43 @@ func separateHandwritten(
     return (printed, handwritten)
 }
 
+// MARK: - Block Grouping
+
+/// Groups OCR lines into vertically-adjacent blocks.
+///
+/// A new block starts when the vertical gap between a line and its predecessor
+/// exceeds `gapFactor * medianHeight`. Used after `separateHandwritten` to
+/// feed multi-line text into `classifyZone` (which expects coherent blocks,
+/// not individual lines).
+///
+/// - Parameters:
+///   - lines: OCR lines from one page (any order).
+///   - gapFactor: Multiple of median line height that triggers a block break.
+/// - Returns: Lines grouped into blocks, sorted top-to-bottom.
+func groupLinesIntoBlocks(
+    _ lines: [OCRLine],
+    gapFactor: Double = 1.5
+) -> [[OCRLine]] {
+    guard !lines.isEmpty else { return [] }
+    let sorted = lines.sorted { $0.boundingBox.y < $1.boundingBox.y }
+    let heights = sorted.map(\.boundingBox.height).sorted()
+    let medianHeight = median(heights)
+    let gapThreshold = max(medianHeight * gapFactor, 0.005)
+
+    var blocks: [[OCRLine]] = [[sorted[0]]]
+    for line in sorted.dropFirst() {
+        guard let previous = blocks[blocks.count - 1].last else { continue }
+        let prevBottom = previous.boundingBox.maxY
+        let gap = line.boundingBox.y - prevBottom
+        if gap > gapThreshold {
+            blocks.append([line])
+        } else {
+            blocks[blocks.count - 1].append(line)
+        }
+    }
+    return blocks
+}
+
 // MARK: - Helpers
 
 /// Median of a sorted array.

@@ -352,6 +352,7 @@ struct ScanReviewSheet: View {
         }
         let recipe = Recipe(
             name: recipeTitle.isEmpty ? "Scanned Recipe" : recipeTitle,
+            instructions: processor.parsedInstructions,
             ingredients: ingredients
         )
         modelContext.insert(recipe)
