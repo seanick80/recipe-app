@@ -91,10 +91,20 @@ workflows:
         # Built-in `publishing.app_store_connect` doesn't expose a
         # whats-new hook, so we write to a file and pass it to the
         # codemagic CLI in the next step.
+        #
+        # Invoke via `bash` (not `./script.sh`) so we don't depend on the
+        # git-tracked executable bit — Git Bash on Windows tends to lose
+        # it, which previously silently produced an empty file and
+        # broke the publish step downstream.
         script: |
-          ./scripts/generate-release-notes.sh > /tmp/release_notes.txt
+          set -euo pipefail
+          bash scripts/generate-release-notes.sh > /tmp/release_notes.txt
           echo "=== TestFlight release notes ==="
           cat /tmp/release_notes.txt
+          if [[ ! -s /tmp/release_notes.txt ]]; then
+            echo "ERROR: release notes file is empty" >&2
+            exit 1
+          fi
       - name: Publish to TestFlight
         # Uses the same ASC API key integration as signing
         # (`recipe-app-appstore-key`); the key needs App Manager or
@@ -102,10 +112,16 @@ workflows:
         # submits for internal testing (ASC users); add `--beta-group`
         # once an external group is configured in ASC.
         script: |
+          set -euo pipefail
+          NOTES="$(cat /tmp/release_notes.txt)"
+          if [[ -z "${NOTES}" ]]; then
+            echo "ERROR: refusing to publish with empty --whats-new" >&2
+            exit 1
+          fi
           app-store-connect publish \
             --path 'RecipeApp/build/ios/ipa/*.ipa' \
             --testflight \
-            --whats-new "$(cat /tmp/release_notes.txt)"
+            --whats-new "${NOTES}"
     artifacts:
       # The Build step cd's into RecipeApp/ before running
       # `xcode-project build-ipa`, so the IPA lands at

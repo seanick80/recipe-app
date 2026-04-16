@@ -14,8 +14,17 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
-# Find python — macOS/Linux usually have python3, Windows Git Bash may not
-PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "")
+# Find python. On Windows, `python3` resolves to the Microsoft Store
+# stub (C:\Users\...\WindowsApps\python3.exe) — a redirector that
+# silently swallows stdin and produces empty stdout without erroring.
+# So on Windows, prefer `python` (the real interpreter) and fall back
+# to `python3` only when `python` is missing. macOS/Linux keep the
+# usual python3-first order.
+if [[ "${OS:-}" == "Windows_NT" ]]; then
+    PYTHON=$(command -v python 2>/dev/null || command -v python3 2>/dev/null || echo "")
+else
+    PYTHON=$(command -v python3 2>/dev/null || command -v python 2>/dev/null || echo "")
+fi
 if [[ -z "$PYTHON" ]]; then
     echo "python not found on PATH" >&2
     exit 1
