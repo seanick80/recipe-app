@@ -23,11 +23,15 @@ targets:
     type: application
     platform: iOS
     sources:
+      # Single recursive scan. xcodegen picks up RecipeApp/MLModels/*.mlpackage
+      # as a source file and Xcode compiles it to .mlmodelc during the build.
+      # An earlier version of this file had a second entry listing
+      # RecipeApp/MLModels with `type: folder + buildPhase: resources`, which
+      # caused the .mlpackage to be bundled TWICE: once raw (~164 MB folder
+      # reference copied into Resources) and once compiled (~164 MB .mlmodelc
+      # emitted by Xcode's ML compile rule from the recursive scan). Result:
+      # a ~330 MB IPA instead of ~180 MB. Do not re-add that entry.
       - path: RecipeApp
-      - path: RecipeApp/MLModels
-        type: folder
-        optional: true
-        buildPhase: resources
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp
