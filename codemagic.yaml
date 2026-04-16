@@ -66,6 +66,20 @@ workflows:
         script: |
           cd RecipeApp
           xcodegen generate
+      - name: Bump CFBundleVersion for TestFlight upload
+        # TestFlight rejects uploads whose CFBundleVersion is <= any build
+        # already accepted for the same CFBundleShortVersionString. project.yml
+        # pins it to "1" for local/dev builds; on CI we stamp it with
+        # Codemagic's $BUILD_NUMBER (a monotonically increasing per-workflow
+        # counter) plus a safety offset so we stay past any earlier manual
+        # archives. agvtool edits the generated .pbxproj in place, so this
+        # must run after `xcodegen generate` and before `build-ipa`.
+        script: |
+          set -euo pipefail
+          cd RecipeApp
+          NEW_BUILD=$((BUILD_NUMBER + 100))
+          echo "Stamping CFBundleVersion = $NEW_BUILD"
+          agvtool new-version -all "$NEW_BUILD"
       - name: Apply provisioning profiles to Xcode project
         script: |
           xcode-project use-profiles
