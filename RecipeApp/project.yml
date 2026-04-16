@@ -49,6 +49,15 @@ targets:
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "0.2.0"
         INFOPLIST_KEY_NSCameraUsageDescription: "Camera is used to scan barcodes, shopping lists, and recipes"
+        # CoreMotion is used by the camera-preview tilt coach. Without this
+        # string iOS kills the app the moment we call
+        # `CMMotionManager.startDeviceMotionUpdates` — see CameraViewModel.
+        INFOPLIST_KEY_NSMotionUsageDescription: "Motion data is used to coach you to hold the phone level while scanning"
+        # Skip the per-build "Export Compliance" prompt in App Store Connect.
+        # The app uses only HTTPS (URLSession) which is exempt; no custom
+        # crypto is bundled. If that ever changes (e.g. we add an encrypted
+        # local cache), flip this to true and answer the prompts in ASC.
+        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
 
   RecipeAppTests:
     type: bundle.unit-test

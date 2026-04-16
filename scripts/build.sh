@@ -64,6 +64,11 @@ else
         # rejects the TestFlight upload with a 409 validation error.
         # See project.yml comment for the iPhone-only alternative.
         "INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad"
+        # CameraViewModel uses CMMotionManager; without this string iOS
+        # terminates the app the first time motion updates start.
+        "INFOPLIST_KEY_NSMotionUsageDescription"
+        # Avoids the per-build Export Compliance prompt in App Store Connect.
+        "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption"
     )
     for key in "${REQUIRED_KEYS[@]}"; do
         if ! grep -Fq "$key" RecipeApp/project.yml; then
