@@ -60,6 +60,10 @@ else
         "PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp"
         "DEVELOPMENT_TEAM: 3JR8WTJUV6"
         "CODE_SIGN_ENTITLEMENTS: RecipeApp/RecipeApp.entitlements"
+        # Universal iOS bundles must declare iPad orientations or altool
+        # rejects the TestFlight upload with a 409 validation error.
+        # See project.yml comment for the iPhone-only alternative.
+        "INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad"
     )
     for key in "${REQUIRED_KEYS[@]}"; do
         if ! grep -Fq "$key" RecipeApp/project.yml; then
