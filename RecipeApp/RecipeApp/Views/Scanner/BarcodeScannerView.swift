@@ -137,11 +137,22 @@ struct BarcodeScannerView: View {
 
     /// Hooks barcode detection into the camera's existing video output
     /// via the frame observer callback — no second AVCaptureVideoDataOutput needed.
+    ///
+    /// The pixel buffer from `AVCaptureVideoDataOutput` is always in sensor-native
+    /// orientation regardless of how the preview connection is rotated, so we
+    /// have to tell Vision which way "up" is for the current device orientation.
+    /// Without this the detector would miss barcodes as soon as the user rotated
+    /// the phone out of portrait.
     private func configureBarcodeDetection() {
         let request = barcodeVM.makeBarcodeRequest()
-        cameraVM.onVideoFrame = { sampleBuffer in
+        cameraVM.onVideoFrame = { [weak cameraVM] sampleBuffer in
             guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else { return }
-            let handler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: [:])
+            let orientation = cameraVM?.currentBufferOrientation ?? .right
+            let handler = VNImageRequestHandler(
+                cvPixelBuffer: pixelBuffer,
+                orientation: orientation,
+                options: [:]
+            )
             try? handler.perform([request])
         }
     }

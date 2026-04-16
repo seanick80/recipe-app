@@ -24,6 +24,12 @@ class CameraViewModel: NSObject {
     /// does not support).
     var onVideoFrame: ((CMSampleBuffer) -> Void)?
 
+    /// Sensor-native orientation for the current back-camera buffers. Kept in
+    /// sync on the main thread from UIDevice orientation notifications, then
+    /// read from `AVCaptureVideoDataOutput` delegate callbacks (which run on
+    /// a background queue) and passed to `VNImageRequestHandler`.
+    var currentBufferOrientation: CGImagePropertyOrientation = .right
+
     // MARK: - Camera Session
 
     let session = AVCaptureSession()
@@ -35,6 +41,10 @@ class CameraViewModel: NSObject {
 
     private let motionManager = CMMotionManager()
     private static let tiltThreshold = 0.3  // radians (~17 degrees)
+
+    // MARK: - Orientation observation
+
+    private var orientationObserver: NSObjectProtocol?
 
     // MARK: - Brightness
 
@@ -50,6 +60,9 @@ class CameraViewModel: NSObject {
     func configure() {
         sessionQueue.async { [weak self] in
             self?.setupSession()
+        }
+        Task { @MainActor [weak self] in
+            self?.startOrientationObservation()
         }
     }
 
@@ -116,10 +129,20 @@ class CameraViewModel: NSObject {
     // MARK: - Photo Capture
 
     func capturePhoto() async -> UIImage? {
+        // Snapshot the rotation angle on the main actor *before* hopping to
+        // the session queue so the photo connection encodes the orientation
+        // the user actually held the device in, not whatever portrait default
+        // the connection started with.
+        let angle = await MainActor.run { CameraRotation.videoRotationAngle() }
         return await withCheckedContinuation { continuation in
             self.photoContinuation = continuation
             let settings = AVCapturePhotoSettings()
             sessionQueue.async {
+                if let connection = self.photoOutput.connection(with: .video),
+                    connection.isVideoRotationAngleSupported(angle)
+                {
+                    connection.videoRotationAngle = angle
+                }
                 self.photoOutput.capturePhoto(with: settings, delegate: self)
             }
         }
@@ -132,11 +155,19 @@ class CameraViewModel: NSObject {
         motionManager.deviceMotionUpdateInterval = 0.2
         motionManager.startDeviceMotionUpdates(to: .main) { [weak self] motion, _ in
             guard let self, let motion else { return }
-            let pitch = abs(motion.attitude.pitch)
-            let roll = abs(motion.attitude.roll)
 
-            // Phone should be roughly upright or flat-over-surface
-            let tilted = roll > Self.tiltThreshold
+            // "Tilted" means "not aligned with any of the four cardinal
+            // orientations" — not "not portrait". Previously this used bare
+            // abs(roll) > threshold, which fired constantly as soon as the
+            // user rotated to landscape. Compute the distance from roll to
+            // the nearest multiple of π/2 (90°) so all four orientations are
+            // treated as equally level.
+            let roll = motion.attitude.roll
+            let quarterTurn = Double.pi / 2
+            let modulo = abs(roll.truncatingRemainder(dividingBy: quarterTurn))
+            let distanceFromCardinal = min(modulo, quarterTurn - modulo)
+
+            let tilted = distanceFromCardinal > Self.tiltThreshold
             self.isTooTilted = tilted
             self.tiltWarning = tilted ? "Hold phone more level" : nil
         }
@@ -144,6 +175,39 @@ class CameraViewModel: NSObject {
 
     private func stopMotionUpdates() {
         motionManager.stopDeviceMotionUpdates()
+    }
+
+    // MARK: - Orientation observation
+
+    @MainActor
+    private func startOrientationObservation() {
+        UIDevice.current.beginGeneratingDeviceOrientationNotifications()
+        refreshBufferOrientation()
+        orientationObserver = NotificationCenter.default.addObserver(
+            forName: UIDevice.orientationDidChangeNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in self?.refreshBufferOrientation() }
+        }
+    }
+
+    @MainActor
+    private func refreshBufferOrientation() {
+        currentBufferOrientation = CameraRotation.cgImageOrientation()
+    }
+
+    deinit {
+        if let observer = orientationObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
+        // UIDevice keeps a reference count of how many callers are generating
+        // orientation notifications — one end per begin, globally balanced.
+        // `UIDevice.current` is main-actor-isolated in iOS 17+, so hop to
+        // main from deinit. No self capture needed (it's a global API).
+        Task { @MainActor in
+            UIDevice.current.endGeneratingDeviceOrientationNotifications()
+        }
     }
 }
 
