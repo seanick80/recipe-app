@@ -2,58 +2,29 @@ import Foundation
 
 // MARK: - Detection Classifier Tests
 
-func testClassifyAutoAdd() {
-    let result = DetectionResult(label: "apple", confidence: 0.95, source: .yolo)
-    checkEqual(classifyDetection(result), .autoAdd, "0.95 YOLO → autoAdd")
-}
-
-func testClassifyConfirm() {
-    let result = DetectionResult(label: "apple", confidence: 0.70, source: .yolo)
-    checkEqual(classifyDetection(result), .confirm, "0.70 YOLO → confirm")
-}
-
-func testClassifyReject() {
-    let result = DetectionResult(label: "apple", confidence: 0.30, source: .yolo)
-    checkEqual(classifyDetection(result), .reject, "0.30 YOLO → reject")
-}
-
-func testClassifyBoundaryAutoAdd() {
-    let result = DetectionResult(label: "milk", confidence: 0.85, source: .yolo)
-    checkEqual(classifyDetection(result), .autoAdd, "0.85 YOLO = autoAdd boundary")
-}
-
-func testClassifyBoundaryConfirm() {
-    let result = DetectionResult(label: "milk", confidence: 0.55, source: .yolo)
-    checkEqual(classifyDetection(result), .confirm, "0.55 YOLO = confirm boundary")
-}
-
-func testClassifyBelowConfirm() {
-    let result = DetectionResult(label: "milk", confidence: 0.54, source: .yolo)
-    checkEqual(classifyDetection(result), .reject, "0.54 YOLO → reject")
-}
-
-func testBarcodeThresholds() {
-    // Barcode has higher thresholds: autoAdd=0.95, confirm=0.80
-    let high = DetectionResult(label: "item", confidence: 0.96, source: .barcode)
-    checkEqual(classifyDetection(high), .autoAdd, "0.96 barcode → autoAdd")
-
-    let mid = DetectionResult(label: "item", confidence: 0.88, source: .barcode)
-    checkEqual(classifyDetection(mid), .confirm, "0.88 barcode → confirm")
-
-    let low = DetectionResult(label: "item", confidence: 0.70, source: .barcode)
-    checkEqual(classifyDetection(low), .reject, "0.70 barcode → reject")
-}
-
-func testOCRThresholds() {
-    // OCR: autoAdd=0.80, confirm=0.50
-    let high = DetectionResult(label: "item", confidence: 0.82, source: .ocr)
-    checkEqual(classifyDetection(high), .autoAdd, "0.82 OCR → autoAdd")
-
-    let mid = DetectionResult(label: "item", confidence: 0.60, source: .ocr)
-    checkEqual(classifyDetection(mid), .confirm, "0.60 OCR → confirm")
-
-    let low = DetectionResult(label: "item", confidence: 0.40, source: .ocr)
-    checkEqual(classifyDetection(low), .reject, "0.40 OCR → reject")
+func testClassifyThresholds() {
+    // Data-driven: (source, confidence, expected classification)
+    let cases: [(DetectionSource, Double, DetectionTriage, String)] = [
+        // YOLO thresholds
+        (.yolo, 0.95, .autoAdd, "0.95 YOLO -> autoAdd"),
+        (.yolo, 0.85, .autoAdd, "0.85 YOLO = autoAdd boundary"),
+        (.yolo, 0.70, .confirm, "0.70 YOLO -> confirm"),
+        (.yolo, 0.55, .confirm, "0.55 YOLO = confirm boundary"),
+        (.yolo, 0.54, .reject, "0.54 YOLO -> reject"),
+        (.yolo, 0.30, .reject, "0.30 YOLO -> reject"),
+        // Barcode thresholds (higher: autoAdd=0.95, confirm=0.80)
+        (.barcode, 0.96, .autoAdd, "0.96 barcode -> autoAdd"),
+        (.barcode, 0.88, .confirm, "0.88 barcode -> confirm"),
+        (.barcode, 0.70, .reject, "0.70 barcode -> reject"),
+        // OCR thresholds (autoAdd=0.80, confirm=0.50)
+        (.ocr, 0.82, .autoAdd, "0.82 OCR -> autoAdd"),
+        (.ocr, 0.60, .confirm, "0.60 OCR -> confirm"),
+        (.ocr, 0.40, .reject, "0.40 OCR -> reject"),
+    ]
+    for (source, confidence, expected, desc) in cases {
+        let result = DetectionResult(label: "item", confidence: confidence, source: source)
+        checkEqual(classifyDetection(result), expected, desc)
+    }
 }
 
 func testCustomThresholds() {
@@ -78,6 +49,11 @@ func testTriageDetections() {
     checkEqual(autoAdd[1].label, "banana", "Triage: autoAdd second")
 }
 
+func testTriageEmpty() {
+    let (autoAdd, confirm, reject) = triageDetections([])
+    checkEqual(autoAdd.count + confirm.count + reject.count, 0, "Empty triage: all buckets empty")
+}
+
 func testDeduplicateDetections() {
     let results = [
         DetectionResult(label: "Apple", confidence: 0.80, source: .yolo),
@@ -86,7 +62,6 @@ func testDeduplicateDetections() {
     ]
     let deduped = deduplicateDetections(results)
     checkEqual(deduped.count, 2, "Dedup: 2 unique items")
-    // Find the apple entry
     let apple = deduped.first { $0.label.lowercased() == "apple" }
     check(apple != nil, "Dedup: apple exists")
     checkEqual(apple!.confidence, 0.95, "Dedup: higher confidence kept")
@@ -107,32 +82,18 @@ func testDetectionThresholdsCodable() {
     checkCodableRoundTrip(thresholds, "DetectionThresholds Codable round-trip")
 }
 
-func testTriageEmpty() {
-    let (autoAdd, confirm, reject) = triageDetections([])
-    checkEqual(autoAdd.count, 0, "Empty triage: no autoAdd")
-    checkEqual(confirm.count, 0, "Empty triage: no confirm")
-    checkEqual(reject.count, 0, "Empty triage: no reject")
-}
-
 // MARK: - Test Runner
 
 func runDetectionTests() -> Bool {
     print("\n=== Detection Classifier Tests ===")
 
-    testClassifyAutoAdd()
-    testClassifyConfirm()
-    testClassifyReject()
-    testClassifyBoundaryAutoAdd()
-    testClassifyBoundaryConfirm()
-    testClassifyBelowConfirm()
-    testBarcodeThresholds()
-    testOCRThresholds()
+    testClassifyThresholds()
     testCustomThresholds()
     testTriageDetections()
+    testTriageEmpty()
     testDeduplicateDetections()
     testDetectionResultCodable()
     testDetectionThresholdsCodable()
-    testTriageEmpty()
 
     return printTestSummary("Detection Classifier Tests")
 }

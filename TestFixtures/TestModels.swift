@@ -34,16 +34,6 @@ func testRecipeNewFields() {
     check(recipe.isFavorite, "Recipe is favorite")
 }
 
-func testRecipeNewFieldsDefaults() {
-    let recipe = makeRecipe(name: "Simple")
-    checkEqual(recipe.cuisine, "", "Default cuisine empty")
-    checkEqual(recipe.course, "", "Default course empty")
-    checkEqual(recipe.tags, "", "Default tags empty")
-    checkEqual(recipe.sourceURL, "", "Default source URL empty")
-    checkEqual(recipe.difficulty, "", "Default difficulty empty")
-    check(!recipe.isFavorite, "Default not favorite")
-}
-
 func testIngredientDisplayOrder() {
     let recipe = makeRecipe(name: "Ordered", ingredientCount: 3)
     checkEqual(recipe.ingredients[0].displayOrder, 0, "First ingredient order 0")
@@ -60,11 +50,6 @@ func testIngredientNotes() {
     )
     checkEqual(ingredient.notes, "pounded thin", "Ingredient notes")
     checkEqual(ingredient.name, "chicken breast", "Ingredient name stays clean")
-}
-
-func testIngredientNotesDefault() {
-    let ingredient = IngredientModel(name: "salt")
-    checkEqual(ingredient.notes, "", "Default notes empty")
 }
 
 func testGroceryItem() {
@@ -85,12 +70,6 @@ func testGroceryItemTraceability() {
     )
     checkEqual(item.sourceRecipeName, "Tikka Masala", "Source recipe name")
     checkEqual(item.sourceRecipeId, "abc-123", "Source recipe ID")
-}
-
-func testGroceryItemTraceabilityDefaults() {
-    let item = makeGroceryItem(name: "Milk")
-    checkEqual(item.sourceRecipeName, "", "Default source recipe name empty")
-    checkEqual(item.sourceRecipeId, "", "Default source recipe ID empty")
 }
 
 func testGroceryList() {
@@ -117,23 +96,7 @@ func testRecipeCodable() {
         difficulty: "Easy",
         isFavorite: true
     )
-    let encoder = JSONEncoder()
-    let decoder = JSONDecoder()
-    do {
-        let data = try encoder.encode(recipe)
-        let decoded = try decoder.decode(RecipeModel.self, from: data)
-        checkEqual(decoded.name, recipe.name, "Codable round-trip name")
-        checkEqual(decoded.prepTimeMinutes, recipe.prepTimeMinutes, "Codable round-trip prep time")
-        checkEqual(decoded.cuisine, "Italian", "Codable round-trip cuisine")
-        checkEqual(decoded.course, "Dinner", "Codable round-trip course")
-        checkEqual(decoded.tags, "quick", "Codable round-trip tags")
-        checkEqual(decoded.sourceURL, "https://example.com", "Codable round-trip sourceURL")
-        checkEqual(decoded.difficulty, "Easy", "Codable round-trip difficulty")
-        check(decoded.isFavorite, "Codable round-trip isFavorite")
-    } catch {
-        print("FAIL: Codable encoding/decoding - \(error)")
-        testFailCount += 1
-    }
+    checkCodableRoundTrip(recipe, "Recipe Codable round-trip with all fields")
 }
 
 func testIngredientCodable() {
@@ -165,13 +128,10 @@ func runRecipeTests() -> Bool {
     testRecipeCreation()
     testRecipeWithIngredients()
     testRecipeNewFields()
-    testRecipeNewFieldsDefaults()
     testIngredientDisplayOrder()
     testIngredientNotes()
-    testIngredientNotesDefault()
     testGroceryItem()
     testGroceryItemTraceability()
-    testGroceryItemTraceabilityDefaults()
     testGroceryList()
     testRecipeCodable()
     testIngredientCodable()

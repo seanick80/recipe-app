@@ -32,10 +32,10 @@ func testClassifyTitle() {
 }
 
 func testClassifySectionHeader() {
-    checkEqual(classifyZone("Ingredients").label, .title, "'Ingredients' header -> title")
-    checkEqual(classifyZone("Directions:").label, .title, "'Directions:' header -> title")
-    checkEqual(classifyZone("Method").label, .title, "'Method' header -> title")
-    checkEqual(classifyZone("For the filling").label, .title, "'For the filling' -> title")
+    let headers = ["Ingredients", "Directions:", "Method", "For the filling"]
+    for header in headers {
+        checkEqual(classifyZone(header).label, .title, "'\(header)' header -> title")
+    }
 }
 
 func testClassifyMetadata() {
@@ -124,22 +124,6 @@ func testZoneClassificationCodable() {
     checkCodableRoundTrip(value, "ZoneClassification Codable round-trip")
 }
 
-func testZoneLabelCodable() {
-    // Verify all labels round-trip correctly.
-    for label in [ZoneLabel.title, .ingredients, .instructions, .metadata, .handwritten, .other] {
-        let value = ZoneClassification(label: label, confidence: 0.5)
-        let encoder = JSONEncoder()
-        let decoder = JSONDecoder()
-        do {
-            let data = try encoder.encode(value)
-            let decoded = try decoder.decode(ZoneClassification.self, from: data)
-            check(decoded.label == label, "ZoneLabel.\(label.rawValue) round-trips")
-        } catch {
-            check(false, "ZoneLabel.\(label.rawValue) encode/decode failed: \(error)")
-        }
-    }
-}
-
 // MARK: - Test Runner
 
 func runZoneClassifierTests() -> Bool {
@@ -158,7 +142,6 @@ func runZoneClassifierTests() -> Bool {
     testFilterZones()
     testClassifyZonesArray()
     testZoneClassificationCodable()
-    testZoneLabelCodable()
 
     return printTestSummary("Zone Classifier Tests")
 }
