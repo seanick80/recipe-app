@@ -9,42 +9,73 @@ struct GroceryListView: View {
     @State private var newListName = ""
     @State private var renamingList: GroceryList?
     @State private var renameText = ""
+    @State private var isSelectingForMerge = false
+    @State private var selectedForMerge: Set<PersistentIdentifier> = []
+    @State private var viewModel = ShoppingViewModel()
 
     var body: some View {
         NavigationStack {
             List {
                 ForEach(lists) { list in
-                    NavigationLink {
-                        GroceryListDetailView(groceryList: list)
-                    } label: {
-                        VStack(alignment: .leading) {
-                            Text(list.name)
-                                .font(.headline)
-                            Text("\(list.completedCount)/\(list.items?.count ?? 0) items checked")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
-                    }
-                    .contextMenu {
+                    if isSelectingForMerge {
                         Button {
-                            renameText = list.name
-                            renamingList = list
+                            if selectedForMerge.contains(list.persistentModelID) {
+                                selectedForMerge.remove(list.persistentModelID)
+                            } else {
+                                selectedForMerge.insert(list.persistentModelID)
+                            }
                         } label: {
-                            Label("Rename", systemImage: "pencil")
+                            HStack {
+                                Image(
+                                    systemName: selectedForMerge.contains(list.persistentModelID)
+                                        ? "checkmark.circle.fill" : "circle"
+                                )
+                                .foregroundStyle(
+                                    selectedForMerge.contains(list.persistentModelID)
+                                        ? Color.accentColor : .gray
+                                )
+                                VStack(alignment: .leading) {
+                                    Text(list.name).font(.headline)
+                                    Text("\(list.completedCount)/\(list.items?.count ?? 0) items checked")
+                                        .font(.caption).foregroundStyle(.secondary)
+                                }
+                            }
                         }
-                        Button {
-                            duplicateList(list)
+                        .buttonStyle(.plain)
+                    } else {
+                        NavigationLink {
+                            GroceryListDetailView(groceryList: list)
                         } label: {
-                            Label("Duplicate", systemImage: "doc.on.doc")
+                            VStack(alignment: .leading) {
+                                Text(list.name)
+                                    .font(.headline)
+                                Text("\(list.completedCount)/\(list.items?.count ?? 0) items checked")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
                         }
-                        Button(role: .destructive) {
-                            modelContext.delete(list)
-                        } label: {
-                            Label("Delete", systemImage: "trash")
+                        .contextMenu {
+                            Button {
+                                renameText = list.name
+                                renamingList = list
+                            } label: {
+                                Label("Rename", systemImage: "pencil")
+                            }
+                            Button {
+                                duplicateList(list)
+                            } label: {
+                                Label("Duplicate", systemImage: "doc.on.doc")
+                            }
+                            Button(role: .destructive) {
+                                modelContext.delete(list)
+                            } label: {
+                                Label("Delete", systemImage: "trash")
+                            }
                         }
                     }
                 }
                 .onDelete { offsets in
+                    guard !isSelectingForMerge else { return }
                     for index in offsets {
                         modelContext.delete(lists[index])
                     }
@@ -53,14 +84,53 @@ struct GroceryListView: View {
             .navigationTitle("Grocery Lists")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button(action: { showingNewList = true }) {
-                        Label("New List", systemImage: "plus")
+                    if isSelectingForMerge {
+                        Button("Cancel") {
+                            isSelectingForMerge = false
+                            selectedForMerge = []
+                        }
+                    } else {
+                        Button(action: { showingNewList = true }) {
+                            Label("New List", systemImage: "plus")
+                        }
                     }
                 }
                 ToolbarItem(placement: .secondaryAction) {
-                    Button(action: { showingGenerateFromRecipes = true }) {
-                        Label("From Recipes", systemImage: "book")
+                    if !isSelectingForMerge {
+                        Button(action: { showingGenerateFromRecipes = true }) {
+                            Label("From Recipes", systemImage: "book")
+                        }
                     }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    if !isSelectingForMerge && lists.count >= 2 {
+                        Button {
+                            isSelectingForMerge = true
+                            selectedForMerge = []
+                        } label: {
+                            Label("Select to Merge", systemImage: "arrow.triangle.merge")
+                        }
+                    }
+                }
+            }
+            .safeAreaInset(edge: .bottom) {
+                if isSelectingForMerge {
+                    HStack {
+                        Spacer()
+                        Button {
+                            mergeLists()
+                        } label: {
+                            Text("Merge (\(selectedForMerge.count))")
+                                .fontWeight(.semibold)
+                                .frame(maxWidth: .infinity)
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .disabled(selectedForMerge.count < 2)
+                        .padding(.horizontal)
+                        Spacer()
+                    }
+                    .padding(.vertical, 12)
+                    .background(.bar)
                 }
             }
             .alert("New Grocery List", isPresented: $showingNewList) {
@@ -99,6 +169,14 @@ struct GroceryListView: View {
                 GenerateGroceryListView()
             }
         }
+    }
+
+    private func mergeLists() {
+        let sources = lists.filter { selectedForMerge.contains($0.persistentModelID) }
+        guard sources.count >= 2, let target = sources.first else { return }
+        viewModel.mergeLists(sources, into: target, context: modelContext)
+        isSelectingForMerge = false
+        selectedForMerge = []
     }
 
     private func duplicateList(_ source: GroceryList) {

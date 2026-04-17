@@ -113,7 +113,7 @@ psql recipe_app < database/seed.sql
 
 ## Testing
 ```bash
-# All tests (Windows) — 473 tests across 15 suites
+# All tests (Windows) — 486 tests across 15 suites
 ./scripts/test.sh
 
 # Full build validation (lint + tests + config)
@@ -126,7 +126,7 @@ cd server && pytest
 Pure Swift test suites in `TestFixtures/` (exercising `SharedLogic/` code):
 Recipe (26), Shopping (35), ListParser (60), OCR (45), Detection (24),
 Barcode (17), Pantry (25), GroceryCategorizer (32), ZoneClassifier (26),
-QualityGate (50), DebugLog (27), PrepNoteStripper (30),
+QualityGate (63), DebugLog (27), PrepNoteStripper (30),
 ContentDetector (8), FuzzyMatcher (17), RecipeSchemaParser (51).
 
 XCTests in `RecipeAppTests/` run on Codemagic simulator before archive:

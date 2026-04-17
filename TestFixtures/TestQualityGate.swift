@@ -256,6 +256,68 @@ func testMetadataNotJunk() {
     }
 }
 
+// MARK: Numbered Instruction Detection
+
+func testLooksLikeNumberedInstruction() {
+    check(
+        looksLikeNumberedInstruction("1 Combine flours in large bowl; whisk in eggs"),
+        "numbered instruction with cooking verb"
+    )
+    check(
+        looksLikeNumberedInstruction("2 Heat oil in large frying pan"),
+        "heat instruction"
+    )
+    check(
+        looksLikeNumberedInstruction("3 Serve fritters topped with crème fraîche"),
+        "serve instruction"
+    )
+    check(
+        !looksLikeNumberedInstruction("2 eggs"),
+        "short ingredient not instruction"
+    )
+    check(
+        !looksLikeNumberedInstruction("1 tablespoon olive oil"),
+        "tablespoon is not a cooking verb"
+    )
+    check(
+        !looksLikeNumberedInstruction("½ cup yogurt"),
+        "fraction start not instruction"
+    )
+}
+
+// MARK: Ingredient Start Detection
+
+func testLooksLikeIngredientStart() {
+    check(
+        looksLikeIngredientStart("½ cup (75g) plain (all-purpose) flour"),
+        "fraction cup ingredient"
+    )
+    check(
+        looksLikeIngredientStart("2 eggs"),
+        "simple count ingredient"
+    )
+    check(
+        looksLikeIngredientStart("420g (13½ ounces) canned corn kernels"),
+        "metric weight ingredient"
+    )
+    check(
+        looksLikeIngredientStart("2 tablespoons vegetable oil"),
+        "tablespoon ingredient"
+    )
+    check(
+        !looksLikeIngredientStart("1 Combine flours in large bowl; whisk in eggs"),
+        "numbered instruction rejected"
+    )
+    check(
+        !looksLikeIngredientStart("Preheat oven to 180°C"),
+        "instruction without number"
+    )
+    check(
+        !looksLikeIngredientStart("zucchini and corn fritters"),
+        "title line no quantity"
+    )
+}
+
 // MARK: - Test Runner
 
 func runQualityGateTests() -> Bool {
@@ -281,6 +343,8 @@ func runQualityGateTests() -> Bool {
     testSectionHeaderNonHeader()
     testMetadataJunk()
     testMetadataNotJunk()
+    testLooksLikeNumberedInstruction()
+    testLooksLikeIngredientStart()
 
     return printTestSummary("Quality Gate Tests")
 }

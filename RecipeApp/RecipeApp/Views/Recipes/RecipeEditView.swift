@@ -56,7 +56,8 @@ struct RecipeEditView: View {
                                     .keyboardType(.decimalPad)
                                 UnitPicker(unit: $ingredientRows[index].unit)
                                     .frame(width: 80)
-                                TextField("Ingredient", text: $ingredientRows[index].name)
+                                TextField("Ingredient", text: $ingredientRows[index].name, axis: .vertical)
+                                    .lineLimit(1...3)
                             }
                             if !ingredientRows[index].notes.isEmpty || index == ingredientRows.count - 1 {
                                 TextField("Notes (e.g. finely diced)", text: $ingredientRows[index].notes)

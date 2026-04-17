@@ -5,7 +5,6 @@ import SwiftUI
 /// Hub view for all scanning features: barcode, shopping list OCR, recipe OCR.
 /// Shows as a tab in the main app, launches the appropriate scanner as a sheet.
 struct ScannerTabView: View {
-    @Environment(\.modelContext) private var modelContext
     @Query(
         filter: #Predicate<GroceryList> { $0.archivedAt == nil },
         sort: \GroceryList.createdAt,
@@ -20,14 +19,6 @@ struct ScannerTabView: View {
     @State private var scanProcessor = ScanProcessor()
     @State private var showingScanReview = false
     @State private var showingDebugLog = false
-    @State private var selectedListID: PersistentIdentifier?
-
-    private var selectedList: GroceryList? {
-        if let id = selectedListID {
-            return activeLists.first { $0.persistentModelID == id }
-        }
-        return activeLists.first
-    }
 
     var body: some View {
         NavigationStack {
@@ -92,7 +83,7 @@ struct ScannerTabView: View {
                 } header: {
                     Text("Scan")
                 } footer: {
-                    if selectedList == nil {
+                    if activeLists.isEmpty {
                         Text(
                             "Create a shopping list first to add scanned items."
                         )
@@ -131,56 +122,28 @@ struct ScannerTabView: View {
                     )
                 }
 
-                if !activeLists.isEmpty {
-                    Section("Add To") {
-                        if activeLists.count == 1, let list = activeLists.first {
-                            HStack {
-                                VStack(alignment: .leading) {
-                                    Text(list.name)
-                                        .font(.headline)
-                                    let total = list.items?.count ?? 0
-                                    let checked = list.items?.filter(\.isChecked).count ?? 0
-                                    Text("\(checked)/\(total) items checked")
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                                Spacer()
-                                Image(systemName: "cart.fill")
-                                    .foregroundStyle(.secondary)
-                            }
-                        } else {
-                            Picker("List", selection: $selectedListID) {
-                                ForEach(activeLists) { list in
-                                    Text(list.name)
-                                        .tag(Optional(list.persistentModelID))
-                                }
-                            }
-                        }
-                    }
-                }
             }
             .navigationTitle("Scan")
             .sheet(isPresented: $showingBarcodeScanner) {
-                BarcodeScannerView(groceryList: selectedList)
+                BarcodeScannerView(groceryList: activeLists.first)
             }
             .sheet(isPresented: $showingListScanner) {
                 OCRScannerView(
                     mode: .shoppingList,
-                    groceryList: selectedList,
+                    groceryList: activeLists.first,
                     scanProcessor: scanProcessor
                 )
             }
             .sheet(isPresented: $showingRecipeScanner) {
                 OCRScannerView(
                     mode: .recipe,
-                    groceryList: selectedList,
+                    groceryList: activeLists.first,
                     scanProcessor: scanProcessor
                 )
             }
             .sheet(isPresented: $showingScanReview) {
                 ScanReviewSheet(
-                    processor: scanProcessor,
-                    groceryList: selectedList
+                    processor: scanProcessor
                 )
             }
             .sheet(isPresented: $showingDebugLog) {
@@ -189,11 +152,6 @@ struct ScannerTabView: View {
             .onChange(of: scanProcessor.hasResults) { _, hasResults in
                 if hasResults {
                     showingScanReview = true
-                }
-            }
-            .onAppear {
-                if selectedListID == nil, let first = activeLists.first {
-                    selectedListID = first.persistentModelID
                 }
             }
             .alert("Camera Access Required", isPresented: $showingCameraPermissionAlert) {
@@ -263,7 +221,22 @@ struct ScanReviewSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
     @Bindable var processor: ScanProcessor
-    let groceryList: GroceryList?
+    @Query(
+        filter: #Predicate<GroceryList> { $0.archivedAt == nil },
+        sort: \GroceryList.createdAt,
+        order: .reverse
+    )
+    private var activeLists: [GroceryList]
+    @State private var selectedListID: PersistentIdentifier?
+
+    /// The list to add scanned items to. Uses explicit selection or falls back
+    /// to the most recent active list.
+    private var targetList: GroceryList? {
+        if let id = selectedListID {
+            return activeLists.first { $0.persistentModelID == id }
+        }
+        return activeLists.first
+    }
 
     private var isRecipeMode: Bool { processor.scanMode == .recipe }
 
@@ -327,13 +300,24 @@ struct ScanReviewSheet: View {
                         .disabled(items.filter(\.included).isEmpty)
                         .padding()
                     } else {
-                        Button("Add \(items.filter(\.included).count) Items") {
-                            addGroceryItems(items.filter(\.included))
-                            processor.reset()
-                            dismiss()
+                        VStack(spacing: 8) {
+                            if activeLists.count > 1 {
+                                Picker("Add to", selection: $selectedListID) {
+                                    ForEach(activeLists) { list in
+                                        Text(list.name)
+                                            .tag(Optional(list.persistentModelID))
+                                    }
+                                }
+                                .pickerStyle(.menu)
+                            }
+                            Button("Add \(items.filter(\.included).count) Items") {
+                                addGroceryItems(items.filter(\.included))
+                                processor.reset()
+                                dismiss()
+                            }
+                            .buttonStyle(.borderedProminent)
+                            .disabled(items.filter(\.included).isEmpty || targetList == nil)
                         }
-                        .buttonStyle(.borderedProminent)
-                        .disabled(items.filter(\.included).isEmpty)
                         .padding()
                     }
                 }
@@ -352,7 +336,7 @@ struct ScanReviewSheet: View {
     }
 
     private func addGroceryItems(_ items: [ScanProcessor.ParsedItem]) {
-        guard let list = groceryList else { return }
+        guard let list = targetList else { return }
         for item in items {
             let groceryItem = GroceryItem(
                 name: item.name,

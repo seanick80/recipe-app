@@ -425,6 +425,64 @@ class ScanProcessor {
             ]
         )
 
+        // Fallback: if section routing found no ingredients (no headers in
+        // the OCR text), re-walk the lines using heuristic detection.
+        // Ingredient lines start with quantities; numbered instruction
+        // lines start with a digit + cooking verb.
+        if ingredientItems.isEmpty {
+            var inInstructions = false
+            for line in printed {
+                let trimmed = line.text.trimmingCharacters(in: .whitespacesAndNewlines)
+                guard !trimmed.isEmpty else { continue }
+                if isLikelyMetadataJunk(trimmed) { continue }
+                // Skip the title
+                if trimmed == titleText || cleanRecipeTitle(trimmed) == titleText { continue }
+
+                if looksLikeNumberedInstruction(trimmed) {
+                    inInstructions = true
+                    let cleaned = cleanInstructionLine(trimmed)
+                    if !cleaned.isEmpty {
+                        instructionSteps.append(cleaned)
+                    }
+                } else if !inInstructions && looksLikeIngredientStart(trimmed) {
+                    if let parsed = parseIngredientLine(trimmed) {
+                        ingredientItems.append(
+                            ParsedItem(
+                                name: parsed.name,
+                                quantity: parsed.quantity,
+                                unit: parsed.unit,
+                                category: categorizeGroceryItem(parsed.name)
+                            )
+                        )
+                    }
+                } else if inInstructions {
+                    // Continuation of instructions (un-numbered lines after
+                    // numbered instructions started)
+                    let cleaned = cleanInstructionLine(trimmed)
+                    if !cleaned.isEmpty {
+                        // Append to the last instruction step if it exists
+                        if let last = instructionSteps.last {
+                            instructionSteps[instructionSteps.count - 1] = last + " " + cleaned
+                        } else {
+                            instructionSteps.append(cleaned)
+                        }
+                    }
+                }
+            }
+
+            if !ingredientItems.isEmpty {
+                DebugLog.shared.log(
+                    category: "ocr.fallback",
+                    message: "headerless recipe fallback recovered ingredients",
+                    details: [
+                        "scanID": scanID,
+                        "ingredients": "\(ingredientItems.count)",
+                        "steps": "\(instructionSteps.count)",
+                    ]
+                )
+            }
+        }
+
         // Assemble review items: title marker, ingredients, instruction summary.
         var items: [ParsedItem] = []
         if !titleText.isEmpty {

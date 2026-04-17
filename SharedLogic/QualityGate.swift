@@ -305,6 +305,72 @@ func isLikelyMetadataJunk(_ line: String) -> Bool {
     return stripped.count <= 1
 }
 
+// MARK: - Headerless Recipe Heuristics
+
+/// True if the line looks like a numbered instruction step — e.g.
+/// "1 Combine flours in large bowl" or "3 Serve fritters topped with..."
+/// These start with a digit (1–9) immediately followed by a space and a
+/// capital letter or verb, distinguishing them from ingredient lines like
+/// "2 eggs" or "1 tablespoon olive oil".
+func looksLikeNumberedInstruction(_ line: String) -> Bool {
+    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard trimmed.count > 10 else { return false }
+
+    // Must start with a single digit (1-9) followed by a space
+    guard let first = trimmed.first, first.isNumber,
+        trimmed.count > 2,
+        trimmed[trimmed.index(after: trimmed.startIndex)] == " "
+    else { return false }
+
+    // The word after the number: if it's a cooking verb → instruction
+    let afterNumber = String(trimmed.dropFirst(2)).trimmingCharacters(in: .whitespaces)
+    let firstWord = afterNumber.prefix(while: { $0.isLetter }).lowercased()
+
+    let cookingVerbs: Set<String> = [
+        "heat", "combine", "cook", "add", "stir", "mix", "pour", "place",
+        "bake", "serve", "preheat", "bring", "reduce", "cover", "remove",
+        "transfer", "whisk", "fold", "season", "drain", "cut", "slice",
+        "chop", "melt", "grease", "brush", "roll", "spread", "arrange",
+        "return", "meanwhile", "fill", "sprinkle", "set", "let", "cool",
+        "line", "soak", "blend", "process", "knead", "shape", "divide",
+        "toss", "drizzle", "garnish", "top", "stand", "rest", "simmer",
+        "boil", "fry", "roast", "grill", "broil", "sauté", "sear",
+        "marinate", "refrigerate", "freeze", "thaw", "wrap", "discard",
+        "squeeze", "strain", "rinse", "wash", "peel", "trim", "score",
+        "thread", "skewer", "invert", "unmould", "unmold", "flip",
+        "using", "in", "on", "working", "make", "prepare", "finish",
+    ]
+
+    return cookingVerbs.contains(firstWord)
+}
+
+/// True if the line starts with a quantity pattern typical of an ingredient
+/// line — e.g. "½ cup", "2 tablespoons", "420g", "¼ cup (60ml)".
+/// Used as a fallback when no section headers were found.
+func looksLikeIngredientStart(_ line: String) -> Bool {
+    let trimmed = line.trimmingCharacters(in: .whitespacesAndNewlines)
+    guard !trimmed.isEmpty else { return false }
+
+    // Must start with a digit, fraction character, or Unicode fraction
+    let first = trimmed.unicodeScalars.first!
+    let isASCIIScalar = first.value < 128
+    let startsWithQuantity =
+        isASCIIScalar
+        ? (trimmed.first!.isNumber)
+        : "½¼¾⅓⅔⅛⅜⅝⅞".unicodeScalars.contains(first)
+
+    guard startsWithQuantity else { return false }
+
+    // If it looks like a numbered instruction, it's not an ingredient
+    if looksLikeNumberedInstruction(trimmed) { return false }
+
+    // Short lines starting with a number are likely ingredients ("2 eggs")
+    // Long lines (>100 chars) starting with a number are likely instructions
+    if trimmed.count > 100 { return false }
+
+    return true
+}
+
 // MARK: - Helpers
 
 /// Median of a sorted array.
