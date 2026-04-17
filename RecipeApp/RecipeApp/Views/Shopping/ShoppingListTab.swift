@@ -16,6 +16,7 @@ struct ShoppingListTab: View {
     @State private var showingTemplateEditor = false
     @State private var showingStartNewWeek = false
     @State private var showingMergeLists = false
+    @State private var showingArchivedLists = false
     @State private var viewModel = ShoppingViewModel()
 
     private var activeList: GroceryList? { activeLists.first }
@@ -61,6 +62,12 @@ struct ShoppingListTab: View {
                                 Label("Merge Lists", systemImage: "arrow.triangle.merge")
                             }
                         }
+
+                        Button {
+                            showingArchivedLists = true
+                        } label: {
+                            Label("Archived Lists", systemImage: "archivebox")
+                        }
                     } label: {
                         Label("Options", systemImage: "ellipsis.circle")
                     }
@@ -86,6 +93,9 @@ struct ShoppingListTab: View {
                     lists: activeLists,
                     viewModel: viewModel
                 )
+            }
+            .navigationDestination(isPresented: $showingArchivedLists) {
+                ArchivedListsView(viewModel: viewModel)
             }
         }
     }

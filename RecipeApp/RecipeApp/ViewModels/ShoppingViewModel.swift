@@ -73,22 +73,41 @@ class ShoppingViewModel {
     }
 
     /// Merges items from source lists into the target list, then archives the sources.
+    /// Duplicate items (same name + unit, case-insensitive) are consolidated by summing quantities.
     func mergeLists(_ sources: [GroceryList], into target: GroceryList, context: ModelContext) {
+        var existingByKey: [String: GroceryItem] = [:]
+        for item in target.items ?? [] {
+            let key = "\(item.name.lowercased())|\(item.unit.lowercased())"
+            existingByKey[key] = item
+        }
+
         for source in sources where source.persistentModelID != target.persistentModelID {
             for item in source.items ?? [] {
-                let merged = GroceryItem(
-                    name: item.name,
-                    quantity: item.quantity,
-                    unit: item.unit,
-                    category: item.category,
-                    sourceRecipeName: item.sourceRecipeName,
-                    sourceRecipeId: item.sourceRecipeId
-                )
-                merged.isChecked = item.isChecked
-                merged.groceryList = target
-                context.insert(merged)
+                let key = "\(item.name.lowercased())|\(item.unit.lowercased())"
+                if let existing = existingByKey[key] {
+                    existing.quantity += item.quantity
+                    if !item.isChecked { existing.isChecked = false }
+                } else {
+                    let merged = GroceryItem(
+                        name: item.name,
+                        quantity: item.quantity,
+                        unit: item.unit,
+                        category: item.category,
+                        sourceRecipeName: item.sourceRecipeName,
+                        sourceRecipeId: item.sourceRecipeId
+                    )
+                    merged.isChecked = item.isChecked
+                    merged.groceryList = target
+                    context.insert(merged)
+                    existingByKey[key] = merged
+                }
             }
             archive(source)
         }
+    }
+
+    /// Restores an archived list by clearing its archivedAt date.
+    func restore(_ list: GroceryList) {
+        list.archivedAt = nil
     }
 }
