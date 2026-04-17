@@ -21,26 +21,7 @@ struct ShoppingListDetailView: View {
             ForEach(viewModel.categorizedItems(from: groceryList), id: \.0) { category, items in
                 Section(category) {
                     ForEach(items) { item in
-                        if isSelecting {
-                            Button {
-                                toggleSelection(item)
-                            } label: {
-                                HStack {
-                                    Image(
-                                        systemName: selectedItems.contains(item.persistentModelID)
-                                            ? "checkmark.circle.fill" : "circle"
-                                    )
-                                    .foregroundStyle(
-                                        selectedItems.contains(item.persistentModelID)
-                                            ? .blue : .gray
-                                    )
-                                    GroceryItemRow(item: item)
-                                }
-                            }
-                            .buttonStyle(.plain)
-                        } else {
-                            GroceryItemRow(item: item)
-                        }
+                        itemRow(item)
                     }
                     .onDelete { offsets in
                         for index in offsets {
@@ -130,8 +111,7 @@ struct ShoppingListDetailView: View {
         }
         .sheet(isPresented: $showingScanReview) {
             ScanReviewSheet(
-                processor: scanProcessor,
-                groceryList: groceryList
+                processor: scanProcessor
             )
         }
         .onChange(of: scanProcessor.hasResults) { _, hasResults in
@@ -157,6 +137,30 @@ struct ShoppingListDetailView: View {
                     description: Text("Tap + to add items or scan a list.")
                 )
             }
+        }
+    }
+
+    @ViewBuilder
+    private func itemRow(_ item: GroceryItem) -> some View {
+        if isSelecting {
+            Button {
+                toggleSelection(item)
+            } label: {
+                HStack {
+                    Image(
+                        systemName: selectedItems.contains(item.persistentModelID)
+                            ? "checkmark.circle.fill" : "circle"
+                    )
+                    .foregroundStyle(
+                        selectedItems.contains(item.persistentModelID)
+                            ? .blue : .gray
+                    )
+                    GroceryItemRow(item: item)
+                }
+            }
+            .buttonStyle(.plain)
+        } else {
+            GroceryItemRow(item: item)
         }
     }
 
