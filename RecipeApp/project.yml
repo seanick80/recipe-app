@@ -32,6 +32,8 @@ targets:
       # emitted by Xcode's ML compile rule from the recursive scan). Result:
       # a ~330 MB IPA instead of ~180 MB. Do not re-add that entry.
       - path: RecipeApp
+    dependencies:
+      - target: ShareExtension
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp
@@ -59,6 +61,27 @@ targets:
         # local cache), flip this to true and answer the prompts in ASC.
         INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
 
+  ShareExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: ShareExtension
+      # RecipeSchemaParser + ListLineParser + GroceryCategorizer are compiled
+      # into the extension so it can parse recipes and ingredient lines.
+      # These are the same SharedLogic files copied into RecipeApp/Parsers/
+      # at CI build time.
+      - path: RecipeApp/Parsers/RecipeSchemaParser.swift
+      - path: RecipeApp/Parsers/ListLineParser.swift
+      - path: RecipeApp/Parsers/GroceryCategorizer.swift
+    info:
+      path: ShareExtension/Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp.share-extension
+        CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
+        CURRENT_PROJECT_VERSION: "1"
+        MARKETING_VERSION: "0.2.0"
+
   RecipeAppTests:
     type: bundle.unit-test
     platform: iOS
@@ -76,6 +99,7 @@ schemes:
     build:
       targets:
         RecipeApp: all
+        ShareExtension: all
         RecipeAppTests: [test]
     test:
       targets:

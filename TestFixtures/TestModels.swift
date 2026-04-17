@@ -162,6 +162,7 @@ struct TestRunner {
         allPassed = runPrepNoteStripperTests() && allPassed
         allPassed = runContentDetectorTests() && allPassed
         allPassed = runFuzzyMatcherTests() && allPassed
+        allPassed = runRecipeSchemaParserTests() && allPassed
 
         print("\n=== Done ===")
         if !allPassed {

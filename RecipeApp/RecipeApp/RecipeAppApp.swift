@@ -27,9 +27,17 @@ struct RecipeAppApp: App {
         }
     }()
 
+    @State private var importService = PendingImportService()
+
     var body: some Scene {
         WindowGroup {
             ContentView()
+                .onAppear { importService.checkForPendingImports() }
+                .sheet(isPresented: $importService.showingImportReview) {
+                    if let recipe = importService.pendingRecipe {
+                        ImportReviewView(recipe: recipe, importService: importService)
+                    }
+                }
         }
         .modelContainer(sharedModelContainer)
     }

@@ -34,6 +34,11 @@ workflows:
       ios_signing:
         provisioning_profiles:
           - ios_distribution_profile
+          # Share Extension needs its own App Store provisioning profile
+          # bound to com.seanick80.recipeapp.share-extension. Create via:
+          #   scripts/generate-distribution-profile.sh --bundle-id com.seanick80.recipeapp.share-extension
+          # Upload to Codemagic as ios_share_extension_profile.
+          - ios_share_extension_profile
         certificates:
           - ios_distribution_cert
       xcode: latest
@@ -64,6 +69,7 @@ workflows:
              SharedLogic/PrepNoteStripper.swift \
              SharedLogic/ContentDetector.swift \
              SharedLogic/FuzzyMatcher.swift \
+             SharedLogic/RecipeSchemaParser.swift \
              RecipeApp/RecipeApp/Parsers/
       - name: Generate Xcode project
         script: |
@@ -205,6 +211,7 @@ workflows:
              SharedLogic/PrepNoteStripper.swift \
              SharedLogic/ContentDetector.swift \
              SharedLogic/FuzzyMatcher.swift \
+             SharedLogic/RecipeSchemaParser.swift \
              RecipeApp/RecipeApp/Parsers/
           cd RecipeApp
           xcodegen generate

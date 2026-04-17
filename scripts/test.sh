@@ -44,6 +44,7 @@ if [[ -f "TestFixtures/TestModels.swift" ]]; then
         SharedLogic/PrepNoteStripper.swift
         SharedLogic/ContentDetector.swift
         SharedLogic/FuzzyMatcher.swift
+        SharedLogic/RecipeSchemaParser.swift
         TestFixtures/Recipe.swift
         TestFixtures/GroceryItem.swift
         TestFixtures/ShoppingTemplate.swift
@@ -61,6 +62,7 @@ if [[ -f "TestFixtures/TestModels.swift" ]]; then
         TestFixtures/TestPrepNoteStripper.swift
         TestFixtures/TestContentDetector.swift
         TestFixtures/TestFuzzyMatcher.swift
+        TestFixtures/TestRecipeSchemaParser.swift
         TestFixtures/TestModels.swift
     )
     if ! swiftc "${SWIFT_SOURCES[@]}" -o "$OUT" 2>&1; then
