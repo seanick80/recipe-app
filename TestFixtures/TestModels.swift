@@ -199,6 +199,9 @@ struct TestRunner {
         allPassed = runZoneClassifierTests() && allPassed
         allPassed = runQualityGateTests() && allPassed
         allPassed = runDebugLogTests() && allPassed
+        allPassed = runPrepNoteStripperTests() && allPassed
+        allPassed = runContentDetectorTests() && allPassed
+        allPassed = runFuzzyMatcherTests() && allPassed
 
         print("\n=== Done ===")
         if !allPassed {

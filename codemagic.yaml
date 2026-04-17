@@ -61,6 +61,9 @@ workflows:
              SharedLogic/QualityGate.swift \
              SharedLogic/ZoneClassifier.swift \
              SharedLogic/DebugLog.swift \
+             SharedLogic/PrepNoteStripper.swift \
+             SharedLogic/ContentDetector.swift \
+             SharedLogic/FuzzyMatcher.swift \
              RecipeApp/RecipeApp/Parsers/
       - name: Generate Xcode project
         script: |
@@ -199,6 +202,9 @@ workflows:
              SharedLogic/QualityGate.swift \
              SharedLogic/ZoneClassifier.swift \
              SharedLogic/DebugLog.swift \
+             SharedLogic/PrepNoteStripper.swift \
+             SharedLogic/ContentDetector.swift \
+             SharedLogic/FuzzyMatcher.swift \
              RecipeApp/RecipeApp/Parsers/
           cd RecipeApp
           xcodegen generate

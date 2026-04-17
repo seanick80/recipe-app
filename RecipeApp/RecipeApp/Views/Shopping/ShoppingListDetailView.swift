@@ -1,3 +1,4 @@
+import AVFoundation
 import SwiftData
 import SwiftUI
 
@@ -8,6 +9,10 @@ struct ShoppingListDetailView: View {
     @Bindable var groceryList: GroceryList
     var viewModel: ShoppingViewModel
     @State private var showingAddItem = false
+    @State private var showingListScanner = false
+    @State private var showingScanReview = false
+    @State private var scanProcessor = ScanProcessor()
+    @State private var showingCameraPermissionAlert = false
 
     var body: some View {
         List {
@@ -25,6 +30,13 @@ struct ShoppingListDetailView: View {
             }
         }
         .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    checkCameraAndPresent { showingListScanner = true }
+                } label: {
+                    Label("Scan", systemImage: "doc.text.viewfinder")
+                }
+            }
             ToolbarItem(placement: .secondaryAction) {
                 Button {
                     showingAddItem = true
@@ -54,12 +66,40 @@ struct ShoppingListDetailView: View {
         .sheet(isPresented: $showingAddItem) {
             AddGroceryItemView(groceryList: groceryList)
         }
+        .sheet(isPresented: $showingListScanner) {
+            OCRScannerView(
+                mode: .shoppingList,
+                groceryList: groceryList,
+                scanProcessor: scanProcessor
+            )
+        }
+        .sheet(isPresented: $showingScanReview) {
+            ScanReviewSheet(
+                processor: scanProcessor,
+                groceryList: groceryList
+            )
+        }
+        .onChange(of: scanProcessor.hasResults) { _, hasResults in
+            if hasResults {
+                showingScanReview = true
+            }
+        }
+        .alert("Camera Access Required", isPresented: $showingCameraPermissionAlert) {
+            Button("Open Settings") {
+                if let url = URL(string: UIApplication.openSettingsURLString) {
+                    UIApplication.shared.open(url)
+                }
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Please enable camera access in Settings to use scanning features.")
+        }
         .overlay {
             if (groceryList.items ?? []).isEmpty {
                 ContentUnavailableView(
                     "No Items",
                     systemImage: "cart",
-                    description: Text("Tap + to add items or edit your staples template.")
+                    description: Text("Tap + to add items or scan a list.")
                 )
             }
         }
@@ -69,6 +109,21 @@ struct ShoppingListDetailView: View {
         let checked = (groceryList.items ?? []).filter(\.isChecked)
         for item in checked {
             modelContext.delete(item)
+        }
+    }
+
+    private func checkCameraAndPresent(_ action: @escaping () -> Void) {
+        switch AVCaptureDevice.authorizationStatus(for: .video) {
+        case .authorized:
+            action()
+        case .notDetermined:
+            AVCaptureDevice.requestAccess(for: .video) { granted in
+                if granted {
+                    Task { @MainActor in action() }
+                }
+            }
+        default:
+            showingCameraPermissionAlert = true
         }
     }
 }

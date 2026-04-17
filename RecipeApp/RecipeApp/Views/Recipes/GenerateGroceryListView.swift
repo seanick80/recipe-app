@@ -74,7 +74,9 @@ struct GenerateGroceryListView: View {
         var consolidated: [String: ConsolidatedItem] = [:]
         for recipe in chosen {
             for ingredient in recipe.ingredients ?? [] {
-                let key = ingredient.name.lowercased()
+                let stripped = stripPrepNotes(ingredient.name)
+                let cleanName = stripped.name.isEmpty ? ingredient.name : stripped.name
+                let key = cleanName.lowercased()
                 if var existing = consolidated[key] {
                     if existing.unit == ingredient.unit {
                         existing.quantity += ingredient.quantity
@@ -88,7 +90,8 @@ struct GenerateGroceryListView: View {
                     consolidated[key] = ConsolidatedItem(
                         quantity: ingredient.quantity,
                         unit: ingredient.unit,
-                        category: ingredient.category,
+                        category: ingredient.category.isEmpty
+                            ? categorizeGroceryItem(cleanName) : ingredient.category,
                         recipeNames: [recipe.name],
                         recipeIds: [recipe.id.uuidString]
                     )

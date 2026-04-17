@@ -283,6 +283,18 @@ struct ScanReviewSheet: View {
     var body: some View {
         NavigationStack {
             VStack {
+                if !isRecipeMode && processor.detectedRecipeInListScan {
+                    HStack(spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("This looks like a recipe — try the Recipe scanner instead.")
+                            .font(.callout)
+                            .foregroundStyle(.secondary)
+                    }
+                    .padding(.horizontal)
+                    .padding(.top, 8)
+                }
+
                 let items = isRecipeMode ? ingredientItems : processor.parsedItems
                 if items.isEmpty {
                     ContentUnavailableView(
@@ -355,12 +367,18 @@ struct ScanReviewSheet: View {
 
     private func saveRecipe(_ items: [ScanProcessor.ParsedItem]) {
         let ingredients = items.enumerated().map { index, item in
-            Ingredient(
-                name: item.name,
+            let stripped = stripPrepNotes(item.name)
+            let cleanName = stripped.name.isEmpty ? item.name : stripped.name
+            let prepNotes = [stripped.prep, stripped.sizeAdjective]
+                .filter { !$0.isEmpty }
+                .joined(separator: ", ")
+            return Ingredient(
+                name: cleanName,
                 quantity: item.quantity,
                 unit: item.unit,
                 category: item.category,
-                displayOrder: index
+                displayOrder: index,
+                notes: prepNotes
             )
         }
         let recipe = Recipe(
@@ -412,6 +430,17 @@ private struct ScanReviewItemRow: View {
                     .onChange(of: isFocused) { _, focused in
                         if !focused { commit() }
                     }
+                if let suggestion = item.suggestion {
+                    Button {
+                        processor.updateItemName(id: item.id, name: suggestion)
+                        editedName = suggestion
+                    } label: {
+                        Text("Did you mean \"\(suggestion)\"?")
+                            .font(.caption)
+                            .foregroundStyle(.blue)
+                    }
+                    .buttonStyle(.plain)
+                }
                 if item.quantity > 0 && (item.quantity != 1 || !item.unit.isEmpty) {
                     Text("\(formatQuantity(item.quantity)) \(item.unit)")
                         .font(.caption)

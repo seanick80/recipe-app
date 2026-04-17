@@ -29,6 +29,8 @@ class ScanProcessor {
         var unit: String
         var category: String
         var included: Bool = true
+        /// Fuzzy-match suggestion for OCR misreads (nil if name looks correct).
+        var suggestion: String?
 
         static func == (lhs: ParsedItem, rhs: ParsedItem) -> Bool {
             lhs.id == rhs.id
@@ -65,6 +67,10 @@ class ScanProcessor {
 
     var scanMode: ScanMode = .shoppingList
 
+    /// Set to true when a shopping-list scan detects recipe content. The
+    /// review sheet reads this to suggest switching to recipe mode.
+    var detectedRecipeInListScan: Bool = false
+
     /// Kick off background OCR for a shopping list. Returns immediately.
     func processShoppingList(image: UIImage) {
         scanMode = .shoppingList
@@ -79,9 +85,10 @@ class ScanProcessor {
         )
 
         Task.detached(priority: .userInitiated) { [weak self] in
-            let result = await Self.runOCRAndParseList(image: image, scanID: scanID)
+            let (recipeDetected, result) = await Self.runOCRAndParseList(image: image, scanID: scanID)
             await MainActor.run {
                 guard let self else { return }
+                self.detectedRecipeInListScan = recipeDetected
                 self.finishProcessing(result, instructions: "")
             }
         }
@@ -135,6 +142,7 @@ class ScanProcessor {
     func reset() {
         state = .idle
         parsedInstructions = ""
+        detectedRecipeInListScan = false
     }
 
     /// Updates inclusion state for an item by ID.
@@ -257,7 +265,7 @@ class ScanProcessor {
     private static func runOCRAndParseList(
         image: UIImage,
         scanID: String
-    ) async -> Result<[ParsedItem], Error> {
+    ) async -> (recipeDetected: Bool, result: Result<[ParsedItem], Error>) {
         let printed: [OCRLine]
         do {
             printed = try gatedOCR(image: image, scanID: scanID)
@@ -267,25 +275,44 @@ class ScanProcessor {
                 message: error.localizedDescription,
                 details: ["scanID": scanID, "stage": "list"]
             )
-            return .failure(error)
+            return (false, .failure(error))
         }
+
+        // Check if the scanned content looks like a recipe rather than a list.
+        let allText = printed.map(\.text).joined(separator: "\n")
+        let contentType = detectContentType(allText)
+        let isRecipeContent = contentType == .recipe
+
+        if isRecipeContent {
+            DebugLog.shared.log(
+                category: "ocr.detect",
+                message: "recipe content detected in shopping list scan",
+                details: ["scanID": scanID]
+            )
+        }
+
+        let vocab = groceryVocabulary()
 
         let items = printed.compactMap { line -> ParsedItem? in
             let trimmed = line.text.trimmingCharacters(in: .whitespaces)
             guard !trimmed.isEmpty else { return nil }
             if let parsed = parseListLine(trimmed) {
+                let suggestion = suggestCorrection(parsed.name, vocabulary: vocab)
                 return ParsedItem(
                     name: parsed.name,
                     quantity: parsed.quantity,
                     unit: parsed.unit,
-                    category: categorizeGroceryItem(parsed.name)
+                    category: categorizeGroceryItem(suggestion ?? parsed.name),
+                    suggestion: suggestion
                 )
             }
+            let suggestion = suggestCorrection(trimmed, vocabulary: vocab)
             return ParsedItem(
                 name: trimmed,
                 quantity: 1,
                 unit: "",
-                category: categorizeGroceryItem(trimmed)
+                category: categorizeGroceryItem(suggestion ?? trimmed),
+                suggestion: suggestion
             )
         }
 
@@ -297,9 +324,11 @@ class ScanProcessor {
                 "mode": "list",
                 "items": "\(items.count)",
                 "itemNames": items.map(\.name).joined(separator: " | "),
+                "recipeDetected": isRecipeContent ? "true" : "false",
+                "corrections": items.compactMap(\.suggestion).joined(separator: " | "),
             ]
         )
-        return .success(items)
+        return (isRecipeContent, .success(items))
     }
 
     // MARK: - Recipe path (section-header routing)
