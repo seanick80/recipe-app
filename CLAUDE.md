@@ -23,10 +23,18 @@
   or optional, relationships optional with explicit `inverse:`, no `@Attribute(.unique)`.
 - **Build system**: xcodegen. `RecipeApp.xcodeproj` is generated from `RecipeApp/project.yml`
   on the Codemagic Mac runner at build time — do NOT check the `.xcodeproj` into git.
-- **Signing**: Codemagic automatic signing via App Store Connect API key
-  (`recipe-app-appstore-key`) tied to Team `3JR8WTJUV6`.
-- **Build pipeline**: Push to GitHub `master` → Codemagic installs xcodegen, runs
-  `xcodegen generate`, then `xcode-project build-ipa` → signed IPA via email.
+- **Signing**: Explicit manual signing with a persistent iOS Distribution `.p12`
+  + matching App Store provisioning profile, both pre-uploaded to Codemagic
+  (`ios_distribution_cert` / `ios_distribution_profile`) and referenced from
+  `environment.ios_signing` in `codemagic.yaml`. App Store Connect API key
+  `recipe-app-appstore-key` (Team `3JR8WTJUV6`) authorizes signing + publish.
+- **Build pipeline**: Push to GitHub `master` → Codemagic installs xcodegen →
+  `xcodegen generate` → `agvtool new-version -all $((BUILD_NUMBER + 100))`
+  (bumps `CFBundleVersion` above any prior TestFlight upload) →
+  `xcode-project use-profiles` → `xcode-project build-ipa` →
+  `app-store-connect publish --testflight` (release notes harvested from
+  recent `feat:`/`fix:` commits). Internal testers get the build via the
+  normal TestFlight app.
 - Local testing: Pure Swift modules in `SharedLogic/` + `TestFixtures/` can be compiled with `swiftc` on Windows.
 
 ## Identifiers (do not change casually; all safe to commit)

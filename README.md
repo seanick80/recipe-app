@@ -7,7 +7,7 @@ A full-stack recipe and grocery list iOS app with local-first architecture.
 - **iOS Client**: SwiftUI + MVVM + SwiftData with CloudKit private database (on-device + iCloud sync)
 - **Build System**: xcodegen (`RecipeApp.xcodeproj` generated on CI from `RecipeApp/project.yml`)
 - **Backend**: Python FastAPI + PostgreSQL (future sync for cross-household features; CloudKit handles single-user persistence today)
-- **Build Pipeline**: Windows dev -> GitHub -> Codemagic CI (xcodegen + App Store Connect API-key signing) -> iPhone (OTA install)
+- **Build Pipeline**: Windows dev -> GitHub -> Codemagic CI (xcodegen + App Store Connect API-key signing) -> TestFlight -> iPhone
 
 ## Features
 
@@ -120,11 +120,16 @@ This feature will be removed before any public/App Store release.
 
 ## Status
 
-Working single-user iOS build, signed and installing over the air via
-Codemagic. Scanner tab supports shopping-list OCR, recipe OCR (with
-section-header routing), barcode scanning, and pantry photo capture
-(CoreML Food-101 classifier). Multi-device CloudKit sync works against
-the user's private iCloud zone.
+Shipping to TestFlight. Every push to `master` is built on Codemagic
+with a persistent iOS Distribution identity, uploaded to App Store
+Connect, and available to internal testers — no UDID registration or
+OTA side-loading needed. v0.2.0 is the first TestFlight release
+(2026-04-16).
+
+Scanner tab supports shopping-list OCR, recipe OCR (with section-header
+routing), barcode scanning, and pantry photo capture (CoreML Food-101
+classifier). Multi-device CloudKit sync works against the user's
+private iCloud zone.
 
 See [`BACKLOG.md`](BACKLOG.md) for what's next and what's explicitly
 out of scope.
