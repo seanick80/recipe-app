@@ -15,6 +15,7 @@ struct ShoppingListTab: View {
 
     @State private var showingTemplateEditor = false
     @State private var showingStartNewWeek = false
+    @State private var showingMergeLists = false
     @State private var viewModel = ShoppingViewModel()
 
     private var activeList: GroceryList? { activeLists.first }
@@ -52,6 +53,14 @@ struct ShoppingListTab: View {
                                 Label("Add Item", systemImage: "plus")
                             }
                         }
+
+                        if activeLists.count > 1 {
+                            Button {
+                                showingMergeLists = true
+                            } label: {
+                                Label("Merge Lists", systemImage: "arrow.triangle.merge")
+                            }
+                        }
                     } label: {
                         Label("Options", systemImage: "ellipsis.circle")
                     }
@@ -71,6 +80,12 @@ struct ShoppingListTab: View {
                 } else {
                     Text("Create a new shopping list from your staples template.")
                 }
+            }
+            .sheet(isPresented: $showingMergeLists) {
+                MergeListsView(
+                    lists: activeLists,
+                    viewModel: viewModel
+                )
             }
         }
     }

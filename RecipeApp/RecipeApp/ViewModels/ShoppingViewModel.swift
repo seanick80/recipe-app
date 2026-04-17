@@ -71,4 +71,24 @@ class ShoppingViewModel {
     func archive(_ list: GroceryList) {
         list.archivedAt = Date()
     }
+
+    /// Merges items from source lists into the target list, then archives the sources.
+    func mergeLists(_ sources: [GroceryList], into target: GroceryList, context: ModelContext) {
+        for source in sources where source.persistentModelID != target.persistentModelID {
+            for item in source.items ?? [] {
+                let merged = GroceryItem(
+                    name: item.name,
+                    quantity: item.quantity,
+                    unit: item.unit,
+                    category: item.category,
+                    sourceRecipeName: item.sourceRecipeName,
+                    sourceRecipeId: item.sourceRecipeId
+                )
+                merged.isChecked = item.isChecked
+                merged.groceryList = target
+                context.insert(merged)
+            }
+            archive(source)
+        }
+    }
 }

@@ -8,12 +8,22 @@ struct GenerateGroceryListView: View {
 
     @State private var selectedRecipes: Set<UUID> = []
     @State private var listName = ""
+    @State private var userEditedName = false
 
     var body: some View {
         NavigationStack {
             Form {
                 Section("List Name") {
-                    TextField("e.g. Weekly Groceries", text: $listName)
+                    TextField(
+                        "e.g. Weekly Groceries",
+                        text: Binding(
+                            get: { listName },
+                            set: { newValue in
+                                listName = newValue
+                                userEditedName = true
+                            }
+                        )
+                    )
                 }
 
                 Section("Select Recipes") {
@@ -47,6 +57,13 @@ struct GenerateGroceryListView: View {
                 }
             }
             .navigationTitle("Generate Grocery List")
+            .onChange(of: selectedRecipes) {
+                guard !userEditedName else { return }
+                let names = recipes.filter { selectedRecipes.contains($0.id) }
+                    .map(\.name)
+                    .sorted()
+                listName = names.joined(separator: ", ")
+            }
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Cancel") { dismiss() }

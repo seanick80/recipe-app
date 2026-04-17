@@ -13,13 +13,34 @@ struct ShoppingListDetailView: View {
     @State private var showingScanReview = false
     @State private var scanProcessor = ScanProcessor()
     @State private var showingCameraPermissionAlert = false
+    @State private var isSelecting = false
+    @State private var selectedItems: Set<PersistentIdentifier> = []
 
     var body: some View {
         List {
             ForEach(viewModel.categorizedItems(from: groceryList), id: \.0) { category, items in
                 Section(category) {
                     ForEach(items) { item in
-                        GroceryItemRow(item: item)
+                        if isSelecting {
+                            Button {
+                                toggleSelection(item)
+                            } label: {
+                                HStack {
+                                    Image(
+                                        systemName: selectedItems.contains(item.persistentModelID)
+                                            ? "checkmark.circle.fill" : "circle"
+                                    )
+                                    .foregroundStyle(
+                                        selectedItems.contains(item.persistentModelID)
+                                            ? .blue : .gray
+                                    )
+                                    GroceryItemRow(item: item)
+                                }
+                            }
+                            .buttonStyle(.plain)
+                        } else {
+                            GroceryItemRow(item: item)
+                        }
                     }
                     .onDelete { offsets in
                         for index in offsets {
@@ -61,6 +82,40 @@ struct ShoppingListDetailView: View {
                     Label("Uncheck All", systemImage: "arrow.uturn.backward")
                 }
                 .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                if isSelecting {
+                    Button {
+                        selectAll()
+                    } label: {
+                        Label("Select All", systemImage: "checklist.checked")
+                    }
+                } else {
+                    Button {
+                        isSelecting = true
+                    } label: {
+                        Label("Select Items", systemImage: "checklist")
+                    }
+                    .disabled((groceryList.items ?? []).isEmpty)
+                }
+            }
+            if isSelecting {
+                ToolbarItem(placement: .bottomBar) {
+                    HStack {
+                        Button("Cancel") {
+                            isSelecting = false
+                            selectedItems.removeAll()
+                        }
+                        Spacer()
+                        Text("\(selectedItems.count) selected")
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Remove", role: .destructive) {
+                            removeSelectedItems()
+                        }
+                        .disabled(selectedItems.isEmpty)
+                    }
+                }
             }
         }
         .sheet(isPresented: $showingAddItem) {
@@ -110,6 +165,34 @@ struct ShoppingListDetailView: View {
         for item in checked {
             modelContext.delete(item)
         }
+    }
+
+    private func toggleSelection(_ item: GroceryItem) {
+        if selectedItems.contains(item.persistentModelID) {
+            selectedItems.remove(item.persistentModelID)
+        } else {
+            selectedItems.insert(item.persistentModelID)
+        }
+    }
+
+    private func selectAll() {
+        let allIds = (groceryList.items ?? []).map(\.persistentModelID)
+        if selectedItems.count == allIds.count {
+            selectedItems.removeAll()
+        } else {
+            selectedItems = Set(allIds)
+        }
+    }
+
+    private func removeSelectedItems() {
+        let items = (groceryList.items ?? []).filter {
+            selectedItems.contains($0.persistentModelID)
+        }
+        for item in items {
+            modelContext.delete(item)
+        }
+        selectedItems.removeAll()
+        isSelecting = false
     }
 
     private func checkCameraAndPresent(_ action: @escaping () -> Void) {
