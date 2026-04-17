@@ -14,6 +14,9 @@
 - `scripts/layout-bench/` — Local document layout analysis benchmark (Python/PyTorch, Windows)
 - `data/layout-bench/` — Test images + ground truth for layout bench (images gitignored)
 - `server/` — Python FastAPI backend (future sync; not needed for single-user persistence)
+- `scripts/pantry-bench/` — YOLO pantry-detection evaluation harness (Python/ultralytics)
+- `data/pantry_images/` — 9 test pantry photos for detection benchmarking
+- `data/pantry-bench/results/` — Benchmark output (report.json + annotated images)
 - `database/` — SQL schema and seed data
 
 ## iOS App

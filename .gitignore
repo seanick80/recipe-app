@@ -43,6 +43,12 @@ data/layout-bench/results/
 data/layout-bench/images/*
 !data/layout-bench/images/.gitkeep
 
+# YOLO model weights (large binaries, re-download with ultralytics)
+*.pt
+
+# Pantry bench: annotated images are generated output, not source
+data/pantry-bench/results/*_annotated.jpg
+
 # Env
 .env
 

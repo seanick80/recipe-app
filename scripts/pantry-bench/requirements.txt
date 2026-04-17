@@ -1,0 +1,18 @@
+# YOLOv3 pantry-detection benchmarking — local evaluation pipeline
+# Install: pip install -r scripts/pantry-bench/requirements.txt
+#
+# torch.hub downloads the ultralytics/yolov3 repo + pretrained weights
+# (~250MB) on first run into ~/.cache/torch/hub/. Subsequent runs reuse
+# the cache.
+
+torch>=2.0
+torchvision>=0.15
+Pillow>=10.0
+pandas>=2.0
+numpy>=1.24
+opencv-python>=4.8
+matplotlib>=3.7
+seaborn>=0.12
+pyyaml>=6.0
+requests>=2.31
+tqdm>=4.65

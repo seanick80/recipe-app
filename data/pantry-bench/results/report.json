@@ -1,0 +1,322 @@
+{
+  "threshold": 0.5,
+  "whitelist": [
+    "apple",
+    "banana",
+    "bottle",
+    "bowl",
+    "broccoli",
+    "cake",
+    "carrot",
+    "cup",
+    "donut",
+    "hot dog",
+    "orange",
+    "pizza",
+    "sandwich",
+    "wine glass"
+  ],
+  "images": [
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\469844741_3066826550148602_6704323281040657497_n.jpg",
+      "elapsed_ms": 214.0,
+      "kept": [
+        {
+          "class": "bottle",
+          "confidence": 0.613,
+          "bbox": [
+            657,
+            120,
+            688,
+            202
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 0
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\480754013_10161594779923853_4740577703512591614_n.jpg",
+      "elapsed_ms": 77.8,
+      "kept": [
+        {
+          "class": "bottle",
+          "confidence": 0.567,
+          "bbox": [
+            320,
+            1657,
+            403,
+            1917
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.524,
+          "bbox": [
+            107,
+            1155,
+            202,
+            1364
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 1
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\481055634_10238043150198020_4389370652017946587_n.jpg",
+      "elapsed_ms": 67.7,
+      "kept": [],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 1
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\504861856_10103429158945009_454191052837515639_n.jpg",
+      "elapsed_ms": 87.3,
+      "kept": [
+        {
+          "class": "bottle",
+          "confidence": 0.738,
+          "bbox": [
+            1011,
+            834,
+            1084,
+            969
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 1
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\DB2C9C80-B9D6-4973-B13C-95B2378809E4.jpg",
+      "elapsed_ms": 55.7,
+      "kept": [
+        {
+          "class": "bottle",
+          "confidence": 0.674,
+          "bbox": [
+            182,
+            20,
+            348,
+            527
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.612,
+          "bbox": [
+            299,
+            23,
+            443,
+            535
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.506,
+          "bbox": [
+            534,
+            396,
+            716,
+            777
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 0
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\IMG_0345.jpg",
+      "elapsed_ms": 59.9,
+      "kept": [
+        {
+          "class": "bottle",
+          "confidence": 0.656,
+          "bbox": [
+            348,
+            729,
+            426,
+            897
+          ]
+        },
+        {
+          "class": "cup",
+          "confidence": 0.592,
+          "bbox": [
+            224,
+            868,
+            417,
+            1084
+          ]
+        },
+        {
+          "class": "bowl",
+          "confidence": 0.587,
+          "bbox": [
+            88,
+            498,
+            172,
+            536
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 1
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\IMG_0351.jpg",
+      "elapsed_ms": 65.3,
+      "kept": [
+        {
+          "class": "bottle",
+          "confidence": 0.599,
+          "bbox": [
+            37,
+            47,
+            52,
+            81
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.557,
+          "bbox": [
+            101,
+            116,
+            118,
+            151
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.539,
+          "bbox": [
+            62,
+            47,
+            76,
+            82
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 0
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\IMG_0609.JPG",
+      "elapsed_ms": 62.5,
+      "kept": [
+        {
+          "class": "bowl",
+          "confidence": 0.709,
+          "bbox": [
+            434,
+            600,
+            571,
+            706
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.705,
+          "bbox": [
+            651,
+            498,
+            749,
+            711
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.566,
+          "bbox": [
+            436,
+            116,
+            529,
+            290
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.55,
+          "bbox": [
+            668,
+            136,
+            804,
+            301
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.542,
+          "bbox": [
+            552,
+            110,
+            619,
+            290
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 1
+    },
+    {
+      "image": "C:\\sourcecode\\ios\\recipe\\data\\pantry_images\\IMG_7911.jpg",
+      "elapsed_ms": 59.8,
+      "kept": [
+        {
+          "class": "bowl",
+          "confidence": 0.821,
+          "bbox": [
+            343,
+            253,
+            500,
+            314
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.814,
+          "bbox": [
+            35,
+            354,
+            169,
+            798
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.749,
+          "bbox": [
+            136,
+            403,
+            332,
+            853
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.657,
+          "bbox": [
+            302,
+            389,
+            465,
+            840
+          ]
+        },
+        {
+          "class": "bottle",
+          "confidence": 0.634,
+          "bbox": [
+            244,
+            173,
+            303,
+            308
+          ]
+        }
+      ],
+      "dropped_low_conf": 0,
+      "dropped_non_pantry": 0
+    }
+  ]
+}
