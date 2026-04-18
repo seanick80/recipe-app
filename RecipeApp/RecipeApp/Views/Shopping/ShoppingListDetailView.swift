@@ -32,60 +32,17 @@ struct ShoppingListDetailView: View {
             }
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    checkCameraAndPresent { showingListScanner = true }
-                } label: {
-                    Label("Scan", systemImage: "doc.text.viewfinder")
-                }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button {
-                    showingAddItem = true
-                } label: {
-                    Label("Add Item", systemImage: "plus")
-                }
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button(role: .destructive) {
-                    removeCheckedItems()
-                } label: {
-                    Label("Remove Checked", systemImage: "trash")
-                }
-                .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                Button {
-                    for item in groceryList.items ?? [] {
-                        item.isChecked = false
-                    }
-                } label: {
-                    Label("Uncheck All", systemImage: "arrow.uturn.backward")
-                }
-                .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
-            }
-            ToolbarItem(placement: .secondaryAction) {
-                if isSelecting {
-                    Button {
-                        selectAll()
-                    } label: {
-                        Label("Select All", systemImage: "checklist.checked")
-                    }
-                } else {
-                    Button {
-                        isSelecting = true
-                    } label: {
-                        Label("Select Items", systemImage: "checklist")
-                    }
-                    .disabled((groceryList.items ?? []).isEmpty)
-                }
-            }
             if isSelecting {
+                ToolbarItem(placement: .primaryAction) {
+                    Button("Done") {
+                        isSelecting = false
+                        selectedItems.removeAll()
+                    }
+                }
                 ToolbarItem(placement: .bottomBar) {
                     HStack {
-                        Button("Cancel") {
-                            isSelecting = false
-                            selectedItems.removeAll()
+                        Button("Select All") {
+                            selectAll()
                         }
                         Spacer()
                         Text("\(selectedItems.count) selected")
@@ -96,6 +53,47 @@ struct ShoppingListDetailView: View {
                         }
                         .disabled(selectedItems.isEmpty)
                     }
+                }
+            } else {
+                ToolbarItem(placement: .primaryAction) {
+                    Button {
+                        checkCameraAndPresent { showingListScanner = true }
+                    } label: {
+                        Label("Scan", systemImage: "doc.text.viewfinder")
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        showingAddItem = true
+                    } label: {
+                        Label("Add Item", systemImage: "plus")
+                    }
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button(role: .destructive) {
+                        removeCheckedItems()
+                    } label: {
+                        Label("Remove Checked", systemImage: "trash")
+                    }
+                    .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        for item in groceryList.items ?? [] {
+                            item.isChecked = false
+                        }
+                    } label: {
+                        Label("Uncheck All", systemImage: "arrow.uturn.backward")
+                    }
+                    .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
+                }
+                ToolbarItem(placement: .secondaryAction) {
+                    Button {
+                        isSelecting = true
+                    } label: {
+                        Label("Select Items", systemImage: "checklist")
+                    }
+                    .disabled((groceryList.items ?? []).isEmpty)
                 }
             }
         }
@@ -155,7 +153,16 @@ struct ShoppingListDetailView: View {
                         selectedItems.contains(item.persistentModelID)
                             ? .blue : .gray
                     )
-                    GroceryItemRow(item: item)
+                    VStack(alignment: .leading) {
+                        Text(item.name)
+                        if item.quantity > 0 {
+                            Text(
+                                "\(item.quantity.truncatingRemainder(dividingBy: 1) == 0 ? String(format: "%.0f", item.quantity) : String(format: "%.1f", item.quantity)) \(item.unit)"
+                            )
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        }
+                    }
                 }
             }
             .buttonStyle(.plain)

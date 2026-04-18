@@ -209,6 +209,12 @@ class ShareViewController: UIViewController {
         dismiss.setTitle("Done", for: .normal)
         dismiss.addTarget(self, action: #selector(dismissExtension), for: .touchUpInside)
         stack.addArrangedSubview(dismiss)
+
+        // Auto-dismiss after 3 seconds so the extension doesn't hang the
+        // share sheet when invoked for unsupported content types (GM-19).
+        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) { [weak self] in
+            self?.extensionContext?.completeRequest(returningItems: nil)
+        }
     }
 
     @objc private func dismissExtension() {

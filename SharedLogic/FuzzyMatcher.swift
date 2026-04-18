@@ -118,6 +118,9 @@ func groceryVocabulary() -> [String] {
         "nuts", "almonds", "popcorn",
         // Beverages
         "water", "juice", "soda", "coffee", "tea", "beer", "wine",
+        // Condiments & Sauces
+        "gravy", "ketchup", "mustard", "mayo", "relish", "sriracha",
+        "hummus", "pesto", "salsa",
         // Household
         "soap", "detergent", "napkins", "towels", "tissues",
     ]
