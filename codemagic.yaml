@@ -91,43 +91,67 @@ workflows:
           agvtool new-version -all "$NEW_BUILD"
       - name: Debug ShareExtension plist config
         script: |
+          set +e  # entire step is non-fatal diagnostics
           cd RecipeApp
-          echo "=== ShareExtension build settings ==="
-          xcodebuild -project RecipeApp.xcodeproj \
-            -target ShareExtension \
-            -showBuildSettings \
-            | grep -E 'INFOPLIST_FILE|GENERATE_INFOPLIST|PRODUCT_BUNDLE_ID|WRAPPER_EXTENSION'
+
+          echo "=== Tool versions ==="
+          xcodegen --version 2>/dev/null || echo "xcodegen version unknown"
+          xcodebuild -version | head -2
+
           echo ""
-          echo "=== Source Info.plist ==="
-          PLIST=$(xcodebuild -project RecipeApp.xcodeproj \
-            -target ShareExtension \
-            -showBuildSettings \
-            | grep ' INFOPLIST_FILE ' | awk '{print $3}')
+          echo "=== ShareExtension build settings ==="
+          SETTINGS=$(xcodebuild -project RecipeApp.xcodeproj \
+            -target ShareExtension -showBuildSettings 2>/dev/null)
+          echo "$SETTINGS" | grep -E 'INFOPLIST_FILE|GENERATE_INFOPLIST|PRODUCT_BUNDLE_ID|WRAPPER_EXTENSION|PRODUCT_MODULE_NAME'
+
+          echo ""
+          echo "=== Source plist (INFOPLIST_FILE) ==="
+          PLIST=$(echo "$SETTINGS" | grep ' INFOPLIST_FILE ' | awk '{print $3}')
           echo "INFOPLIST_FILE = $PLIST"
           if [ -f "$PLIST" ]; then
+            echo "--- raw file ---"
             cat "$PLIST"
           else
             echo "FILE NOT FOUND at $PLIST"
-            echo "Searching for Info.plist files:"
-            find . -name 'Info.plist' -not -path './.git/*'
           fi
+
           echo ""
-          echo "=== Build ShareExtension for simulator ==="
+          echo "=== All Info.plist files in project ==="
+          find . -name 'Info.plist' -not -path './.git/*' -exec echo {} \; -exec plutil -p {} \; 2>/dev/null
+
+          echo ""
+          echo "=== xcodegen-generated plist files ==="
+          find . -name '*-Info.plist' -not -path './.git/*' 2>/dev/null
+          find . -name 'Info*.plist' -not -path './.git/*' -not -name 'Info.plist' 2>/dev/null
+
+          echo ""
+          echo "=== Build ShareExtension for simulator (unsigned) ==="
           xcodebuild build \
             -project RecipeApp.xcodeproj \
             -target ShareExtension \
-            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -sdk iphonesimulator \
             -configuration Debug \
             CONFIGURATION_BUILD_DIR=/tmp/share_ext_debug \
-            2>&1 | tail -20
+            2>&1 | tail -30 || true
+
           echo ""
-          echo "=== Built .appex Info.plist ==="
-          if [ -f /tmp/share_ext_debug/ShareExtension.appex/Info.plist ]; then
-            plutil -p /tmp/share_ext_debug/ShareExtension.appex/Info.plist
+          echo "=== Built .appex contents ==="
+          APPEX=$(find /tmp/share_ext_debug -name 'ShareExtension.appex' -type d 2>/dev/null | head -1)
+          if [ -n "$APPEX" ]; then
+            echo "Found at: $APPEX"
+            ls -la "$APPEX/"
+            echo "--- Info.plist (plutil -p) ---"
+            plutil -p "$APPEX/Info.plist" 2>/dev/null || echo "plutil failed"
+            echo "--- NSExtension key check ---"
+            plutil -extract NSExtension json "$APPEX/Info.plist" 2>/dev/null || echo "NSExtension key NOT FOUND in built plist"
           else
-            echo "Built .appex not found at expected path"
-            find /tmp/share_ext_debug -name 'Info.plist' 2>/dev/null
+            echo "No .appex found under /tmp/share_ext_debug"
+            find /tmp/share_ext_debug -type f -name '*.plist' 2>/dev/null
           fi
+
+          echo ""
+          echo "=== Diagnostic step complete ==="
+          exit 0  # always succeed
       - name: Apply provisioning profiles to Xcode project
         script: |
           xcode-project use-profiles
@@ -196,6 +220,7 @@ workflows:
       - RecipeApp/build/ios/ipa/*.ipa
       - /tmp/xcodebuild_logs/*.log
       - /tmp/release_notes.txt
+      - /tmp/share_ext_debug/**/*.plist
     publishing:
       email:
         # Address lives in the `recipe_app_notifications` Codemagic env var
