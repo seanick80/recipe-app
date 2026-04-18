@@ -3,6 +3,7 @@ import SwiftUI
 
 @main
 struct RecipeAppApp: App {
+    @Environment(\.scenePhase) private var scenePhase
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Recipe.self,
@@ -33,6 +34,11 @@ struct RecipeAppApp: App {
         WindowGroup {
             ContentView()
                 .onAppear { importService.checkForPendingImports() }
+                .onChange(of: scenePhase) { _, newPhase in
+                    if newPhase == .active {
+                        importService.checkForPendingImports()
+                    }
+                }
                 .sheet(isPresented: $importService.showingImportReview) {
                     if let recipe = importService.pendingRecipe {
                         ImportReviewView(recipe: recipe, importService: importService)

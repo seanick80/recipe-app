@@ -7,13 +7,17 @@ import UniformTypeIdentifiers
 /// The main app picks it up on next launch.
 @objc(ShareViewController)
 class ShareViewController: UIViewController {
+    private let log = DebugLog.shared
+
     override func viewDidLoad() {
         super.viewDidLoad()
         view.backgroundColor = .systemBackground
+        log.log(category: "share", message: "Share extension launched")
 
         guard let item = extensionContext?.inputItems.first as? NSExtensionItem,
             let provider = item.attachments?.first
         else {
+            log.log(category: "share", message: "No input items from extension context")
             showError("Nothing to import.")
             return
         }
@@ -21,22 +25,50 @@ class ShareViewController: UIViewController {
         // Try URL first (most common from Safari)
         if provider.hasItemConformingToTypeIdentifier(UTType.url.identifier) {
             provider.loadItem(forTypeIdentifier: UTType.url.identifier) { [weak self] data, error in
+                if let error = error {
+                    self?.log.log(
+                        category: "share.error",
+                        message: "loadItem URL failed",
+                        details: ["error": "\(error)"]
+                    )
+                }
                 guard let url = data as? URL else {
+                    self?.log.log(
+                        category: "share.error",
+                        message: "Could not cast data to URL",
+                        details: ["dataType": "\(type(of: data))"]
+                    )
                     Task { @MainActor in self?.showError("Could not read URL.") }
                     return
                 }
+                self?.log.log(category: "share", message: "Received URL", details: ["url": url.absoluteString])
                 Task { @MainActor in self?.fetchAndParse(url) }
             }
         } else if provider.hasItemConformingToTypeIdentifier(UTType.plainText.identifier) {
             // Some apps share as plain text
             provider.loadItem(forTypeIdentifier: UTType.plainText.identifier) { [weak self] data, error in
+                if let error = error {
+                    self?.log.log(
+                        category: "share.error",
+                        message: "loadItem text failed",
+                        details: ["error": "\(error)"]
+                    )
+                }
                 guard let text = data as? String, let url = URL(string: text) else {
+                    self?.log.log(
+                        category: "share.error",
+                        message: "Could not parse URL from text",
+                        details: ["text": "\(data ?? "nil")"]
+                    )
                     Task { @MainActor in self?.showError("Not a valid URL.") }
                     return
                 }
+                self?.log.log(category: "share", message: "Parsed URL from text", details: ["url": url.absoluteString])
                 Task { @MainActor in self?.fetchAndParse(url) }
             }
         } else {
+            let types = provider.registeredTypeIdentifiers.joined(separator: ", ")
+            log.log(category: "share.error", message: "Unsupported content type", details: ["types": types])
             showError("Unsupported content type.")
         }
     }
@@ -47,10 +79,16 @@ class ShareViewController: UIViewController {
         Task {
             do {
                 let (data, _) = try await URLSession.shared.data(from: url)
+                log.log(
+                    category: "share",
+                    message: "Fetched page",
+                    details: ["bytes": "\(data.count)", "url": url.absoluteString]
+                )
                 guard
                     let html = String(data: data, encoding: .utf8)
                         ?? String(data: data, encoding: .ascii)
                 else {
+                    log.log(category: "share.error", message: "Could not decode page content as text")
                     showError("Could not read page content.")
                     return
                 }
@@ -58,20 +96,34 @@ class ShareViewController: UIViewController {
                 let result = parseRecipeFromHTML(html, sourceURL: url.absoluteString)
                 switch result {
                 case .success(let recipe):
+                    log.log(
+                        category: "share",
+                        message: "Parsed recipe",
+                        details: [
+                            "title": recipe.title,
+                            "ingredients": "\(recipe.ingredients.count)",
+                            "instructions": "\(recipe.instructions.count)",
+                        ]
+                    )
                     savePendingImport(recipe)
                     showSuccess(recipe.title)
-                case .failure(.noRecipeFound):
-                    showError("No recipe found on this page.\nTry a page with a specific recipe.")
-                case .failure(.missingTitle):
-                    showError("Found recipe data but no title.\nThis page may not have proper recipe markup.")
-                case .failure(.missingIngredients):
-                    showError(
-                        "Found a recipe title but no ingredients.\nThe recipe data on this page may be incomplete."
-                    )
-                case .failure(.noHTML):
-                    showError("Page returned empty content.")
+                case .failure(let error):
+                    log.log(category: "share.error", message: "Recipe parse failed", details: ["error": "\(error)"])
+                    switch error {
+                    case .noRecipeFound:
+                        showError("No recipe found on this page.\nTry a page with a specific recipe.")
+                    case .missingTitle:
+                        showError("Found recipe data but no title.\nThis page may not have proper recipe markup.")
+                    case .missingIngredients:
+                        showError(
+                            "Found a recipe title but no ingredients.\nThe recipe data on this page may be incomplete."
+                        )
+                    case .noHTML:
+                        showError("Page returned empty content.")
+                    }
                 }
             } catch {
+                log.log(category: "share.error", message: "Network fetch failed", details: ["error": "\(error)"])
                 showError("Could not load page.\n\(error.localizedDescription)")
             }
         }
@@ -82,16 +134,35 @@ class ShareViewController: UIViewController {
             let containerURL = FileManager.default.containerURL(
                 forSecurityApplicationGroupIdentifier: "group.com.seanick80.recipeapp"
             )
-        else { return }
+        else {
+            log.log(category: "share.error", message: "App Group container URL is nil — group not provisioned?")
+            return
+        }
 
         let pendingDir = containerURL.appendingPathComponent("PendingImports", isDirectory: true)
-        try? FileManager.default.createDirectory(at: pendingDir, withIntermediateDirectories: true)
+        do {
+            try FileManager.default.createDirectory(at: pendingDir, withIntermediateDirectories: true)
+        } catch {
+            log.log(
+                category: "share.error",
+                message: "Failed to create PendingImports dir",
+                details: ["error": "\(error)"]
+            )
+        }
 
         let filename = UUID().uuidString + ".json"
         let fileURL = pendingDir.appendingPathComponent(filename)
 
-        if let data = try? JSONEncoder().encode(recipe) {
-            try? data.write(to: fileURL)
+        do {
+            let data = try JSONEncoder().encode(recipe)
+            try data.write(to: fileURL)
+            log.log(
+                category: "share",
+                message: "Saved pending import",
+                details: ["file": fileURL.lastPathComponent, "bytes": "\(data.count)", "path": fileURL.path]
+            )
+        } catch {
+            log.log(category: "share.error", message: "Failed to write pending import", details: ["error": "\(error)"])
         }
     }
 

@@ -15,21 +15,41 @@ import Foundation
 /// Pure Swift — no Apple framework dependencies, Windows-testable.
 final class DebugLog {
 
-    /// Shared instance writing to `Documents/debug.jsonl` on iOS. On non-iOS
-    /// platforms falls back to the system temp dir so Models tests can link.
+    /// App Group identifier shared between the main app and extensions.
+    /// Both write to the same log file in the shared container.
+    static let appGroupID = "group.com.seanick80.recipeapp"
+
+    /// Shared instance writing to the App Group container on iOS (so the
+    /// main app and share extension share one log). Falls back to Documents,
+    /// then temp dir (Windows tests).
     static let shared: DebugLog = {
         let fm = FileManager.default
         let baseDir: URL
-        if let docs = try? fm.url(
-            for: .documentDirectory,
-            in: .userDomainMask,
-            appropriateFor: nil,
-            create: true
-        ) {
-            baseDir = docs
-        } else {
-            baseDir = fm.temporaryDirectory
-        }
+        #if canImport(UIKit)
+            if let groupDir = fm.containerURL(forSecurityApplicationGroupIdentifier: appGroupID) {
+                baseDir = groupDir
+            } else if let docs = try? fm.url(
+                for: .documentDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            ) {
+                baseDir = docs
+            } else {
+                baseDir = fm.temporaryDirectory
+            }
+        #else
+            if let docs = try? fm.url(
+                for: .documentDirectory,
+                in: .userDomainMask,
+                appropriateFor: nil,
+                create: true
+            ) {
+                baseDir = docs
+            } else {
+                baseDir = fm.temporaryDirectory
+            }
+        #endif
         return DebugLog(fileURL: baseDir.appendingPathComponent("debug.jsonl"))
     }()
 
