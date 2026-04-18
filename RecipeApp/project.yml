@@ -79,6 +79,7 @@ targets:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp.share-extension
         CODE_SIGN_ENTITLEMENTS: ShareExtension/ShareExtension.entitlements
+        GENERATE_INFOPLIST_FILE: "NO"
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "0.2.0"
 
