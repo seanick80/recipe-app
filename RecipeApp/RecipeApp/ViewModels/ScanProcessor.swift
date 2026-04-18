@@ -507,7 +507,9 @@ class ScanProcessor {
             )
         }
 
-        let instructionsText = instructionSteps.joined(separator: "\n")
+        let instructionsText = instructionSteps.enumerated()
+            .map { "\($0.offset + 1). \($0.element)" }
+            .joined(separator: "\n\n")
         DebugLog.shared.log(
             category: "ocr.parsed",
             message: "recipe parse complete",

@@ -69,7 +69,9 @@ class PendingImportService {
 
         let recipe = Recipe()
         recipe.name = imported.title
-        recipe.instructions = imported.instructions.joined(separator: "\n\n")
+        recipe.instructions = imported.instructions.enumerated()
+            .map { "\($0.offset + 1). \($0.element)" }
+            .joined(separator: "\n\n")
         recipe.servings = imported.servings ?? 1
         recipe.prepTimeMinutes = imported.prepTimeMinutes ?? 0
         recipe.cookTimeMinutes = imported.cookTimeMinutes ?? 0
