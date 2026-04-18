@@ -62,9 +62,20 @@ class FoodDetectionViewModel {
             return false
         }
 
-        guard let underlying = try? MLModel(contentsOf: modelURL),
-            let vnModel = try? VNCoreMLModel(for: underlying)
-        else {
+        let underlying: MLModel
+        do {
+            underlying = try MLModel(contentsOf: modelURL)
+        } catch {
+            DebugLog.shared.log(
+                category: "food.error",
+                message: "MLModel load failed",
+                details: ["error": "\(error)", "url": modelURL.path]
+            )
+            return false
+        }
+
+        guard let vnModel = try? VNCoreMLModel(for: underlying) else {
+            DebugLog.shared.log(category: "food.error", message: "VNCoreMLModel init failed")
             return false
         }
 

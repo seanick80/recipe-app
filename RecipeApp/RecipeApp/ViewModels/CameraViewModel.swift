@@ -79,9 +79,25 @@ final class CameraViewModel: NSObject, @unchecked Sendable {
 
         // Camera input
         guard
-            let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back),
-            let input = try? AVCaptureDeviceInput(device: device)
+            let device = AVCaptureDevice.default(.builtInWideAngleCamera, for: .video, position: .back)
         else {
+            DebugLog.shared.log(category: "camera.error", message: "no back camera device found")
+            Task { @MainActor in
+                self.errorMessage = "Camera not available"
+            }
+            session.commitConfiguration()
+            return
+        }
+
+        let input: AVCaptureDeviceInput
+        do {
+            input = try AVCaptureDeviceInput(device: device)
+        } catch {
+            DebugLog.shared.log(
+                category: "camera.error",
+                message: "AVCaptureDeviceInput failed",
+                details: ["error": "\(error)"]
+            )
             Task { @MainActor in
                 self.errorMessage = "Camera not available"
             }

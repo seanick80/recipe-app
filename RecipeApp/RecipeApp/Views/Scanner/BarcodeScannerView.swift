@@ -153,7 +153,15 @@ struct BarcodeScannerView: View {
                 orientation: orientation,
                 options: [:]
             )
-            try? handler.perform([request])
+            do {
+                try handler.perform([request])
+            } catch {
+                DebugLog.shared.log(
+                    category: "barcode.error",
+                    message: "Vision perform failed",
+                    details: ["error": "\(error)"]
+                )
+            }
         }
     }
 }

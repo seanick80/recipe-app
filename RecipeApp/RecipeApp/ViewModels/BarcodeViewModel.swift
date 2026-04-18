@@ -6,6 +6,7 @@ import Vision
 /// via the Open Food Facts API.
 @Observable
 class BarcodeViewModel {
+    private let log = DebugLog.shared
     var detectedBarcode: String?
     var product: ScannedProduct?
     var isLookingUp = false
@@ -30,8 +31,15 @@ class BarcodeViewModel {
     /// Creates a VNDetectBarcodesRequest configured for UPC/EAN product barcodes.
     func makeBarcodeRequest() -> VNDetectBarcodesRequest {
         let request = VNDetectBarcodesRequest { [weak self] request, error in
-            guard let self, error == nil else { return }
-            guard let results = request.results as? [VNBarcodeObservation] else { return }
+            if let error {
+                self?.log.log(category: "barcode.error", message: "detection failed", details: ["error": "\(error)"])
+                return
+            }
+            guard let self else { return }
+            guard let results = request.results as? [VNBarcodeObservation] else {
+                log.log(category: "barcode.error", message: "no VNBarcodeObservation results")
+                return
+            }
 
             for observation in results {
                 guard let payload = observation.payloadStringValue else { continue }
@@ -131,6 +139,7 @@ class BarcodeViewModel {
                 quantity: qty
             )
         } catch {
+            log.log(category: "barcode.error", message: "network error", details: ["error": "\(error)"])
             errorMessage = "Network error: \(error.localizedDescription)"
         }
 
