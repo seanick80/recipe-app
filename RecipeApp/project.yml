@@ -76,6 +76,7 @@ targets:
       - path: RecipeApp/Parsers/ListLineParser.swift
       - path: RecipeApp/Parsers/GroceryCategorizer.swift
     info:
+      path: ShareExtension/Info.plist
       properties:
         CFBundleDisplayName: Import Recipe
         NSExtension:
