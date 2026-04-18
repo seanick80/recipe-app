@@ -58,7 +58,7 @@ class ShareViewController: UIViewController {
                     self?.log.log(
                         category: "share.error",
                         message: "Could not parse URL from text",
-                        details: ["text": "\(data ?? "nil")"]
+                        details: ["text": data.map { "\($0)" } ?? "nil"]
                     )
                     Task { @MainActor in self?.showError("Not a valid URL.") }
                     return
