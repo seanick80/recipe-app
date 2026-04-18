@@ -89,6 +89,45 @@ workflows:
           NEW_BUILD=$((BUILD_NUMBER + 100))
           echo "Stamping CFBundleVersion = $NEW_BUILD"
           agvtool new-version -all "$NEW_BUILD"
+      - name: Debug ShareExtension plist config
+        script: |
+          cd RecipeApp
+          echo "=== ShareExtension build settings ==="
+          xcodebuild -project RecipeApp.xcodeproj \
+            -target ShareExtension \
+            -showBuildSettings \
+            | grep -E 'INFOPLIST_FILE|GENERATE_INFOPLIST|PRODUCT_BUNDLE_ID|WRAPPER_EXTENSION'
+          echo ""
+          echo "=== Source Info.plist ==="
+          PLIST=$(xcodebuild -project RecipeApp.xcodeproj \
+            -target ShareExtension \
+            -showBuildSettings \
+            | grep ' INFOPLIST_FILE ' | awk '{print $3}')
+          echo "INFOPLIST_FILE = $PLIST"
+          if [ -f "$PLIST" ]; then
+            cat "$PLIST"
+          else
+            echo "FILE NOT FOUND at $PLIST"
+            echo "Searching for Info.plist files:"
+            find . -name 'Info.plist' -not -path './.git/*'
+          fi
+          echo ""
+          echo "=== Build ShareExtension for simulator ==="
+          xcodebuild build \
+            -project RecipeApp.xcodeproj \
+            -target ShareExtension \
+            -destination 'platform=iOS Simulator,name=iPhone 17,OS=latest' \
+            -configuration Debug \
+            CONFIGURATION_BUILD_DIR=/tmp/share_ext_debug \
+            2>&1 | tail -20
+          echo ""
+          echo "=== Built .appex Info.plist ==="
+          if [ -f /tmp/share_ext_debug/ShareExtension.appex/Info.plist ]; then
+            plutil -p /tmp/share_ext_debug/ShareExtension.appex/Info.plist
+          else
+            echo "Built .appex not found at expected path"
+            find /tmp/share_ext_debug -name 'Info.plist' 2>/dev/null
+          fi
       - name: Apply provisioning profiles to Xcode project
         script: |
           xcode-project use-profiles
