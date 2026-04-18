@@ -66,6 +66,8 @@ targets:
     platform: iOS
     sources:
       - path: ShareExtension
+        excludes:
+          - "Info.plist"
       # RecipeSchemaParser + ListLineParser + GroceryCategorizer are compiled
       # into the extension so it can parse recipes and ingredient lines.
       # These are the same SharedLogic files copied into RecipeApp/Parsers/
