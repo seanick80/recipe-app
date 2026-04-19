@@ -13,15 +13,14 @@ struct ShoppingListDetailView: View {
     @State private var showingScanReview = false
     @State private var scanProcessor = ScanProcessor()
     @State private var showingCameraPermissionAlert = false
-    @State private var isSelecting = false
-    @State private var selectedItems: Set<PersistentIdentifier> = []
+    @State private var showingClearAllConfirmation = false
 
     var body: some View {
         List {
             ForEach(viewModel.categorizedItems(from: groceryList), id: \.0) { category, items in
                 Section(category) {
                     ForEach(items) { item in
-                        itemRow(item)
+                        GroceryItemRow(item: item)
                     }
                     .onDelete { offsets in
                         for index in offsets {
@@ -32,70 +31,54 @@ struct ShoppingListDetailView: View {
             }
         }
         .toolbar {
-            if isSelecting {
-                ToolbarItem(placement: .primaryAction) {
-                    Button("Done") {
-                        isSelecting = false
-                        selectedItems.removeAll()
-                    }
-                }
-                ToolbarItem(placement: .bottomBar) {
-                    HStack {
-                        Button("Select All") {
-                            selectAll()
-                        }
-                        Spacer()
-                        Text("\(selectedItems.count) selected")
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Button("Remove", role: .destructive) {
-                            removeSelectedItems()
-                        }
-                        .disabled(selectedItems.isEmpty)
-                    }
-                }
-            } else {
-                ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        checkCameraAndPresent { showingListScanner = true }
-                    } label: {
-                        Label("Scan", systemImage: "doc.text.viewfinder")
-                    }
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button {
-                        showingAddItem = true
-                    } label: {
-                        Label("Add Item", systemImage: "plus")
-                    }
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button(role: .destructive) {
-                        removeCheckedItems()
-                    } label: {
-                        Label("Remove Checked", systemImage: "trash")
-                    }
-                    .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button {
-                        for item in groceryList.items ?? [] {
-                            item.isChecked = false
-                        }
-                    } label: {
-                        Label("Uncheck All", systemImage: "arrow.uturn.backward")
-                    }
-                    .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
-                }
-                ToolbarItem(placement: .secondaryAction) {
-                    Button {
-                        isSelecting = true
-                    } label: {
-                        Label("Select Items", systemImage: "checklist")
-                    }
-                    .disabled((groceryList.items ?? []).isEmpty)
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    checkCameraAndPresent { showingListScanner = true }
+                } label: {
+                    Label("Scan", systemImage: "doc.text.viewfinder")
                 }
             }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    showingAddItem = true
+                } label: {
+                    Label("Add Item", systemImage: "plus")
+                }
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button(role: .destructive) {
+                    removeCheckedItems()
+                } label: {
+                    Label("Remove Checked", systemImage: "trash")
+                }
+                .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button {
+                    for item in groceryList.items ?? [] {
+                        item.isChecked = false
+                    }
+                } label: {
+                    Label("Uncheck All", systemImage: "arrow.uturn.backward")
+                }
+                .disabled((groceryList.items ?? []).filter(\.isChecked).isEmpty)
+            }
+            ToolbarItem(placement: .secondaryAction) {
+                Button(role: .destructive) {
+                    showingClearAllConfirmation = true
+                } label: {
+                    Label("Clear All", systemImage: "xmark.bin")
+                }
+                .disabled((groceryList.items ?? []).isEmpty)
+            }
+        }
+        .confirmationDialog("Clear All Items?", isPresented: $showingClearAllConfirmation, titleVisibility: .visible) {
+            Button("Clear All", role: .destructive) {
+                clearAllItems()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("This will remove all items from the list.")
         }
         .sheet(isPresented: $showingAddItem) {
             AddGroceryItemView(groceryList: groceryList)
@@ -138,39 +121,6 @@ struct ShoppingListDetailView: View {
         }
     }
 
-    @ViewBuilder
-    private func itemRow(_ item: GroceryItem) -> some View {
-        if isSelecting {
-            Button {
-                toggleSelection(item)
-            } label: {
-                HStack {
-                    Image(
-                        systemName: selectedItems.contains(item.persistentModelID)
-                            ? "checkmark.circle.fill" : "circle"
-                    )
-                    .foregroundStyle(
-                        selectedItems.contains(item.persistentModelID)
-                            ? .blue : .gray
-                    )
-                    VStack(alignment: .leading) {
-                        Text(item.name)
-                        if item.quantity > 0 {
-                            Text(
-                                "\(item.quantity.truncatingRemainder(dividingBy: 1) == 0 ? String(format: "%.0f", item.quantity) : String(format: "%.1f", item.quantity)) \(item.unit)"
-                            )
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        }
-                    }
-                }
-            }
-            .buttonStyle(.plain)
-        } else {
-            GroceryItemRow(item: item)
-        }
-    }
-
     private func removeCheckedItems() {
         let checked = (groceryList.items ?? []).filter(\.isChecked)
         for item in checked {
@@ -178,32 +128,10 @@ struct ShoppingListDetailView: View {
         }
     }
 
-    private func toggleSelection(_ item: GroceryItem) {
-        if selectedItems.contains(item.persistentModelID) {
-            selectedItems.remove(item.persistentModelID)
-        } else {
-            selectedItems.insert(item.persistentModelID)
-        }
-    }
-
-    private func selectAll() {
-        let allIds = (groceryList.items ?? []).map(\.persistentModelID)
-        if selectedItems.count == allIds.count {
-            selectedItems.removeAll()
-        } else {
-            selectedItems = Set(allIds)
-        }
-    }
-
-    private func removeSelectedItems() {
-        let items = (groceryList.items ?? []).filter {
-            selectedItems.contains($0.persistentModelID)
-        }
-        for item in items {
+    private func clearAllItems() {
+        for item in groceryList.items ?? [] {
             modelContext.delete(item)
         }
-        selectedItems.removeAll()
-        isSelecting = false
     }
 
     private func checkCameraAndPresent(_ action: @escaping () -> Void) {
