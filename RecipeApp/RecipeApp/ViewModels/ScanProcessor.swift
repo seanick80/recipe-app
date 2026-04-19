@@ -163,6 +163,16 @@ class ScanProcessor {
         state = .ready(items: items)
     }
 
+    /// Removes an item by ID.
+    func deleteItem(id: UUID) {
+        guard case .ready(var items) = state else { return }
+        items.removeAll { $0.id == id }
+        state =
+            items.isEmpty
+            ? .failed(message: "All items removed.")
+            : .ready(items: items)
+    }
+
     // MARK: - Vision OCR -> OCRLine
 
     /// Runs Vision text recognition and maps each observation to the pure-Swift

@@ -286,6 +286,13 @@ struct ScanReviewSheet: View {
                         Section("Found \(items.filter(\.included).count) items") {
                             ForEach(items) { item in
                                 ScanReviewItemRow(item: item, processor: processor)
+                                    .swipeActions(edge: .trailing) {
+                                        Button(role: .destructive) {
+                                            processor.deleteItem(id: item.id)
+                                        } label: {
+                                            Label("Delete", systemImage: "trash")
+                                        }
+                                    }
                             }
                         }
                     }
