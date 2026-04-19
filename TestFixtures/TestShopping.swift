@@ -61,7 +61,7 @@ func testDefaultCategoryOrder() {
 func testCategorySortIndex() {
     checkEqual(categorySortIndex("Produce"), 0, "Produce is index 0")
     checkEqual(categorySortIndex("Frozen"), 5, "Frozen is index 5")
-    checkEqual(categorySortIndex("Other"), 10, "Other is last known index")
+    checkEqual(categorySortIndex("Other"), 11, "Other is last known index")
     checkEqual(
         categorySortIndex("Unknown Category"),
         defaultCategoryOrder.count,

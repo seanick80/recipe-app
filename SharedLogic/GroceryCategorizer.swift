@@ -13,7 +13,8 @@ import Foundation
 /// Categorize a grocery item name into a store aisle category.
 ///
 /// Returns one of: "Produce", "Dairy", "Meat", "Bakery", "Dry & Canned",
-/// "Frozen", "Snacks", "Beverages", "Condiments", "Household", "Other".
+/// "Frozen", "Snacks", "Beverages", "Condiments", "Spices", "Household",
+/// "Other".
 func categorizeGroceryItem(_ name: String) -> String {
     let lower = name.lowercased()
     let words = tokenize(lower)
@@ -38,8 +39,10 @@ func categorizeGroceryItem(_ name: String) -> String {
         return category
     }
 
-    // Phase 4: Exact single-word matching against keyword lists
-    if let category = matchExactWord(words) {
+    // Phase 4: Exact single-word matching with category priority.
+    // Collect ALL matching categories, then pick highest priority.
+    // This fixes "cloves garlic" → Produce (garlic outranks clove).
+    if let category = matchExactWordWithPriority(words) {
         return category
     }
 
@@ -215,6 +218,33 @@ private let multiWordEntries: [([String], String)] = [
             "popcorn kernel",
         ], "Snacks"
     ),
+
+    // Spices (multi-word)
+    (
+        [
+            "garam masala", "chili powder", "garlic powder", "onion powder",
+            "curry powder", "cocoa powder", "chili flake", "red pepper flake",
+            "bay leaf", "bay leaves", "fennel seed", "mustard seed",
+            "celery seed", "caraway seed", "poppy seed", "sesame seed",
+            "five spice", "chinese five spice", "lemon pepper",
+            "italian seasoning", "poultry seasoning", "cajun seasoning",
+            "taco seasoning", "ranch seasoning", "everything bagel seasoning",
+            "old bay", "herbs de provence", "herbes de provence",
+            "vanilla extract", "almond extract", "peppermint extract",
+            "cream of tartar",
+        ], "Spices"
+    ),
+
+    // Dry & Canned (specific powder/flour entries that were over-matched before)
+    (
+        [
+            "baking powder", "baking soda", "powdered sugar",
+            "all purpose flour", "self raising flour", "self rising flour",
+            "bread flour", "cake flour", "whole wheat flour",
+            "corn starch", "cornstarch", "arrowroot starch",
+            "tapioca starch",
+        ], "Dry & Canned"
+    ),
 ]
 
 // MARK: - Compound Override Rules
@@ -223,9 +253,11 @@ private let multiWordEntries: [([String], String)] = [
 /// regardless of other matches. This handles items like "turkey broth" which
 /// should be "Dry & Canned" not "Meat".
 private func matchCompoundOverride(_ words: [String]) -> String? {
+    // Note: "powder", "seasoning", "flour", "starch" removed — they were
+    // too aggressive (e.g. "chili powder" → Dry & Canned instead of Spices).
+    // Those items are now handled by specific multi-word entries.
     let dryCannedOverrides: Set<String> = [
-        "broth", "stock", "soup", "bouillon", "seasoning",
-        "mix", "powder", "flour", "starch",
+        "broth", "stock", "soup", "bouillon", "mix",
     ]
     let frozenOverrides: Set<String> = ["frozen"]
     let condimentOverrides: Set<String> = ["dressing", "marinade"]
@@ -273,19 +305,45 @@ private let suffixRules: [([String], String)] = [
 
 // MARK: - Exact Word Matching
 
-/// Match individual tokens against keyword sets. Each token must match exactly
-/// (no substring matching — "turkey" in "turkey broth" won't match "Meat"
-/// because compound overrides already handled "broth").
-private func matchExactWord(_ words: [String]) -> String? {
+/// Match individual tokens against keyword sets, collecting ALL matches across
+/// all tokens. If multiple categories match (e.g. "cloves garlic" matches both
+/// Spices and Produce), the highest-priority category wins.
+///
+/// Priority order: Produce > Meat > Dairy > Bakery > Frozen > Dry & Canned >
+/// Beverages > Snacks > Condiments > Spices > Household
+private func matchExactWordWithPriority(_ words: [String]) -> String? {
+    var matched: Set<String> = []
     for word in words {
         let candidates = normalizePluralCandidates(word)
         for candidate in candidates {
             if let cat = exactWordLookup[candidate] {
-                return cat
+                matched.insert(cat)
             }
         }
     }
-    return nil
+    if matched.isEmpty { return nil }
+    if matched.count == 1 { return matched.first }
+    // Multiple categories matched — pick highest priority
+    return matched.min { categoryPriority($0) < categoryPriority($1) }
+}
+
+/// Lower number = higher priority. Produce and Meat win over Spices/Condiments
+/// so that "5 cloves garlic" → Produce, not Spices.
+private func categoryPriority(_ category: String) -> Int {
+    switch category {
+    case "Produce": return 0
+    case "Meat": return 1
+    case "Dairy": return 2
+    case "Bakery": return 3
+    case "Frozen": return 4
+    case "Dry & Canned": return 5
+    case "Beverages": return 6
+    case "Snacks": return 7
+    case "Condiments": return 8
+    case "Spices": return 9
+    case "Household": return 10
+    default: return 99
+    }
 }
 
 /// Generate plural normalization candidates. Returns the original word plus
@@ -463,11 +521,23 @@ private let exactWordLookup: [String: String] = {
                 "hummus", "guacamole", "tzatziki",
                 "chutney", "aioli", "pesto",
                 "dressing", "marinade", "glaze",
-                "seasoning", "spice", "cumin", "paprika",
+                "gravy",
+            ], "Condiments"
+        ),
+
+        // ---- Spices ----
+        (
+            [
+                "spice", "seasoning", "cumin", "paprika",
                 "turmeric", "cinnamon", "nutmeg", "clove",
                 "allspice", "cardamom", "coriander",
-                "cayenne", "chili", "curry",
-            ], "Condiments"
+                "cayenne", "chili", "curry", "masala",
+                "saffron", "sumac", "za'atar", "zaatar",
+                "anise", "star-anise", "juniper",
+                "fenugreek", "tamarind", "mace",
+                "mustard-seed", "celery-seed",
+                "peppercorn", "pepper-flake",
+            ], "Spices"
         ),
 
         // ---- Household ----

@@ -121,6 +121,9 @@ func groceryVocabulary() -> [String] {
         // Condiments & Sauces
         "gravy", "ketchup", "mustard", "mayo", "relish", "sriracha",
         "hummus", "pesto", "salsa",
+        // Spices
+        "cumin", "paprika", "turmeric", "cinnamon", "nutmeg",
+        "cardamom", "cayenne", "curry", "oregano", "saffron",
         // Household
         "soap", "detergent", "napkins", "towels", "tissues",
     ]

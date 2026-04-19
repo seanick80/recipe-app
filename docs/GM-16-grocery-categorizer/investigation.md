@@ -1,6 +1,6 @@
 # GM-16: Grocery Categorizer Investigation
 
-## Status: IN PROGRESS (2026-04-18 night)
+## Status: PHASE 1 COMPLETE (2026-04-19)
 
 ## Problem
 
@@ -245,52 +245,51 @@ Merge insights from Spoonacular + Instacart into a unified scheme:
 
 ## Checkpoint 3: Recommended implementation plan
 
-### Phase 1: Quick fixes to GroceryCategorizer.swift (do first)
+### Phase 1: Quick fixes to GroceryCategorizer.swift — DONE (2026-04-19)
 
-1. **Add "Spices" category** with words currently in Condiments:
+1. **Added "Spices" category** — moved spice words out of Condiments. Added:
    cumin, paprika, turmeric, cinnamon, nutmeg, clove, allspice, cardamom,
-   coriander, cayenne, chili, curry, oregano, thyme, rosemary, sage, dill,
-   basil, parsley, mint, bay leaf, saffron, fennel seed, mustard seed,
-   garam masala, masala, five spice, za'atar, sumac, etc.
+   coriander, cayenne, chili, curry, masala, saffron, sumac, za'atar, etc.
+   Multi-word entries: garam masala, chili powder, garlic powder, onion powder,
+   curry powder, bay leaf, italian seasoning, vanilla extract, etc.
 
-2. **Add "Baking" category:**
-   flour, sugar, baking soda, baking powder, vanilla extract, cocoa powder,
-   yeast, gelatin, pectin, cornstarch, cream of tartar, food coloring,
-   sprinkles, powdered sugar, brown sugar, confectioner's sugar, etc.
+2. **Fixed compound overrides** — removed `"powder"`, `"seasoning"`, `"flour"`,
+   `"starch"` from blanket dryCannedOverrides. Replaced with specific multi-word
+   entries: "baking powder" → Dry & Canned, "chili powder" → Spices, etc.
 
-3. **Fix compound overrides:**
-   - Remove "powder" from dryCannedOverrides
-   - Remove "seasoning" from dryCannedOverrides
-   - Add specific multi-word entries: "baking powder" → Baking,
-     "powdered sugar" → Baking, "garlic powder" → Spices, etc.
+3. **Added category priority system** — when multiple tokens match different
+   categories, highest-priority wins:
+   Produce(0) > Meat(1) > Dairy(2) > Bakery(3) > Frozen(4) > Dry & Canned(5) >
+   Beverages(6) > Snacks(7) > Condiments(8) > Spices(9) > Household(10)
+   Fixes "cloves garlic minced" → Produce (garlic outranks clove-the-spice).
 
-4. **Add category priority system:**
-   Produce > Meat > Dairy > ... > Spices > Condiments
-   If multiple tokens match different categories, highest-priority wins.
-   This fixes "cloves garlic" → Produce (garlic outranks clove).
+4. **Herb words stay in Produce** — fresh herbs are in Produce aisle. The
+   "fresh basil", "fresh parsley" etc. multi-word entries match Produce first.
+   Dried herb/spice forms match via Spices single-word entries, but priority
+   system means if a food word also matches, Produce wins.
 
-5. **Move herb words from Produce to Spices** (or keep in both with priority):
-   Fresh herbs at the store are in Produce, dried herbs are in Spices.
-   Decision: if "fresh" or "dried" modifier present, route accordingly.
-   Default: Produce (buying fresh is more common for cooking).
+5. **Did NOT add "Baking" category** — decided against splitting Dry & Canned
+   further for now. Baking items (flour, sugar, baking powder/soda) stay in
+   Dry & Canned which matches most store layouts.
 
-### Phase 2: Spoonacular data extraction
+6. **Updated category order** — added Spices after Condiments in
+   ShoppingViewModel.categoryOrder and ShoppingTemplate.defaultCategoryOrder.
+
+7. **Tests expanded** — 70 categorizer tests (was 32). All 9 build 67 screenshot
+   items now categorize correctly. Added test suites: testSpicesCategory,
+   testSpicesMultiWord, testCategoryPriority, testBuild67ScreenshotItems,
+   testCompoundOverrideNotTooAggressive.
+
+### Phase 2: Spoonacular data extraction (FUTURE)
 
 - Create a one-time script that queries Spoonacular's ingredient database
 - Extract all ingredient→aisle pairs
 - Save as `SharedLogic/GroceryAisles.json` or expand the Swift keyword list
 - This gives us authoritative aisle assignments for 2,600 common ingredients
 
-### Phase 3: Instacart keyword mining
+### Phase 3: Instacart keyword mining (FUTURE)
 
 - Download Instacart 2017 dataset from Kaggle
 - Script to extract unique product name tokens → department mappings
 - Use to expand keyword lists, especially for branded/compound items
 - Validate against our category scheme
-
-### Tests
-
-- Expand `TestFixtures/TestGroceryCategorizer.swift` with the screenshot failures
-- Add regression tests for compound override false positives
-- Add tests for the new Spices and Baking categories
-- Target: every item from the build 67 screenshot categorizes correctly

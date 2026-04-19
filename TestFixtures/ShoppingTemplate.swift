@@ -13,6 +13,7 @@ let defaultCategoryOrder: [String] = [
     "Snacks",
     "Beverages",
     "Condiments",
+    "Spices",
     "Other",
 ]
 

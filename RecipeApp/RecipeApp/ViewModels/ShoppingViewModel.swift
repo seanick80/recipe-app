@@ -15,6 +15,7 @@ class ShoppingViewModel {
         "Snacks",
         "Beverages",
         "Condiments",
+        "Spices",
         "Other",
     ]
 
