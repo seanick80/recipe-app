@@ -158,6 +158,45 @@ func testParseFusedWithTrailingPunctuation() {
     check(r.name.contains("zucchini"), "Fused+comma name preserved")
 }
 
+// MARK: - Compound Fractions (GM-14)
+
+func testCompoundFractions() {
+    // "1 1/2 cups flour"
+    let r1 = parseListLine("1 1/2 cups flour")!
+    checkEqual(r1.quantity, 1.5, "Compound '1 1/2' quantity")
+    checkEqual(r1.unit, "cup", "Compound '1 1/2' unit")
+    checkEqual(r1.name, "flour", "Compound '1 1/2' name")
+
+    // "2 3/4 lb chicken"
+    let r2 = parseListLine("2 3/4 lb chicken")!
+    checkEqual(r2.quantity, 2.75, "Compound '2 3/4' quantity")
+    checkEqual(r2.unit, "lb", "Compound '2 3/4' unit")
+
+    // "1 and 1/2 cups flour"
+    let r3 = parseListLine("1 and 1/2 cups flour")!
+    checkEqual(r3.quantity, 1.5, "Compound '1 and 1/2' quantity")
+    checkEqual(r3.unit, "cup", "Compound '1 and 1/2' unit")
+    checkEqual(r3.name, "flour", "Compound '1 and 1/2' name")
+
+    // "1½ tbsp sugar"
+    let r4 = parseListLine("1½ tbsp sugar")!
+    checkEqual(r4.quantity, 1.5, "Fused '1½' quantity")
+    checkEqual(r4.unit, "tbsp", "Fused '1½' unit")
+    checkEqual(r4.name, "sugar", "Fused '1½' name")
+
+    // "2¼ cups all-purpose flour" (real recipe import)
+    let r5 = parseListLine("2¼ cups all-purpose flour")!
+    checkEqual(r5.quantity, 2.25, "Fused '2¼' quantity")
+    checkEqual(r5.unit, "cup", "Fused '2¼' unit")
+    checkEqual(r5.name, "all-purpose flour", "Fused '2¼' name")
+
+    // "1 ½ cup milk" (space between whole and unicode fraction)
+    let r6 = parseListLine("1 ½ cup milk")!
+    checkEqual(r6.quantity, 1.5, "Spaced '1 ½' quantity")
+    checkEqual(r6.unit, "cup", "Spaced '1 ½' unit")
+    checkEqual(r6.name, "milk", "Spaced '1 ½' name")
+}
+
 // MARK: - Test Runner
 
 func runListParserTests() -> Bool {
@@ -184,6 +223,7 @@ func runListParserTests() -> Bool {
     testParseBareNumberStillWinsOverFused()
     testParseFusedIgnoredWhenNotFused()
     testParseFusedWithTrailingPunctuation()
+    testCompoundFractions()
 
     return printTestSummary("List Parser Tests")
 }

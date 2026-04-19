@@ -67,18 +67,30 @@ struct RecipeDetailView: View {
                         Text("Ingredients")
                             .font(.title2)
                             .bold()
-                        ForEach(ingredients.sorted { $0.displayOrder < $1.displayOrder }) { ingredient in
-                            HStack {
-                                Text("\u{2022}")
-                                if ingredient.quantity > 0 {
-                                    Text("\(formatQuantity(ingredient.quantity)) \(ingredient.unit)")
-                                        .bold()
-                                }
-                                Text(ingredient.name)
-                                if !ingredient.notes.isEmpty {
-                                    Text("(\(ingredient.notes))")
-                                        .foregroundStyle(.secondary)
-                                        .italic()
+                        Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 6, verticalSpacing: 4) {
+                            ForEach(ingredients.sorted { $0.displayOrder < $1.displayOrder }) { ingredient in
+                                GridRow {
+                                    if ingredient.quantity > 0 {
+                                        Text(formatQuantityAsFraction(ingredient.quantity))
+                                            .bold()
+                                            .gridColumnAlignment(.trailing)
+                                        Text(ingredient.unit)
+                                            .bold()
+                                            .foregroundStyle(.secondary)
+                                            .gridColumnAlignment(.leading)
+                                    } else {
+                                        Text("")
+                                        Text("")
+                                    }
+                                    HStack(spacing: 4) {
+                                        Text(ingredient.name)
+                                        if !ingredient.notes.isEmpty {
+                                            Text("(\(ingredient.notes))")
+                                                .foregroundStyle(.secondary)
+                                                .italic()
+                                        }
+                                    }
+                                    .gridColumnAlignment(.leading)
                                 }
                             }
                         }
@@ -104,9 +116,33 @@ struct RecipeDetailView: View {
         }
     }
 
-    private func formatQuantity(_ value: Double) -> String {
-        value.truncatingRemainder(dividingBy: 1) == 0
-            ? String(format: "%.0f", value)
+    private func formatQuantityAsFraction(_ value: Double) -> String {
+        if value <= 0 { return "" }
+        let whole = Int(value)
+        let frac = value - Double(whole)
+
+        let fractionStr: String?
+        if abs(frac) < 0.01 {
+            fractionStr = nil
+        } else if abs(frac - 0.25) < 0.01 {
+            fractionStr = "\u{00BC}"
+        } else if abs(frac - 1.0 / 3) < 0.04 {
+            fractionStr = "\u{2153}"
+        } else if abs(frac - 0.5) < 0.01 {
+            fractionStr = "\u{00BD}"
+        } else if abs(frac - 2.0 / 3) < 0.04 {
+            fractionStr = "\u{2154}"
+        } else if abs(frac - 0.75) < 0.01 {
+            fractionStr = "\u{00BE}"
+        } else {
+            fractionStr = nil
+        }
+
+        if let f = fractionStr {
+            return whole > 0 ? "\(whole) \(f)" : f
+        }
+        return value.truncatingRemainder(dividingBy: 1) == 0
+            ? "\(whole)"
             : String(format: "%.1f", value)
     }
 }

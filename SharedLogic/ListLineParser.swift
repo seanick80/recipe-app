@@ -105,6 +105,25 @@ func parseListLine(_ rawLine: String) -> ParsedListItem? {
     if let firstNum = parseQuantityToken(tokens[0]) {
         quantity = firstNum
         startIndex = 1
+        // Compound fraction: "1 1/2", "1 ½", "2 3/4"
+        if startIndex < tokens.count && firstNum == Double(Int(firstNum)) {
+            if let frac = parseQuantityToken(tokens[startIndex]),
+                frac > 0 && frac < 1
+            {
+                quantity = firstNum + frac
+                startIndex += 1
+            }
+        }
+        // Also handle "1 and 1/2"
+        if startIndex < tokens.count && tokens[startIndex].lowercased() == "and" {
+            if startIndex + 1 < tokens.count,
+                let frac = parseQuantityToken(tokens[startIndex + 1]),
+                frac > 0 && frac < 1
+            {
+                quantity = firstNum + frac
+                startIndex += 2
+            }
+        }
     } else if let fused = parseFusedQuantityUnit(tokens[0]) {
         // Handles tokens like "150g", "60ml", "2oz" where OCR / recipe
         // formatting has glued the number and unit with no space.
@@ -170,6 +189,21 @@ func parseQuantityToken(_ token: String) -> Double? {
 
     // Direct number
     if let n = Double(t), n > 0 { return n }
+
+    // Fused whole number + unicode fraction: "1½", "2¼", "1¾"
+    let unicodeFractions: [Character: Double] = [
+        "½": 0.5, "⅓": 1.0 / 3, "⅔": 2.0 / 3,
+        "¼": 0.25, "¾": 0.75,
+    ]
+    if t.count >= 2 {
+        let lastChar = t.last!
+        if let fracValue = unicodeFractions[lastChar] {
+            let wholePart = String(t.dropLast())
+            if let whole = Double(wholePart), whole > 0 {
+                return whole + fracValue
+            }
+        }
+    }
 
     // Unicode fractions
     let fractions: [String: Double] = [
