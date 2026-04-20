@@ -47,6 +47,10 @@ if [[ "$MODE" != "validate" ]]; then
     if ! "$REPO_ROOT/scripts/test.sh"; then
         err "tests failed"
     fi
+    info "running schema sync check"
+    if ! python "$REPO_ROOT/scripts/test_schema_sync.py"; then
+        err "schema sync check failed"
+    fi
 fi
 
 # ---------------------------------------------------------------------------

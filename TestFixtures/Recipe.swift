@@ -16,6 +16,7 @@ struct RecipeModel: Codable, Identifiable, Hashable {
     /// User-scoped favorite. Works because recipes live in the private CloudKit
     /// zone. If a multi-user backend is added later, migrate to a join table.
     var isFavorite: Bool
+    var isPublished: Bool
     var ingredients: [IngredientModel]
     var createdAt: Date
     var updatedAt: Date
@@ -36,6 +37,7 @@ struct RecipeModel: Codable, Identifiable, Hashable {
         sourceURL: String = "",
         difficulty: String = "",
         isFavorite: Bool = false,
+        isPublished: Bool = false,
         ingredients: [IngredientModel] = []
     ) {
         self.id = id
@@ -51,6 +53,7 @@ struct RecipeModel: Codable, Identifiable, Hashable {
         self.sourceURL = sourceURL
         self.difficulty = difficulty
         self.isFavorite = isFavorite
+        self.isPublished = isPublished
         self.ingredients = ingredients
         self.createdAt = Date()
         self.updatedAt = Date()
@@ -62,6 +65,7 @@ struct IngredientModel: Codable, Identifiable, Hashable {
     var name: String
     var quantity: Double
     var unit: String
+    var category: String
     var displayOrder: Int
     var notes: String
 
@@ -70,6 +74,7 @@ struct IngredientModel: Codable, Identifiable, Hashable {
         name: String,
         quantity: Double = 0,
         unit: String = "",
+        category: String = "Other",
         displayOrder: Int = 0,
         notes: String = ""
     ) {
@@ -77,6 +82,7 @@ struct IngredientModel: Codable, Identifiable, Hashable {
         self.name = name
         self.quantity = quantity
         self.unit = unit
+        self.category = category
         self.displayOrder = displayOrder
         self.notes = notes
     }

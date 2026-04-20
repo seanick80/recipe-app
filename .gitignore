@@ -49,6 +49,9 @@ data/layout-bench/images/*
 # Pantry bench: annotated images are generated output, not source
 data/pantry-bench/results/*_annotated.jpg
 
+# Server logs
+server/logs/
+
 # Env
 .env
 

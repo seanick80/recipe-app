@@ -1,22 +1,43 @@
 from __future__ import annotations
 
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
+from logging_config import get_audit_logger, setup_logging
 from rate_limit import limiter
 from routers import auth_routes, grocery, recipes
 
 logger = logging.getLogger(__name__)
 
-app = FastAPI(title="Recipe App API", version="1.0.0")
+
+setup_logging()
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    logger.info("Recipe App server starting")
+    yield
+    logger.info("Recipe App server shutting down")
+
+
+app = FastAPI(title="Recipe App API", version="1.0.0", lifespan=lifespan)
+
+audit = get_audit_logger()
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+
+
+async def _rate_limit_handler(request: Request, exc: RateLimitExceeded) -> JSONResponse:
+    audit.warning("RATE_LIMITED ip=%s path=%s", request.client.host, request.url.path)
+    return JSONResponse(status_code=429, content={"detail": "Rate limit exceeded"})
+
+
+app.add_exception_handler(RateLimitExceeded, _rate_limit_handler)
 
 app.add_middleware(
     CORSMiddleware,

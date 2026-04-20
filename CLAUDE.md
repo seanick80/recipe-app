@@ -13,7 +13,9 @@
   `Test*.swift` suites. Never copied into the iOS bundle.
 - `scripts/layout-bench/` — Local document layout analysis benchmark (Python/PyTorch, Windows)
 - `data/layout-bench/` — Test images + ground truth for layout bench (images gitignored)
-- `server/` — Python FastAPI backend (future sync; not needed for single-user persistence)
+- `schema/` — Canonical schema definition (`canonical.yaml`) and sync test
+- `server/` — Python FastAPI backend (PostgreSQL on Neon, Google OAuth, JWT auth)
+- `frontend/` — React SPA (Vite + TypeScript) for web recipe editor
 - `scripts/pantry-bench/` — YOLO pantry-detection evaluation harness (Python/ultralytics)
 - `data/pantry_images/` — 9 test pantry photos for detection benchmarking
 - `data/pantry-bench/results/` — Benchmark output (report.json + annotated images)
@@ -100,7 +102,16 @@ already be in the remote history.
 ```bash
 cd server
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8000
+```
+- Neon PostgreSQL (free tier, SSL enforced)
+- Google OAuth + JWT cookie auth (allowlist-based)
+- Server logs: `server/logs/server.log`, `server/logs/audit.log`
+
+## Frontend (Web)
+```bash
+cd frontend
+npm install && npm run dev   # http://localhost:5173
 ```
 
 ## Database
@@ -111,9 +122,16 @@ psql recipe_app < database/init.sql
 psql recipe_app < database/seed.sql
 ```
 
+## Schema Sync
+All data models (6 models × 7 surfaces) are defined in `schema/canonical.yaml`.
+```bash
+python scripts/test_schema_sync.py   # verify all surfaces match canonical
+```
+When adding a field: update `canonical.yaml` first, then propagate to each surface.
+
 ## Testing
 ```bash
-# All tests (Windows) — 486 tests across 15 suites
+# All tests (Windows) — 516+ tests across 15 Swift suites + 35 server tests
 ./scripts/test.sh
 
 # Full build validation (lint + tests + config)

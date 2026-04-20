@@ -6,7 +6,8 @@ A full-stack recipe and grocery list iOS app with local-first architecture.
 
 - **iOS Client**: SwiftUI + MVVM + SwiftData with CloudKit private database (on-device + iCloud sync)
 - **Build System**: xcodegen (`RecipeApp.xcodeproj` generated on CI from `RecipeApp/project.yml`)
-- **Backend**: Python FastAPI + PostgreSQL (future sync for cross-household features; CloudKit handles single-user persistence today)
+- **Web Editor**: React 19 + TypeScript + Vite (Google OAuth login, recipe CRUD)
+- **Backend**: Python FastAPI + PostgreSQL on Neon (Google OAuth + JWT auth, API key for scripts)
 - **Build Pipeline**: Windows dev -> GitHub -> Codemagic CI (xcodegen + App Store Connect API-key signing) -> TestFlight -> iPhone
 
 ## Features
@@ -33,9 +34,11 @@ RecipeApp/          SwiftUI iOS app (MVVM + SwiftData)
 SharedLogic/        Pure-Swift modules shipped into the iOS app (copied
                     into RecipeApp/RecipeApp/Parsers/ at CI build time)
 TestFixtures/       Windows-only test suites exercising SharedLogic/
-scripts/            build/test/lint + layout-bench
-server/             FastAPI skeleton (not deployed; future work)
-database/           PostgreSQL schema and seed data (not used by iOS today)
+scripts/            build/test/lint + schema sync + layout-bench
+server/             FastAPI backend (Neon PostgreSQL, Google OAuth, JWT)
+frontend/           React SPA web editor (Vite + TypeScript)
+schema/             Canonical data model definitions (canonical.yaml)
+database/           PostgreSQL DDL and seed data
 ```
 
 ## Required Tools
@@ -93,7 +96,16 @@ Hooks can be bypassed in emergencies with `git commit --no-verify` but avoid mak
 ```bash
 cd server
 pip install -r requirements.txt
-uvicorn main:app --reload
+uvicorn main:app --reload --port 8000   # http://localhost:8000/api/
+```
+
+Server logs are written to `server/logs/server.log` and `server/logs/audit.log` (auth events).
+
+### Web Frontend
+
+```bash
+cd frontend
+npm install && npm run dev              # http://localhost:5173
 ```
 
 ### Database
@@ -102,6 +114,14 @@ uvicorn main:app --reload
 createdb recipe_app
 psql recipe_app < database/init.sql
 psql recipe_app < database/seed.sql
+```
+
+### Schema Sync
+
+All data models are defined once in `schema/canonical.yaml` and verified across 7 surfaces (SQL, SQLAlchemy, Pydantic, TypeScript, SwiftData, TestFixtures, static site):
+
+```bash
+python scripts/test_schema_sync.py      # fails if any surface drifts
 ```
 
 ## Privacy & Debug Logging

@@ -18,6 +18,7 @@ final class Recipe {
     /// User-scoped favorite. Works because recipes live in the private CloudKit
     /// zone. If a multi-user backend is added later, migrate to a join table.
     var isFavorite: Bool = false
+    var isPublished: Bool = false
     var imageData: Data?
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
@@ -42,6 +43,7 @@ final class Recipe {
         sourceURL: String = "",
         difficulty: String = "",
         isFavorite: Bool = false,
+        isPublished: Bool = false,
         ingredients: [Ingredient] = []
     ) {
         self.id = UUID()
@@ -57,6 +59,7 @@ final class Recipe {
         self.sourceURL = sourceURL
         self.difficulty = difficulty
         self.isFavorite = isFavorite
+        self.isPublished = isPublished
         self.ingredients = ingredients
         self.createdAt = Date()
         self.updatedAt = Date()

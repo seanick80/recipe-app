@@ -17,7 +17,10 @@ from config import (
     OAUTH_REDIRECT_URI,
 )
 from database import get_db
+from logging_config import get_audit_logger
 from models.user import AllowedUser
+
+audit = get_audit_logger()
 
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
@@ -83,6 +86,7 @@ def callback(
     # CSRF check
     stored_state = request.cookies.get("oauth_state", "")
     if not state or not stored_state or state != stored_state:
+        audit.warning("OAUTH_CSRF_MISMATCH")
         raise HTTPException(400, detail="Invalid OAuth state")
 
     # Exchange auth code for tokens
@@ -96,6 +100,7 @@ def callback(
     with httpx.Client() as client:
         token_resp = client.post(GOOGLE_TOKEN_URL, data=token_data)
     if token_resp.status_code != 200:
+        audit.warning("OAUTH_TOKEN_EXCHANGE_FAILED status=%s", token_resp.status_code)
         raise HTTPException(400, detail="Failed to exchange auth code")
 
     tokens = token_resp.json()
@@ -108,6 +113,7 @@ def callback(
             params={"id_token": id_token},
         )
     if info_resp.status_code != 200:
+        audit.warning("OAUTH_ID_TOKEN_INVALID status=%s", info_resp.status_code)
         raise HTTPException(400, detail="Invalid ID token")
 
     info = info_resp.json()
@@ -116,17 +122,20 @@ def callback(
 
     # Verify audience
     if info.get("aud") != GOOGLE_CLIENT_ID:
+        audit.warning("OAUTH_AUDIENCE_MISMATCH aud=%s", info.get("aud"))
         raise HTTPException(400, detail="Token audience mismatch")
 
     # Check allowlist
     user = db.query(AllowedUser).filter(AllowedUser.email == email).first()
     if not user:
+        audit.warning("OAUTH_DENIED email=%s reason=not_in_allowlist", email)
         raise HTTPException(
             403,
             detail="Not authorized -- ask Nick for an invite",
         )
 
     # Issue JWT and redirect to frontend
+    audit.info("LOGIN_SUCCESS email=%s role=%s", user.email, user.role)
     token = create_jwt(user.email, user.name, user.role)
     redirect = RedirectResponse(url=FRONTEND_URL, status_code=302)
     redirect.set_cookie(
@@ -180,6 +189,10 @@ def invite(
     db.add(user)
     db.commit()
     db.refresh(user)
+    audit.info(
+        "USER_INVITED email=%s role=%s by=%s",
+        user.email, user.role, admin.email,
+    )
     return user
 
 
@@ -202,5 +215,6 @@ def delete_user(
     user = db.query(AllowedUser).filter(AllowedUser.id == user_id).first()
     if not user:
         raise HTTPException(404, detail="User not found")
+    audit.info("USER_DELETED email=%s by=admin", user.email)
     db.delete(user)
     db.commit()

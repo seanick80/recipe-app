@@ -36,13 +36,15 @@ struct GroceryListModel: Codable, Identifiable, Hashable {
     var name: String
     var items: [GroceryItemModel]
     var createdAt: Date
+    var archivedAt: Date?
 
     var completedCount: Int { items.filter(\.isChecked).count }
 
-    init(id: UUID = UUID(), name: String, items: [GroceryItemModel] = []) {
+    init(id: UUID = UUID(), name: String, items: [GroceryItemModel] = [], archivedAt: Date? = nil) {
         self.id = id
         self.name = name
         self.items = items
         self.createdAt = Date()
+        self.archivedAt = archivedAt
     }
 }

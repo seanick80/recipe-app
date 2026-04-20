@@ -1,6 +1,6 @@
 # Web Architecture — Implementation Log
 
-## Status: Step 2 in progress (2026-04-20)
+## Status: Step 2e done, Step 2f next (2026-04-20)
 
 ## Completed
 
@@ -52,34 +52,24 @@
 - `cancel_previous_builds: true` saves free-tier minutes
 - Server-only changes no longer trigger iOS builds
 
-## In Progress
+### Step 2e: React SPA (DONE)
+- Vite + React 19 + TypeScript + CSS Modules
+- Pages: recipe list, recipe detail, recipe editor, login
+- Google OAuth sign-in via JWT cookie
+- Typed fetch wrappers for recipe/auth endpoints
+- Tested end-to-end: OAuth login → create recipe → view recipe
 
-### Step 2e: React SPA (NEXT)
-- Scaffold: Vite + React + TypeScript
-- Reuse patterns from Good Morning dashboard:
-  - CSS Modules for styling
-  - React Query for data fetching
-  - apiFetch wrapper for API calls
-- Add React Router (Good Morning is single-page; recipe app needs routes)
+### Server Logging (DONE)
+- `server/logs/server.log` — all INFO+ messages (uvicorn access, errors, audit)
+- `server/logs/audit.log` — auth/security events only (login, denied, rate limit)
+- RotatingFileHandler (5 MB, 3–5 backups)
+- dictConfig-based so uvicorn doesn't clobber handlers
 
-#### Pages to build:
-1. **Recipe list** (public) — search, filter by cuisine/course
-2. **Recipe detail** (public) — read-only view, same design as static pages
-3. **Recipe editor** (authenticated) — create/edit form with ingredient rows
-4. **Login** — Google OAuth button, redirect flow
-5. **Admin** (admin only) — invite users, manage allowlist
-
-#### Auth flow in React:
-1. Check `/api/v1/auth/me` on load
-2. If not authenticated, show "Sign in with Google" → `/api/v1/auth/login`
-3. After OAuth redirect, JWT cookie is set automatically
-4. React Query refetch shows authenticated state
-5. Editor pages gated behind auth check
-
-#### API client needs:
-- Typed fetch wrappers for all recipe/grocery/auth endpoints
-- JWT cookie sent automatically (httpOnly, same-site)
-- No CSRF needed (JWT in cookie, not session-based)
+### Schema Sync Test (DONE)
+- `schema/canonical.yaml` — single source of truth for 6 models across 7 surfaces
+- `scripts/test_schema_sync.py` — parses SQL, SQLAlchemy, Pydantic, TypeScript, SwiftData, TestFixtures, static site
+- Fixed drift: iOS Recipe +isPublished, TestFixtures IngredientModel +category, GroceryListModel +archivedAt
+- Wired into `scripts/build.sh`
 
 ## Not Started
 

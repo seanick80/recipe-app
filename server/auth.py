@@ -11,9 +11,11 @@ from sqlalchemy.orm import Session
 
 from config import GOOGLE_CLIENT_ID, JWT_SECRET
 from database import get_db
+from logging_config import get_audit_logger
 from models.user import AllowedUser
 
 _header = APIKeyHeader(name="X-API-Key", auto_error=False)
+audit = get_audit_logger()
 
 API_KEY = os.getenv("API_KEY", "")
 
@@ -38,8 +40,10 @@ def decode_jwt(token: str) -> dict:
     try:
         return jwt.decode(token, JWT_SECRET, algorithms=[JWT_ALGORITHM])
     except jwt.ExpiredSignatureError:
+        audit.warning("JWT_EXPIRED token presented")
         raise HTTPException(401, detail="Token expired")
     except jwt.InvalidTokenError:
+        audit.warning("JWT_INVALID token presented")
         raise HTTPException(401, detail="Invalid token")
 
 
@@ -48,6 +52,7 @@ def get_api_key(key: str | None = Security(_header)) -> str:
     if not API_KEY:
         raise HTTPException(503, detail="Server not configured")
     if not key or not secrets.compare_digest(key, API_KEY):
+        audit.warning("API_KEY_REJECTED")
         raise HTTPException(401, detail="Invalid or missing API key")
     return key
 
@@ -69,6 +74,7 @@ def get_current_user(
         user = db.query(AllowedUser).filter(AllowedUser.email == email).first()
         if user:
             return user
+        audit.warning("AUTH_DENIED email=%s reason=not_in_allowlist", email)
         raise HTTPException(401, detail="User not found in allowlist")
 
     # Fall back to API key
@@ -88,6 +94,7 @@ def get_current_user(
             role="admin",
         )
 
+    audit.warning("AUTH_MISSING no JWT cookie or API key")
     raise HTTPException(401, detail="Not authenticated")
 
 
@@ -96,5 +103,8 @@ def require_admin(
 ) -> AllowedUser:
     """Require admin role."""
     if user.role != "admin":
+        audit.warning(
+            "ADMIN_DENIED email=%s role=%s", user.email, user.role,
+        )
         raise HTTPException(403, detail="Admin access required")
     return user

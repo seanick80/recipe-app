@@ -1,0 +1,177 @@
+# Canonical schema — single source of truth for all recipe app data models.
+# The sync test (scripts/test_schema_sync.py) parses every surface and
+# compares it against this file.  Add new fields here FIRST, then propagate.
+#
+# Naming: canonical field names are snake_case.
+# Swift surfaces use camelCase (automatic conversion in the test).
+# The static site JSON uses aliases noted under each field.
+
+models:
+  Recipe:
+    fields:
+      id:
+        type: uuid
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      name:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+        aliases:
+          static_site: title
+      summary:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      instructions:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+        note: "static_site reads as list[str]; single string elsewhere"
+      prep_time_minutes:
+        type: int
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      cook_time_minutes:
+        type: int
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      servings:
+        type: int
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      cuisine:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      course:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      tags:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      source_url:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      difficulty:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      is_favorite:
+        type: bool
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      is_published:
+        type: bool
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      image_data:
+        type: binary
+        surfaces: [sql, sqlalchemy, swiftdata]
+        note: "Binary data; not exposed in API responses or frontend"
+      created_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      updated_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      ingredients:
+        type: relationship
+        surfaces: [sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+
+  Ingredient:
+    fields:
+      id:
+        type: uuid
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      name:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      quantity:
+        type: float
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      unit:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures, static_site]
+      category:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      display_order:
+        type: int
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      notes:
+        type: string
+        surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+
+  GroceryList:
+    fields:
+      id:
+        type: uuid
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      name:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      created_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      archived_at:
+        type: datetime_optional
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      items:
+        type: relationship
+        surfaces: [sqlalchemy, swiftdata, testfixtures]
+
+  GroceryItem:
+    fields:
+      id:
+        type: uuid
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      name:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      quantity:
+        type: float
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      unit:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      category:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      is_checked:
+        type: bool
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      source_recipe_name:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      source_recipe_id:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+
+  ShoppingTemplate:
+    fields:
+      id:
+        type: uuid
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      name:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      sort_order:
+        type: int
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      created_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      items:
+        type: relationship
+        surfaces: [sqlalchemy, swiftdata, testfixtures]
+
+  TemplateItem:
+    fields:
+      id:
+        type: uuid
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      name:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      quantity:
+        type: float
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      unit:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      category:
+        type: string
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+      sort_order:
+        type: int
+        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
