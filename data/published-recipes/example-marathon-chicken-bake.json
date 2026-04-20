@@ -1,0 +1,34 @@
+{
+  "id": "example-only-delete-before-publishing",
+  "title": "Marathon Chicken Bake",
+  "summary": "A hearty one-pan chicken bake from Lizzii's cookbook. Perfect for meal prep or feeding a crowd.",
+  "servings": 6,
+  "prepTimeMinutes": 20,
+  "cookTimeMinutes": 45,
+  "cuisine": "Australian",
+  "course": "Main",
+  "difficulty": "Easy",
+  "sourceURL": "",
+  "ingredients": [
+    {"name": "Chicken Thighs", "quantity": 1.5, "unit": "kg"},
+    {"name": "Potatoes", "quantity": 4, "unit": ""},
+    {"name": "Onion", "quantity": 1, "unit": "large"},
+    {"name": "Garlic", "quantity": 4, "unit": "cloves"},
+    {"name": "Olive Oil", "quantity": 2, "unit": "tbsp"},
+    {"name": "Paprika", "quantity": 1, "unit": "tsp"},
+    {"name": "Salt", "quantity": 1, "unit": "tsp"},
+    {"name": "Black Pepper", "quantity": 0.5, "unit": "tsp"},
+    {"name": "Fresh Rosemary", "quantity": 2, "unit": "sprigs"}
+  ],
+  "instructions": [
+    "Preheat oven to 200°C (400°F).",
+    "Cut potatoes into wedges and toss with olive oil, paprika, salt, and pepper.",
+    "Arrange chicken thighs skin-side up in a large baking dish.",
+    "Scatter potato wedges and sliced onion around the chicken.",
+    "Tuck garlic cloves and rosemary sprigs between the pieces.",
+    "Bake for 45 minutes until chicken skin is golden and crispy.",
+    "Rest for 5 minutes before serving."
+  ],
+  "published": true,
+  "publishedBy": "seanick"
+}

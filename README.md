@@ -133,3 +133,39 @@ private iCloud zone.
 
 See [`BACKLOG.md`](BACKLOG.md) for what's next and what's explicitly
 out of scope.
+
+## Recipe Sharing (GitHub Pages)
+
+Published recipes are served as static HTML at
+**[recipes.ouryearofwander.com](https://recipes.ouryearofwander.com)**.
+
+### How it works
+
+1. Add a recipe JSON file to `data/published-recipes/` with `"published": true`
+2. Push to `master`
+3. GitHub Action runs `scripts/publish-recipes.py` to generate static HTML
+4. Action deploys to the `gh-pages` branch automatically
+5. Recipe is live at `recipes.ouryearofwander.com/seanick/<recipe-slug>`
+
+### Publishing a recipe manually
+
+```bash
+# Generate the static site locally (outputs to build/gh-pages/)
+python scripts/publish-recipes.py
+
+# Preview: open build/gh-pages/seanick/<recipe-slug>/index.html in a browser
+```
+
+### Recipe JSON format
+
+See `data/published-recipes/example-marathon-chicken-bake.json` for the
+full schema. Key fields: `title`, `ingredients`, `instructions`,
+`published` (boolean toggle), `publishedBy` (username for URL path).
+
+### Architecture
+
+- **DNS**: CNAME `recipes` → `seanick80.github.io` (via Squarespace)
+- **Hosting**: GitHub Pages on `gh-pages` branch (free, HTTPS)
+- **Generator**: Pure Python, no dependencies (`scripts/publish-recipes.py`)
+- **CI**: GitHub Action triggers on changes to `data/published-recipes/`
+- **Design doc**: [`docs/WEB_ARCHITECTURE_PROPOSAL.md`](docs/WEB_ARCHITECTURE_PROPOSAL.md)

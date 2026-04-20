@@ -991,3 +991,70 @@ Step 4/6+: AI processing tier ───────────── 1-2 sessio
 
 Total estimated effort: 10-14 sessions across all steps.
 Total monthly cost at completion: $0 (free tier) to $20 (with AI flag on).
+
+---
+
+## Appendix: Step 1 implementation log
+
+### Completed 2026-04-19
+
+**DNS**: CNAME record added in Squarespace:
+- Type: CNAME, Name: `recipes`, Data: `seanick80.github.io`
+- Maps `recipes.ouryearofwander.com` → GitHub Pages
+
+**GitHub Pages**: `gh-pages` branch created (orphan) on `seanick80/recipe-app`.
+Settings → Pages → Deploy from branch `gh-pages` / root.
+HTTPS enforced (GitHub provisions Let's Encrypt cert automatically).
+
+**Static site generator**: `scripts/publish-recipes.py`
+- Reads recipe JSON files from `data/published-recipes/*.json`
+- Generates standalone HTML pages with:
+  - Embedded JSON-LD (`schema.org/Recipe`) for SEO + rich link previews
+  - Open Graph meta tags for iMessage/WhatsApp/social link previews
+  - Dark mode support (prefers-color-scheme)
+  - Print-friendly CSS
+  - Mobile-responsive layout
+  - Unicode fraction rendering (1.5 → "1 ½")
+- URL structure: `/{username}/{slug}/` (e.g., `/seanick/marathon-chicken-bake/`)
+- Outputs to `build/gh-pages/` (gitignored)
+- Per-recipe `"published": true` toggle — only published recipes generate pages
+
+**GitHub Action**: `.github/workflows/publish-recipes.yml`
+- Triggers on push to master when `data/published-recipes/` or the generator
+  script changes
+- Also supports manual trigger (`workflow_dispatch`)
+- Uses `peaceiris/actions-gh-pages@v4` to deploy generated HTML to `gh-pages`
+
+**Recipe JSON format** (in `data/published-recipes/`):
+```json
+{
+  "title": "Recipe Name",
+  "summary": "Short description",
+  "servings": 4,
+  "prepTimeMinutes": 20,
+  "cookTimeMinutes": 45,
+  "cuisine": "Italian",
+  "course": "Main",
+  "difficulty": "Easy",
+  "sourceURL": "",
+  "ingredients": [
+    {"name": "Chicken", "quantity": 1.5, "unit": "kg"}
+  ],
+  "instructions": [
+    "Step 1 text.",
+    "Step 2 text."
+  ],
+  "published": true,
+  "publishedBy": "seanick"
+}
+```
+
+**Remaining Step 1 work**:
+- Verify DNS propagation and HTTPS
+- Remove example recipe JSON, add real recipes
+- Add iOS "Share Recipe" action that generates the public URL
+  (recipe data is already on-device; sharing = copy URL to clipboard
+  with the slug format, assuming the recipe has been published via
+  a JSON export mechanism TBD)
+- Consider: script/action to export recipe from iOS SwiftData → JSON
+  file in `data/published-recipes/` (may need GitHub API or manual copy)
