@@ -9,7 +9,7 @@ def test_health(client):
     assert response.json() == {"status": "ok"}
 
 
-def test_create_recipe(client):
+def test_create_recipe(client, auth_headers):
     data = {
         "name": "Spaghetti Bolognese",
         "summary": "Classic Italian pasta",
@@ -22,29 +22,48 @@ def test_create_recipe(client):
             {"name": "Ground Beef", "quantity": 1, "unit": "lb"},
         ],
     }
-    response = client.post("/api/v1/recipes/", json=data)
+    response = client.post(
+        "/api/v1/recipes/",
+        json=data,
+        headers=auth_headers,
+    )
     assert response.status_code == 201
     result = response.json()
     assert result["name"] == "Spaghetti Bolognese"
     assert len(result["ingredients"]) == 2
 
 
-def test_list_recipes(client):
-    client.post("/api/v1/recipes/", json={"name": "Recipe 1"})
-    client.post("/api/v1/recipes/", json={"name": "Recipe 2"})
+def test_list_recipes(client, auth_headers):
+    client.post(
+        "/api/v1/recipes/",
+        json={"name": "Recipe 1"},
+        headers=auth_headers,
+    )
+    client.post(
+        "/api/v1/recipes/",
+        json={"name": "Recipe 2"},
+        headers=auth_headers,
+    )
     response = client.get("/api/v1/recipes/")
     assert response.status_code == 200
     assert len(response.json()) == 2
 
 
-def test_delete_recipe(client):
-    resp = client.post("/api/v1/recipes/", json={"name": "To Delete"})
+def test_delete_recipe(client, auth_headers):
+    resp = client.post(
+        "/api/v1/recipes/",
+        json={"name": "To Delete"},
+        headers=auth_headers,
+    )
     recipe_id = resp.json()["id"]
-    response = client.delete(f"/api/v1/recipes/{recipe_id}")
+    response = client.delete(
+        f"/api/v1/recipes/{recipe_id}",
+        headers=auth_headers,
+    )
     assert response.status_code == 204
 
 
-def test_get_recipe(client):
+def test_get_recipe(client, auth_headers):
     resp = client.post("/api/v1/recipes/", json={
         "name": "Test Get",
         "summary": "A summary",
@@ -53,7 +72,7 @@ def test_get_recipe(client):
         "ingredients": [
             {"name": "Salt", "quantity": 1, "unit": "tsp"},
         ],
-    })
+    }, headers=auth_headers)
     assert resp.status_code == 201
     recipe_id = resp.json()["id"]
 
@@ -69,11 +88,11 @@ def test_get_recipe(client):
     assert len(result["ingredients"]) == 1
 
 
-def test_update_recipe(client):
+def test_update_recipe(client, auth_headers):
     resp = client.post("/api/v1/recipes/", json={
         "name": "Original",
         "servings": 2,
-    })
+    }, headers=auth_headers)
     recipe_id = resp.json()["id"]
 
     update_data = {
@@ -87,6 +106,7 @@ def test_update_recipe(client):
     response = client.put(
         f"/api/v1/recipes/{recipe_id}",
         json=update_data,
+        headers=auth_headers,
     )
     assert response.status_code == 200
     result = response.json()
@@ -103,7 +123,7 @@ def test_recipe_not_found(client):
     assert response.status_code == 404
 
 
-def test_create_recipe_with_all_fields(client):
+def test_create_recipe_with_all_fields(client, auth_headers):
     data = {
         "name": "Full Recipe",
         "summary": "Full summary",
@@ -120,7 +140,11 @@ def test_create_recipe_with_all_fields(client):
         "is_published": True,
         "ingredients": [],
     }
-    response = client.post("/api/v1/recipes/", json=data)
+    response = client.post(
+        "/api/v1/recipes/",
+        json=data,
+        headers=auth_headers,
+    )
     assert response.status_code == 201
     result = response.json()
     assert result["cuisine"] == "Thai"
@@ -132,7 +156,7 @@ def test_create_recipe_with_all_fields(client):
     assert result["is_published"] is True
 
 
-def test_ingredient_fields(client):
+def test_ingredient_fields(client, auth_headers):
     data = {
         "name": "Ingredient Test",
         "ingredients": [
@@ -154,7 +178,11 @@ def test_ingredient_fields(client):
             },
         ],
     }
-    response = client.post("/api/v1/recipes/", json=data)
+    response = client.post(
+        "/api/v1/recipes/",
+        json=data,
+        headers=auth_headers,
+    )
     assert response.status_code == 201
     ingredients = response.json()["ingredients"]
     assert ingredients[0]["category"] == "Baking"
@@ -164,27 +192,52 @@ def test_ingredient_fields(client):
     assert ingredients[1]["display_order"] == 2
 
 
-def test_toggle_favorite(client):
-    resp = client.post("/api/v1/recipes/", json={"name": "Fav Test"})
+def test_toggle_favorite(client, auth_headers):
+    resp = client.post(
+        "/api/v1/recipes/",
+        json={"name": "Fav Test"},
+        headers=auth_headers,
+    )
     recipe_id = resp.json()["id"]
     assert resp.json()["is_favorite"] is False
 
     response = client.patch(
         f"/api/v1/recipes/{recipe_id}",
         json={"is_favorite": True},
+        headers=auth_headers,
     )
     assert response.status_code == 200
     assert response.json()["is_favorite"] is True
 
 
-def test_toggle_published(client):
-    resp = client.post("/api/v1/recipes/", json={"name": "Pub Test"})
+def test_toggle_published(client, auth_headers):
+    resp = client.post(
+        "/api/v1/recipes/",
+        json={"name": "Pub Test"},
+        headers=auth_headers,
+    )
     recipe_id = resp.json()["id"]
     assert resp.json()["is_published"] is False
 
     response = client.patch(
         f"/api/v1/recipes/{recipe_id}",
         json={"is_published": True},
+        headers=auth_headers,
     )
     assert response.status_code == 200
     assert response.json()["is_published"] is True
+
+
+def test_create_recipe_without_api_key_returns_401(client):
+    response = client.post("/api/v1/recipes/", json={"name": "No Auth"})
+    assert response.status_code == 401
+
+
+def test_get_recipes_without_api_key_succeeds(client, auth_headers):
+    client.post(
+        "/api/v1/recipes/",
+        json={"name": "Public"},
+        headers=auth_headers,
+    )
+    response = client.get("/api/v1/recipes/")
+    assert response.status_code == 200

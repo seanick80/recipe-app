@@ -1,3 +1,11 @@
+from __future__ import annotations
+
+import os
+
+# Set API_KEY before importing app modules so auth.py picks it up
+TEST_API_KEY = "test-api-key-for-unit-tests"
+os.environ["API_KEY"] = TEST_API_KEY
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -36,3 +44,8 @@ def client():
     Base.metadata.create_all(bind=engine)
     with TestClient(app) as c:
         yield c
+
+
+@pytest.fixture
+def auth_headers() -> dict[str, str]:
+    return {"X-API-Key": TEST_API_KEY}

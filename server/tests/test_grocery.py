@@ -3,18 +3,23 @@ from __future__ import annotations
 import uuid
 
 
-def test_create_grocery_list(client):
-    resp = client.post("/api/v1/grocery/lists", json={"name": "Weekly"})
+def test_create_grocery_list(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "Weekly"},
+        headers=auth_headers,
+    )
     assert resp.status_code == 201
     result = resp.json()
     assert result["name"] == "Weekly"
     assert result["archived_at"] is None
 
 
-def test_get_grocery_list(client):
+def test_get_grocery_list(client, auth_headers):
     resp = client.post(
         "/api/v1/grocery/lists",
         json={"name": "My List"},
+        headers=auth_headers,
     )
     list_id = resp.json()["id"]
 
@@ -29,10 +34,11 @@ def test_grocery_list_not_found(client):
     assert response.status_code == 404
 
 
-def test_add_item_with_source(client):
+def test_add_item_with_source(client, auth_headers):
     resp = client.post(
         "/api/v1/grocery/lists",
         json={"name": "Source Test"},
+        headers=auth_headers,
     )
     list_id = resp.json()["id"]
 
@@ -47,6 +53,7 @@ def test_add_item_with_source(client):
     response = client.post(
         f"/api/v1/grocery/lists/{list_id}/items",
         json=item_data,
+        headers=auth_headers,
     )
     assert response.status_code == 201
     result = response.json()
@@ -54,66 +61,77 @@ def test_add_item_with_source(client):
     assert result["source_recipe_id"] == "abc-123"
 
 
-def test_toggle_item(client):
+def test_toggle_item(client, auth_headers):
     resp = client.post(
         "/api/v1/grocery/lists",
         json={"name": "Toggle List"},
+        headers=auth_headers,
     )
     list_id = resp.json()["id"]
 
     item_resp = client.post(
         f"/api/v1/grocery/lists/{list_id}/items",
         json={"name": "Milk"},
+        headers=auth_headers,
     )
     item_id = item_resp.json()["id"]
     assert item_resp.json()["is_checked"] is False
 
     toggle_resp = client.patch(
         f"/api/v1/grocery/items/{item_id}/toggle",
+        headers=auth_headers,
     )
     assert toggle_resp.status_code == 200
     assert toggle_resp.json()["is_checked"] is True
 
 
-def test_delete_item(client):
+def test_delete_item(client, auth_headers):
     resp = client.post(
         "/api/v1/grocery/lists",
         json={"name": "Delete Item List"},
+        headers=auth_headers,
     )
     list_id = resp.json()["id"]
 
     item_resp = client.post(
         f"/api/v1/grocery/lists/{list_id}/items",
         json={"name": "Bread"},
+        headers=auth_headers,
     )
     item_id = item_resp.json()["id"]
 
-    del_resp = client.delete(f"/api/v1/grocery/items/{item_id}")
+    del_resp = client.delete(
+        f"/api/v1/grocery/items/{item_id}",
+        headers=auth_headers,
+    )
     assert del_resp.status_code == 204
 
 
-def test_archive_restore_list(client):
+def test_archive_restore_list(client, auth_headers):
     resp = client.post(
         "/api/v1/grocery/lists",
         json={"name": "Archive Test"},
+        headers=auth_headers,
     )
     list_id = resp.json()["id"]
     assert resp.json()["archived_at"] is None
 
     archive_resp = client.patch(
         f"/api/v1/grocery/lists/{list_id}/archive",
+        headers=auth_headers,
     )
     assert archive_resp.status_code == 200
     assert archive_resp.json()["archived_at"] is not None
 
     restore_resp = client.patch(
         f"/api/v1/grocery/lists/{list_id}/restore",
+        headers=auth_headers,
     )
     assert restore_resp.status_code == 200
     assert restore_resp.json()["archived_at"] is None
 
 
-def test_create_template(client):
+def test_create_template(client, auth_headers):
     data = {
         "name": "Breakfast Basics",
         "sort_order": 1,
@@ -134,7 +152,11 @@ def test_create_template(client):
             },
         ],
     }
-    response = client.post("/api/v1/grocery/templates", json=data)
+    response = client.post(
+        "/api/v1/grocery/templates",
+        json=data,
+        headers=auth_headers,
+    )
     assert response.status_code == 201
     result = response.json()
     assert result["name"] == "Breakfast Basics"
@@ -143,29 +165,29 @@ def test_create_template(client):
     assert result["items"][0]["name"] == "Eggs"
 
 
-def test_list_templates(client):
+def test_list_templates(client, auth_headers):
     client.post("/api/v1/grocery/templates", json={
         "name": "Template A",
         "sort_order": 0,
-    })
+    }, headers=auth_headers)
     client.post("/api/v1/grocery/templates", json={
         "name": "Template B",
         "sort_order": 1,
-    })
+    }, headers=auth_headers)
 
     response = client.get("/api/v1/grocery/templates")
     assert response.status_code == 200
     assert len(response.json()) == 2
 
 
-def test_get_template(client):
+def test_get_template(client, auth_headers):
     resp = client.post("/api/v1/grocery/templates", json={
         "name": "Get Me",
         "sort_order": 0,
         "items": [
             {"name": "Milk", "quantity": 1, "unit": "gallon"},
         ],
-    })
+    }, headers=auth_headers)
     template_id = resp.json()["id"]
 
     response = client.get(
@@ -176,14 +198,14 @@ def test_get_template(client):
     assert len(response.json()["items"]) == 1
 
 
-def test_update_template(client):
+def test_update_template(client, auth_headers):
     resp = client.post("/api/v1/grocery/templates", json={
         "name": "Original",
         "sort_order": 0,
         "items": [
             {"name": "Item A", "quantity": 1, "unit": "each"},
         ],
-    })
+    }, headers=auth_headers)
     template_id = resp.json()["id"]
 
     update_data = {
@@ -197,6 +219,7 @@ def test_update_template(client):
     response = client.put(
         f"/api/v1/grocery/templates/{template_id}",
         json=update_data,
+        headers=auth_headers,
     )
     assert response.status_code == 200
     result = response.json()
@@ -205,15 +228,16 @@ def test_update_template(client):
     assert len(result["items"]) == 2
 
 
-def test_delete_template(client):
+def test_delete_template(client, auth_headers):
     resp = client.post("/api/v1/grocery/templates", json={
         "name": "To Delete",
         "sort_order": 0,
-    })
+    }, headers=auth_headers)
     template_id = resp.json()["id"]
 
     del_resp = client.delete(
         f"/api/v1/grocery/templates/{template_id}",
+        headers=auth_headers,
     )
     assert del_resp.status_code == 204
 

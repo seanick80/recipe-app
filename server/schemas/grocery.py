@@ -3,16 +3,24 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class GroceryItemCreate(BaseModel):
-    name: str
-    quantity: float = 1.0
-    unit: str = ""
-    category: str = "Other"
-    source_recipe_name: str = ""
-    source_recipe_id: str = ""
+    name: str = Field(..., min_length=1, max_length=500)
+    quantity: float = Field(1.0, ge=0, le=100000)
+    unit: str = Field("", max_length=50)
+    category: str = Field("Other", max_length=100)
+    source_recipe_name: str = Field("", max_length=500)
+    source_recipe_id: str = Field("", max_length=100)
+
+
+class GroceryItemPatch(BaseModel):
+    name: str | None = Field(None, min_length=1, max_length=500)
+    quantity: float | None = Field(None, ge=0, le=100000)
+    unit: str | None = Field(None, max_length=50)
+    category: str | None = Field(None, max_length=100)
+    is_checked: bool | None = None
 
 
 class GroceryItemResponse(BaseModel):
@@ -29,7 +37,7 @@ class GroceryItemResponse(BaseModel):
 
 
 class GroceryListCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=500)
 
 
 class GroceryListResponse(BaseModel):
@@ -43,10 +51,10 @@ class GroceryListResponse(BaseModel):
 
 
 class TemplateItemCreate(BaseModel):
-    name: str
-    quantity: float = 0
-    unit: str = ""
-    category: str = "Other"
+    name: str = Field(..., min_length=1, max_length=500)
+    quantity: float = Field(0, ge=0, le=100000)
+    unit: str = Field("", max_length=50)
+    category: str = Field("Other", max_length=100)
     sort_order: int = 0
 
 
@@ -62,7 +70,7 @@ class TemplateItemResponse(BaseModel):
 
 
 class ShoppingTemplateCreate(BaseModel):
-    name: str
+    name: str = Field(..., min_length=1, max_length=500)
     sort_order: int = 0
     items: list[TemplateItemCreate] = []
 

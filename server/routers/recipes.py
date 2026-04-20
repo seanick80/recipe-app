@@ -1,24 +1,35 @@
-from __future__ import annotations
-
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from auth import get_api_key
 from database import get_db
+from rate_limit import limiter
 from models.recipe import Ingredient, Recipe
-from schemas.recipe import RecipeCreate, RecipeResponse, RecipeUpdate
+from schemas.recipe import (
+    RecipeCreate,
+    RecipePatch,
+    RecipeResponse,
+    RecipeUpdate,
+)
 
 router = APIRouter(prefix="/api/v1/recipes", tags=["recipes"])
 
 
 @router.get("/", response_model=list[RecipeResponse])
-def list_recipes(db: Session = Depends(get_db)) -> list[Recipe]:
+@limiter.limit("120/minute")
+def list_recipes(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> list[Recipe]:
     return db.query(Recipe).order_by(Recipe.updated_at.desc()).all()
 
 
 @router.get("/{recipe_id}", response_model=RecipeResponse)
+@limiter.limit("120/minute")
 def get_recipe(
+    request: Request,
     recipe_id: UUID,
     db: Session = Depends(get_db),
 ) -> Recipe:
@@ -29,9 +40,12 @@ def get_recipe(
 
 
 @router.post("/", response_model=RecipeResponse, status_code=201)
+@limiter.limit("30/minute")
 def create_recipe(
+    request: Request,
     data: RecipeCreate,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> Recipe:
     recipe = Recipe(
         name=data.name,
@@ -66,10 +80,13 @@ def create_recipe(
 
 
 @router.put("/{recipe_id}", response_model=RecipeResponse)
+@limiter.limit("30/minute")
 def update_recipe(
+    request: Request,
     recipe_id: UUID,
     data: RecipeUpdate,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> Recipe:
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if not recipe:
@@ -107,20 +124,22 @@ def update_recipe(
 
 
 @router.patch("/{recipe_id}", response_model=RecipeResponse)
+@limiter.limit("30/minute")
 def patch_recipe(
+    request: Request,
     recipe_id: UUID,
-    updates: dict,
+    updates: RecipePatch,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> Recipe:
     """Toggle individual fields like is_favorite or is_published."""
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if not recipe:
         raise HTTPException(status_code=404, detail="Recipe not found")
 
-    allowed = {"is_favorite", "is_published"}
-    for key, value in updates.items():
-        if key in allowed:
-            setattr(recipe, key, value)
+    patch_data = updates.model_dump(exclude_unset=True)
+    for key, value in patch_data.items():
+        setattr(recipe, key, value)
 
     db.commit()
     db.refresh(recipe)
@@ -128,9 +147,12 @@ def patch_recipe(
 
 
 @router.delete("/{recipe_id}", status_code=204, response_model=None)
+@limiter.limit("30/minute")
 def delete_recipe(
+    request: Request,
     recipe_id: UUID,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ):
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if not recipe:

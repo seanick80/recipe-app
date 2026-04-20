@@ -1,12 +1,12 @@
-from __future__ import annotations
-
 from datetime import datetime, timezone
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
+from auth import get_api_key
 from database import get_db
+from rate_limit import limiter
 from models.grocery import (
     GroceryItem,
     GroceryList,
@@ -15,6 +15,7 @@ from models.grocery import (
 )
 from schemas.grocery import (
     GroceryItemCreate,
+    GroceryItemPatch,
     GroceryItemResponse,
     GroceryListCreate,
     GroceryListResponse,
@@ -29,7 +30,9 @@ router = APIRouter(prefix="/api/v1/grocery", tags=["grocery"])
 
 
 @router.get("/lists", response_model=list[GroceryListResponse])
+@limiter.limit("120/minute")
 def list_grocery_lists(
+    request: Request,
     db: Session = Depends(get_db),
 ) -> list[GroceryList]:
     return (
@@ -40,7 +43,9 @@ def list_grocery_lists(
 
 
 @router.get("/lists/{list_id}", response_model=GroceryListResponse)
+@limiter.limit("120/minute")
 def get_grocery_list(
+    request: Request,
     list_id: UUID,
     db: Session = Depends(get_db),
 ) -> GroceryList:
@@ -55,9 +60,12 @@ def get_grocery_list(
 
 
 @router.post("/lists", response_model=GroceryListResponse, status_code=201)
+@limiter.limit("30/minute")
 def create_grocery_list(
+    request: Request,
     data: GroceryListCreate,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> GroceryList:
     grocery_list = GroceryList(name=data.name)
     db.add(grocery_list)
@@ -67,9 +75,12 @@ def create_grocery_list(
 
 
 @router.delete("/lists/{list_id}", status_code=204, response_model=None)
+@limiter.limit("30/minute")
 def delete_grocery_list(
+    request: Request,
     list_id: UUID,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ):
     grocery_list = (
         db.query(GroceryList)
@@ -86,9 +97,12 @@ def delete_grocery_list(
     "/lists/{list_id}/archive",
     response_model=GroceryListResponse,
 )
+@limiter.limit("30/minute")
 def archive_grocery_list(
+    request: Request,
     list_id: UUID,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> GroceryList:
     grocery_list = (
         db.query(GroceryList)
@@ -107,9 +121,12 @@ def archive_grocery_list(
     "/lists/{list_id}/restore",
     response_model=GroceryListResponse,
 )
+@limiter.limit("30/minute")
 def restore_grocery_list(
+    request: Request,
     list_id: UUID,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> GroceryList:
     grocery_list = (
         db.query(GroceryList)
@@ -132,10 +149,13 @@ def restore_grocery_list(
     response_model=GroceryItemResponse,
     status_code=201,
 )
+@limiter.limit("30/minute")
 def add_item(
+    request: Request,
     list_id: UUID,
     data: GroceryItemCreate,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> GroceryItem:
     grocery_list = (
         db.query(GroceryList)
@@ -163,9 +183,12 @@ def add_item(
     "/items/{item_id}/toggle",
     response_model=GroceryItemResponse,
 )
+@limiter.limit("30/minute")
 def toggle_item(
+    request: Request,
     item_id: UUID,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> GroceryItem:
     item = (
         db.query(GroceryItem)
@@ -181,12 +204,15 @@ def toggle_item(
 
 
 @router.patch("/items/{item_id}", response_model=GroceryItemResponse)
+@limiter.limit("30/minute")
 def update_item(
+    request: Request,
     item_id: UUID,
-    updates: dict,
+    updates: GroceryItemPatch,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> GroceryItem:
-    """Update item fields (name, quantity, unit, category)."""
+    """Update item fields (name, quantity, unit, category, is_checked)."""
     item = (
         db.query(GroceryItem)
         .filter(GroceryItem.id == item_id)
@@ -195,10 +221,9 @@ def update_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
 
-    allowed = {"name", "quantity", "unit", "category"}
-    for key, value in updates.items():
-        if key in allowed:
-            setattr(item, key, value)
+    patch_data = updates.model_dump(exclude_unset=True)
+    for key, value in patch_data.items():
+        setattr(item, key, value)
 
     db.commit()
     db.refresh(item)
@@ -206,9 +231,12 @@ def update_item(
 
 
 @router.delete("/items/{item_id}", status_code=204, response_model=None)
+@limiter.limit("30/minute")
 def delete_item(
+    request: Request,
     item_id: UUID,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ):
     item = (
         db.query(GroceryItem)
@@ -225,7 +253,9 @@ def delete_item(
 
 
 @router.get("/templates", response_model=list[ShoppingTemplateResponse])
+@limiter.limit("120/minute")
 def list_templates(
+    request: Request,
     db: Session = Depends(get_db),
 ) -> list[ShoppingTemplate]:
     return (
@@ -239,7 +269,9 @@ def list_templates(
     "/templates/{template_id}",
     response_model=ShoppingTemplateResponse,
 )
+@limiter.limit("120/minute")
 def get_template(
+    request: Request,
     template_id: UUID,
     db: Session = Depends(get_db),
 ) -> ShoppingTemplate:
@@ -261,9 +293,12 @@ def get_template(
     response_model=ShoppingTemplateResponse,
     status_code=201,
 )
+@limiter.limit("30/minute")
 def create_template(
+    request: Request,
     data: ShoppingTemplateCreate,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> ShoppingTemplate:
     template = ShoppingTemplate(
         name=data.name,
@@ -289,10 +324,13 @@ def create_template(
     "/templates/{template_id}",
     response_model=ShoppingTemplateResponse,
 )
+@limiter.limit("30/minute")
 def update_template(
+    request: Request,
     template_id: UUID,
     data: ShoppingTemplateCreate,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ) -> ShoppingTemplate:
     template = (
         db.query(ShoppingTemplate)
@@ -327,9 +365,12 @@ def update_template(
 
 
 @router.delete("/templates/{template_id}", status_code=204, response_model=None)
+@limiter.limit("30/minute")
 def delete_template(
+    request: Request,
     template_id: UUID,
     db: Session = Depends(get_db),
+    _key: str = Depends(get_api_key),
 ):
     template = (
         db.query(ShoppingTemplate)
