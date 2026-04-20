@@ -241,3 +241,18 @@ def test_get_recipes_without_api_key_succeeds(client, auth_headers):
     )
     response = client.get("/api/v1/recipes/")
     assert response.status_code == 200
+
+
+def test_create_recipe_with_jwt_cookie_succeeds(client, auth_cookie):
+    response = client.post(
+        "/api/v1/recipes/",
+        json={"name": "Cookie Recipe"},
+        cookies=auth_cookie,
+    )
+    assert response.status_code == 201
+    assert response.json()["name"] == "Cookie Recipe"
+
+
+def test_create_recipe_without_auth_returns_401(client):
+    response = client.post("/api/v1/recipes/", json={"name": "No Auth"})
+    assert response.status_code == 401

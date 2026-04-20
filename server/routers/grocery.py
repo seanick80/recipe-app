@@ -4,15 +4,16 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from auth import get_api_key
+from auth import get_current_user
 from database import get_db
-from rate_limit import limiter
 from models.grocery import (
     GroceryItem,
     GroceryList,
     ShoppingTemplate,
     TemplateItem,
 )
+from models.user import AllowedUser
+from rate_limit import limiter
 from schemas.grocery import (
     GroceryItemCreate,
     GroceryItemPatch,
@@ -65,7 +66,7 @@ def create_grocery_list(
     request: Request,
     data: GroceryListCreate,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> GroceryList:
     grocery_list = GroceryList(name=data.name)
     db.add(grocery_list)
@@ -80,7 +81,7 @@ def delete_grocery_list(
     request: Request,
     list_id: UUID,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ):
     grocery_list = (
         db.query(GroceryList)
@@ -102,7 +103,7 @@ def archive_grocery_list(
     request: Request,
     list_id: UUID,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> GroceryList:
     grocery_list = (
         db.query(GroceryList)
@@ -126,7 +127,7 @@ def restore_grocery_list(
     request: Request,
     list_id: UUID,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> GroceryList:
     grocery_list = (
         db.query(GroceryList)
@@ -155,7 +156,7 @@ def add_item(
     list_id: UUID,
     data: GroceryItemCreate,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> GroceryItem:
     grocery_list = (
         db.query(GroceryList)
@@ -188,7 +189,7 @@ def toggle_item(
     request: Request,
     item_id: UUID,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> GroceryItem:
     item = (
         db.query(GroceryItem)
@@ -210,7 +211,7 @@ def update_item(
     item_id: UUID,
     updates: GroceryItemPatch,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> GroceryItem:
     """Update item fields (name, quantity, unit, category, is_checked)."""
     item = (
@@ -236,7 +237,7 @@ def delete_item(
     request: Request,
     item_id: UUID,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ):
     item = (
         db.query(GroceryItem)
@@ -298,7 +299,7 @@ def create_template(
     request: Request,
     data: ShoppingTemplateCreate,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> ShoppingTemplate:
     template = ShoppingTemplate(
         name=data.name,
@@ -330,7 +331,7 @@ def update_template(
     template_id: UUID,
     data: ShoppingTemplateCreate,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> ShoppingTemplate:
     template = (
         db.query(ShoppingTemplate)
@@ -370,7 +371,7 @@ def delete_template(
     request: Request,
     template_id: UUID,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ):
     template = (
         db.query(ShoppingTemplate)

@@ -9,7 +9,7 @@ from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 
 from rate_limit import limiter
-from routers import grocery, recipes
+from routers import auth_routes, grocery, recipes
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +29,7 @@ app.add_middleware(
     allow_headers=["Content-Type", "Authorization", "X-API-Key"],
 )
 
+app.include_router(auth_routes.router)
 app.include_router(recipes.router)
 app.include_router(grocery.router)
 

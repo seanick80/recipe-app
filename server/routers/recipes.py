@@ -3,10 +3,11 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException, Request
 from sqlalchemy.orm import Session
 
-from auth import get_api_key
+from auth import get_current_user
 from database import get_db
-from rate_limit import limiter
 from models.recipe import Ingredient, Recipe
+from models.user import AllowedUser
+from rate_limit import limiter
 from schemas.recipe import (
     RecipeCreate,
     RecipePatch,
@@ -45,7 +46,7 @@ def create_recipe(
     request: Request,
     data: RecipeCreate,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> Recipe:
     recipe = Recipe(
         name=data.name,
@@ -86,7 +87,7 @@ def update_recipe(
     recipe_id: UUID,
     data: RecipeUpdate,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> Recipe:
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if not recipe:
@@ -130,7 +131,7 @@ def patch_recipe(
     recipe_id: UUID,
     updates: RecipePatch,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ) -> Recipe:
     """Toggle individual fields like is_favorite or is_published."""
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
@@ -152,7 +153,7 @@ def delete_recipe(
     request: Request,
     recipe_id: UUID,
     db: Session = Depends(get_db),
-    _key: str = Depends(get_api_key),
+    _user: AllowedUser = Depends(get_current_user),
 ):
     recipe = db.query(Recipe).filter(Recipe.id == recipe_id).first()
     if not recipe:

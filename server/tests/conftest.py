@@ -2,10 +2,14 @@ from __future__ import annotations
 
 import os
 
-# Set API_KEY before importing app modules so auth.py picks it up
+# Set env vars before importing app modules
 TEST_API_KEY = "test-api-key-for-unit-tests"
 os.environ["API_KEY"] = TEST_API_KEY
+os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
+os.environ["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
+os.environ["JWT_SECRET"] = "test-secret-that-is-long-enough-for-hmac-sha256"
 
+import jwt
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine
@@ -14,6 +18,7 @@ from sqlalchemy.pool import StaticPool
 
 from database import Base, get_db
 from main import app
+from models.user import AllowedUser
 
 SQLALCHEMY_DATABASE_URL = "sqlite://"
 
@@ -38,10 +43,36 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
+def _seed_test_admin(session) -> None:
+    """Seed the admin user used by API key fallback and JWT tests."""
+    admin = AllowedUser(
+        email="admin@test.com",
+        name="Test Admin",
+        role="admin",
+        invited_by="system",
+    )
+    session.add(admin)
+    session.commit()
+
+
+def make_jwt(
+    email: str = "admin@test.com",
+    name: str = "Test Admin",
+    role: str = "admin",
+) -> str:
+    """Create a valid test JWT cookie value."""
+    from auth import create_jwt
+
+    return create_jwt(email, name, role)
+
+
 @pytest.fixture
 def client():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
+    db = TestingSessionLocal()
+    _seed_test_admin(db)
+    db.close()
     with TestClient(app) as c:
         yield c
 
@@ -49,3 +80,15 @@ def client():
 @pytest.fixture
 def auth_headers() -> dict[str, str]:
     return {"X-API-Key": TEST_API_KEY}
+
+
+@pytest.fixture
+def auth_cookie() -> dict[str, str]:
+    """Return a cookie dict with a valid JWT for the test admin user."""
+    return {"session_token": make_jwt()}
+
+
+@pytest.fixture
+def editor_cookie() -> dict[str, str]:
+    """Return a cookie dict with a valid JWT for an editor user."""
+    return {"session_token": make_jwt("editor@test.com", "Editor", "editor")}

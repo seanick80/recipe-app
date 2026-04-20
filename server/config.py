@@ -11,3 +11,12 @@ DATABASE_URL = os.getenv(
     "DATABASE_URL",
     "postgresql://postgres:postgres@localhost:5432/recipe_app",
 )
+
+GOOGLE_CLIENT_ID = os.getenv("GOOGLE_CLIENT_ID", "")
+GOOGLE_CLIENT_SECRET = os.getenv("GOOGLE_CLIENT_SECRET", "")
+JWT_SECRET = os.getenv("JWT_SECRET", "change-me-in-production")
+OAUTH_REDIRECT_URI = os.getenv(
+    "OAUTH_REDIRECT_URI",
+    "http://localhost:8000/api/v1/auth/callback",
+)
+FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")

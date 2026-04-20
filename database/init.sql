@@ -67,6 +67,18 @@ CREATE TABLE template_items (
     template_id UUID NOT NULL REFERENCES shopping_templates(id) ON DELETE CASCADE
 );
 
+CREATE TABLE allowed_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email TEXT NOT NULL UNIQUE,
+    name TEXT DEFAULT '',
+    role TEXT DEFAULT 'editor',
+    invited_by TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
 CREATE INDEX idx_ingredients_recipe ON ingredients(recipe_id);
 CREATE INDEX idx_grocery_items_list ON grocery_items(grocery_list_id);
 CREATE INDEX idx_template_items_template ON template_items(template_id);
+
+INSERT INTO allowed_users (email, name, role, invited_by)
+VALUES ('seanickharlson@gmail.com', 'Nick', 'admin', 'system');
