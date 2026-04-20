@@ -50,6 +50,13 @@ workflows:
         - pattern: master
           include: true
           source: true
+      cancel_previous_builds: true
+    when:
+      changeset:
+        includes:
+          - 'RecipeApp/'
+          - 'SharedLogic/'
+          - 'codemagic.yaml'
     scripts:
       - name: Install xcodegen
         script: |
