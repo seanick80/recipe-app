@@ -1,0 +1,53 @@
+.row {
+  display: flex;
+  gap: 0.5rem;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.row input,
+.row select {
+  font-family: inherit;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--text);
+}
+
+.qty {
+  width: 4rem;
+}
+
+.unit {
+  width: 5rem;
+}
+
+.name {
+  flex: 1;
+  min-width: 8rem;
+}
+
+.category {
+  width: 7rem;
+}
+
+.notes {
+  width: 7rem;
+}
+
+.removeBtn {
+  background: none;
+  border: 1px solid var(--border);
+  color: var(--muted);
+  padding: 0.3rem 0.6rem;
+  border-radius: 4px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.removeBtn:hover {
+  border-color: #c45d3e;
+  color: #c45d3e;
+}

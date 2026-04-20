@@ -1,0 +1,112 @@
+.article {
+  max-width: 700px;
+}
+
+.title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 2rem;
+  margin: 0 0 0.5rem;
+}
+
+.summary {
+  color: var(--muted);
+  font-size: 1.05rem;
+  line-height: 1.5;
+  margin-bottom: 1.5rem;
+}
+
+.metaBar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--section-bg);
+  border-radius: 6px;
+  font-size: 0.9rem;
+  color: var(--muted);
+  margin-bottom: 2rem;
+}
+
+.section {
+  margin-bottom: 2rem;
+}
+
+.section h2 {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 1.3rem;
+  margin-bottom: 0.75rem;
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.4rem;
+}
+
+.ingredientTable {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.ingredientTable th,
+.ingredientTable td {
+  text-align: left;
+  padding: 0.4rem 0.75rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.ingredientTable th {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.instructions {
+  padding-left: 1.5rem;
+  line-height: 1.7;
+}
+
+.instructions li {
+  margin-bottom: 0.5rem;
+}
+
+.actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.editBtn {
+  display: inline-block;
+  padding: 0.5rem 1.5rem;
+  background: var(--accent);
+  color: #fff;
+  text-decoration: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.editBtn:hover {
+  opacity: 0.9;
+}
+
+.deleteBtn {
+  padding: 0.5rem 1.5rem;
+  background: none;
+  border: 1px solid #c45d3e;
+  color: #c45d3e;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  font-weight: 600;
+}
+
+.deleteBtn:hover {
+  background: #c45d3e;
+  color: #fff;
+}
+
+.deleteBtn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
