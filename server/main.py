@@ -1,8 +1,8 @@
-from fastapi import FastAPI
-from database import Base, engine
-from routers import recipes, grocery
+from __future__ import annotations
 
-Base.metadata.create_all(bind=engine)
+from fastapi import FastAPI
+
+from routers import grocery, recipes
 
 app = FastAPI(title="Recipe App API", version="1.0.0")
 
@@ -11,5 +11,5 @@ app.include_router(grocery.router)
 
 
 @app.get("/health")
-def health():
+def health() -> dict[str, str]:
     return {"status": "ok"}
