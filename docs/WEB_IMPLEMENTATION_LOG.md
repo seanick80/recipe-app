@@ -1,6 +1,6 @@
 # Web Architecture — Implementation Log
 
-## Status: Step 2e done, Step 2f next (2026-04-20)
+## Status: Step 2f done, Step 3 next (2026-04-21)
 
 ## Completed
 
@@ -71,12 +71,22 @@
 - Fixed drift: iOS Recipe +isPublished, TestFixtures IngredientModel +category, GroceryListModel +archivedAt
 - Wired into `scripts/build.sh`
 
-## Not Started
+### Step 2f: Deploy FastAPI (DONE)
+- Deployed to Google Cloud Run: `https://recipe-api-972511622379.us-west1.run.app`
+- Project: `good-morning-dashboard-491709`, region `us-west1`
+- Billing: `NicksMain` account (`0158E3-E1666C-7EB9CA`)
+- min-instances=0 (scales to zero), max-instances=1, 256Mi memory
+- Env vars set: DATABASE_URL, API_KEY, GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, JWT_SECRET, OAUTH_REDIRECT_URI, FRONTEND_URL
+- Health check verified: `/health` returns 200
+- API tested: recipes endpoint returns live data from Neon
+- Dockerfile + .dockerignore added to `server/`
+- Frontend `client.ts` updated: `VITE_API_URL` env var for production base URL
+- gcloud CLI installed locally (`/c/Program Files (x86)/Google/Cloud SDK/`)
 
-### Step 2f: Deploy FastAPI
-- Options: Cloud Run (free tier), Render (free tier), Railway ($5 credit)
-- Need to configure production OAuth redirect URI
-- Need to set env vars on hosting platform
+**GCP Console action required:** Add production OAuth redirect URI:
+`https://recipe-api-972511622379.us-west1.run.app/api/v1/auth/callback`
+
+## Not Started
 
 ### Step 3: Sync Bridge
 - CloudKit server-to-server API
@@ -103,4 +113,4 @@
 Before testing OAuth end-to-end, add this redirect URI in the GCP Console
 (APIs & Services → Credentials → OAuth 2.0 Client ID for recipe app):
 - `http://localhost:8000/api/v1/auth/callback` (dev)
-- Production callback URL TBD after deployment
+- `https://recipe-api-972511622379.us-west1.run.app/api/v1/auth/callback` (production)
