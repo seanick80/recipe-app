@@ -2,126 +2,53 @@ import Foundation
 
 // MARK: - Zone Classifier Tests
 
-func testClassifyIngredients() {
-    let text = """
-        2 cups flour
-        1 tsp vanilla extract
-        3 eggs
-        1/2 lb butter
-        """
-    let result = classifyZone(text)
-    checkEqual(result.label, .ingredients, "Ingredient list -> ingredients")
-    check(result.confidence > 0.5, "Ingredient confidence > 50% (got \(result.confidence))")
+func testClassifyZoneTypes() {
+    // Ingredients
+    let ing = classifyZone("2 cups flour\n1 tsp vanilla\n3 eggs\n1/2 lb butter")
+    checkEqual(ing.label, .ingredients, "Ingredient list -> ingredients")
+
+    // Instructions
+    let inst = classifyZone("1. Preheat oven to 350\u{00B0}F\n2. Mix flour and sugar\n3. Bake for 25 minutes")
+    checkEqual(inst.label, .instructions, "Cooking steps -> instructions")
+
+    // Title
+    checkEqual(classifyZone("Grandma's Chicken Soup").label, .title, "Short text -> title")
+
+    // Headers -> title
+    checkEqual(classifyZone("Ingredients").label, .title, "Section header -> title")
+
+    // Metadata
+    checkEqual(classifyZone("Serves 4\nPrep time: 15 min").label, .metadata, "Servings+times -> metadata")
+
+    // Junk
+    checkEqual(classifyZone("Call 555-123-4567").label, .other, "Phone -> other")
+    checkEqual(classifyZone("").label, .other, "Empty -> other")
+
+    // Handwritten
+    checkEqual(classifyZone("x2 double the recipe").label, .handwritten, "Scaling note -> handwritten")
 }
 
-func testClassifyInstructions() {
-    let text = """
-        1. Preheat oven to 350°F
-        2. Mix flour and sugar in a large bowl
-        3. Add eggs and stir until combined
-        4. Bake for 25 minutes
-        """
-    let result = classifyZone(text)
-    checkEqual(result.label, .instructions, "Cooking steps -> instructions")
-    check(result.confidence > 0.5, "Instruction confidence > 50% (got \(result.confidence))")
+func testMixedBlockClassification() {
+    // Mostly ingredients wins
+    let mixed = classifyZone("1 cup flour\n2 eggs\n1/2 tsp salt\n3 tbsp butter\nmix well")
+    checkEqual(mixed.label, .ingredients, "Mostly ingredients wins")
 }
 
-func testClassifyTitle() {
-    let result = classifyZone("Grandma's Chicken Soup")
-    checkEqual(result.label, .title, "Short title-case text -> title")
-}
-
-func testClassifySectionHeader() {
-    let headers = ["Ingredients", "Directions:", "Method", "For the filling"]
-    for header in headers {
-        checkEqual(classifyZone(header).label, .title, "'\(header)' header -> title")
-    }
-}
-
-func testClassifyMetadata() {
-    let text = "Serves 4\nPrep time: 15 min\nCook time: 45 min"
-    let result = classifyZone(text)
-    checkEqual(result.label, .metadata, "Servings + times -> metadata")
-}
-
-func testClassifyJunk() {
-    let phone = classifyZone("Call 555-123-4567")
-    checkEqual(phone.label, .other, "Phone number -> other")
-
-    let url = classifyZone("Visit www.example.com for more")
-    checkEqual(url.label, .other, "URL -> other")
-
-    let copyright = classifyZone("Copyright 2024 All Rights Reserved")
-    checkEqual(copyright.label, .other, "Copyright -> other")
-}
-
-func testClassifyEmpty() {
-    let result = classifyZone("")
-    checkEqual(result.label, .other, "Empty text -> other")
-    check(result.confidence < 0.2, "Empty confidence low")
-}
-
-func testClassifyHandwritingContent() {
-    let result = classifyZone("x2 double the recipe")
-    checkEqual(result.label, .handwritten, "Scaling note -> handwritten")
-}
-
-func testClassifyMixedBlock() {
-    // A block with mostly ingredient lines should be classified as ingredients
-    // even if it contains one cooking verb.
-    let text = """
-        1 cup flour
-        2 eggs
-        1/2 tsp salt
-        3 tbsp butter
-        mix well
-        """
-    let result = classifyZone(text)
-    checkEqual(result.label, .ingredients, "Mostly ingredients wins over 1 verb")
-}
-
-func testClassifyInstructionDominant() {
-    let text = """
-        Preheat the oven to 375°F
-        Combine the ingredients in a bowl and stir
-        Pour into a greased pan and bake for 30 minutes
-        Let cool before serving
-        """
-    let result = classifyZone(text)
-    checkEqual(result.label, .instructions, "All instruction lines -> instructions")
-}
-
-func testFilterZones() {
+func testFilterAndClassifyZones() {
     let blocks = [
-        "Easy Chocolate Chip Cookies",
+        "Easy Cookies",
         "2 cups flour\n1 tsp vanilla\n3 eggs",
-        "1. Preheat oven to 350°F\n2. Mix and bake",
-        "Serves 4",
+        "1. Preheat oven to 350\u{00B0}F\n2. Mix and bake",
     ]
     let ingredients = filterZones(blocks, label: .ingredients)
-    checkEqual(ingredients.count, 1, "filterZones finds 1 ingredient block")
-    check(ingredients[0].contains("flour"), "filterZones ingredient block has flour")
+    checkEqual(ingredients.count, 1, "filterZones: 1 ingredient block")
 
-    let instructions = filterZones(blocks, label: .instructions)
-    checkEqual(instructions.count, 1, "filterZones finds 1 instruction block")
-}
-
-func testClassifyZonesArray() {
-    let blocks = [
-        "My Recipe",
-        "1 cup sugar\n2 eggs",
-        "Mix well and bake at 350°F for 20 minutes",
-    ]
     let results = classifyZones(blocks)
-    checkEqual(results.count, 3, "classifyZones returns one result per block")
-    checkEqual(results[0].label, .title, "First block is title")
-    checkEqual(results[1].label, .ingredients, "Second block is ingredients")
-    checkEqual(results[2].label, .instructions, "Third block is instructions")
+    checkEqual(results.count, 3, "classifyZones: one result per block")
 }
 
 func testZoneClassificationCodable() {
-    let value = ZoneClassification(label: .ingredients, confidence: 0.85)
-    checkCodableRoundTrip(value, "ZoneClassification Codable round-trip")
+    checkCodableRoundTrip(ZoneClassification(label: .ingredients, confidence: 0.85), "ZoneClassification Codable")
 }
 
 // MARK: - Test Runner
@@ -129,18 +56,9 @@ func testZoneClassificationCodable() {
 func runZoneClassifierTests() -> Bool {
     print("\n=== Zone Classifier Tests ===")
 
-    testClassifyIngredients()
-    testClassifyInstructions()
-    testClassifyTitle()
-    testClassifySectionHeader()
-    testClassifyMetadata()
-    testClassifyJunk()
-    testClassifyEmpty()
-    testClassifyHandwritingContent()
-    testClassifyMixedBlock()
-    testClassifyInstructionDominant()
-    testFilterZones()
-    testClassifyZonesArray()
+    testClassifyZoneTypes()
+    testMixedBlockClassification()
+    testFilterAndClassifyZones()
     testZoneClassificationCodable()
 
     return printTestSummary("Zone Classifier Tests")

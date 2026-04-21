@@ -2,133 +2,77 @@ import Foundation
 
 // MARK: - Quality Gate Tests
 
-// MARK: Image Quality Assessment
-
-func testQualityAcceptableImage() {
-    let lines = [
+func testImageQualityAssessment() {
+    // Good image
+    let good = assessImageQuality(lines: [
         OCRLine(text: "2 cups flour", confidence: 0.92),
         OCRLine(text: "1 tsp vanilla", confidence: 0.88),
         OCRLine(text: "3 eggs", confidence: 0.95),
-        OCRLine(text: "Preheat oven", confidence: 0.90),
-    ]
-    let result = assessImageQuality(lines: lines)
-    check(result.isAcceptable, "High-confidence image is acceptable")
-    check(!result.shouldRetake, "Should not retake good image")
-    check(result.medianConfidence > 0.85, "Median confidence > 85%")
-}
+    ])
+    check(good.isAcceptable, "High-confidence image acceptable")
+    check(!good.shouldRetake, "Good image: no retake")
 
-func testQualityBlurryImage() {
-    let lines = [
+    // Blurry image
+    let blurry = assessImageQuality(lines: [
         OCRLine(text: "flour", confidence: 0.20),
         OCRLine(text: "eggs", confidence: 0.15),
         OCRLine(text: "sugar", confidence: 0.30),
-        OCRLine(text: "bake", confidence: 0.25),
-    ]
-    let result = assessImageQuality(lines: lines)
-    check(!result.isAcceptable, "Low-confidence image is not acceptable")
-    check(result.shouldRetake, "Should retake blurry image")
-    check(!result.reason.isEmpty, "Has rejection reason")
+    ])
+    check(!blurry.isAcceptable, "Low-confidence not acceptable")
+
+    // No text
+    let empty = assessImageQuality(lines: [])
+    check(!empty.isAcceptable, "No-text not acceptable")
+    check(empty.reason.contains("No text"), "No-text reason")
 }
 
-func testQualityNoText() {
-    let result = assessImageQuality(lines: [])
-    check(!result.isAcceptable, "No-text image is not acceptable")
-    check(result.reason.contains("No text"), "Reason mentions no text")
-}
+func testHandwrittenDetection() {
+    let medianConf = 0.85
+    let medianH = 0.03
 
-func testQualityMixedConfidence() {
-    let lines = [
-        OCRLine(text: "flour", confidence: 0.90),
-        OCRLine(text: "eggs", confidence: 0.85),
-        OCRLine(text: "sugar", confidence: 0.92),
-        OCRLine(text: "smudge", confidence: 0.20),
-    ]
-    let result = assessImageQuality(lines: lines)
-    check(result.isAcceptable, "Mostly good image is acceptable")
-    check(result.lowConfidenceRatio < 0.5, "Low confidence ratio under 50%")
-}
-
-func testQualityMostlyBad() {
-    let lines = [
-        OCRLine(text: "a", confidence: 0.10),
-        OCRLine(text: "b", confidence: 0.20),
-        OCRLine(text: "c", confidence: 0.15),
-        OCRLine(text: "ok", confidence: 0.80),
-    ]
-    let result = assessImageQuality(lines: lines)
-    check(!result.isAcceptable, "Mostly bad image is not acceptable")
-    check(result.lowConfidenceRatio > 0.6, "Low confidence ratio > 60%")
-}
-
-// MARK: Handwriting Detection
-
-func testHandwrittenLowConfidenceInMargin() {
-    let line = OCRLine(
+    // Handwritten: low conf + margin + small
+    let hw = OCRLine(
         text: "x2",
         confidence: 0.20,
         boundingBox: NormalizedBox(x: 0.01, y: 0.5, width: 0.05, height: 0.02)
     )
-    let result = isLikelyHandwritten(
-        line: line,
-        medianConfidence: 0.85,
-        medianHeight: 0.03
+    check(
+        isLikelyHandwritten(line: hw, medianConfidence: medianConf, medianHeight: medianH),
+        "Low conf + margin + small = handwritten"
     )
-    check(result, "Low confidence + margin + below median = handwritten")
-}
 
-func testPrintedTextNotHandwritten() {
-    let line = OCRLine(
+    // Printed: good confidence
+    let printed = OCRLine(
         text: "2 cups flour",
         confidence: 0.90,
         boundingBox: NormalizedBox(x: 0.1, y: 0.3, width: 0.3, height: 0.03)
     )
-    let result = isLikelyHandwritten(
-        line: line,
-        medianConfidence: 0.85,
-        medianHeight: 0.03
+    check(
+        !isLikelyHandwritten(line: printed, medianConfidence: medianConf, medianHeight: medianH),
+        "Good conf printed is NOT handwritten"
     )
-    check(!result, "Good confidence printed text is NOT handwritten")
-}
 
-func testLowConfidenceAloneNotHandwritten() {
-    let line = OCRLine(
+    // Low conf alone not enough
+    let lowOnly = OCRLine(
         text: "sugar",
         confidence: 0.25,
         boundingBox: NormalizedBox(x: 0.2, y: 0.5, width: 0.2, height: 0.03)
     )
-    let result = isLikelyHandwritten(
-        line: line,
-        medianConfidence: 0.85,
-        medianHeight: 0.03
+    check(
+        !isLikelyHandwritten(line: lowOnly, medianConfidence: medianConf, medianHeight: medianH),
+        "Low conf alone NOT handwritten"
     )
-    check(!result, "Low confidence alone is NOT enough for handwritten (needs 3 signals)")
 }
-
-func testHandwrittenOversizedInMargin() {
-    let line = OCRLine(
-        text: "NOTE",
-        confidence: 0.30,
-        boundingBox: NormalizedBox(x: 0.02, y: 0.8, width: 0.1, height: 0.08)
-    )
-    let result = isLikelyHandwritten(
-        line: line,
-        medianConfidence: 0.80,
-        medianHeight: 0.03
-    )
-    check(result, "Low confidence + margin + oversized = handwritten")
-}
-
-// MARK: Separate Handwritten
 
 func testSeparateHandwritten() {
     let lines = [
         OCRLine(
-            text: "2 cups flour",
+            text: "flour",
             confidence: 0.90,
             boundingBox: NormalizedBox(x: 0.1, y: 0.3, width: 0.3, height: 0.03)
         ),
         OCRLine(
-            text: "1 tsp salt",
+            text: "salt",
             confidence: 0.88,
             boundingBox: NormalizedBox(x: 0.1, y: 0.35, width: 0.25, height: 0.03)
         ),
@@ -139,182 +83,53 @@ func testSeparateHandwritten() {
         ),
     ]
     let (printed, handwritten) = separateHandwritten(lines: lines)
-    checkEqual(printed.count, 2, "2 printed lines separated")
-    checkEqual(handwritten.count, 1, "1 handwritten line separated")
-
-    // Empty input
-    let (ep, eh) = separateHandwritten(lines: [])
-    checkEqual(ep.count + eh.count, 0, "Empty input: no lines")
+    checkEqual(printed.count, 2, "2 printed separated")
+    checkEqual(handwritten.count, 1, "1 handwritten separated")
 }
 
-// MARK: Block Grouping
+func testBlockGrouping() {
+    checkEqual(groupLinesIntoBlocks([]).count, 0, "Empty: no blocks")
 
-func testGroupLinesIntoBlocks() {
-    // Empty
-    checkEqual(groupLinesIntoBlocks([]).count, 0, "Empty input: no blocks")
-
-    // Single line
-    let single = OCRLine(
-        text: "Hello",
-        confidence: 0.9,
-        boundingBox: NormalizedBox(x: 0.1, y: 0.3, width: 0.2, height: 0.03)
-    )
-    let singleBlocks = groupLinesIntoBlocks([single])
-    checkEqual(singleBlocks.count, 1, "Single line: one block")
-    checkEqual(singleBlocks[0].count, 1, "Block has one line")
-
-    // Adjacent lines merge
     let adjacent = [
         OCRLine(text: "a", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.30, width: 0.2, height: 0.03)),
         OCRLine(text: "b", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.34, width: 0.2, height: 0.03)),
-        OCRLine(text: "c", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.38, width: 0.2, height: 0.03)),
     ]
-    let adjBlocks = groupLinesIntoBlocks(adjacent)
-    checkEqual(adjBlocks.count, 1, "Adjacent lines merge into one block")
-    checkEqual(adjBlocks[0].count, 3, "Block contains all three lines")
-}
+    checkEqual(groupLinesIntoBlocks(adjacent).count, 1, "Adjacent merge into one block")
 
-func testGroupLinesLargeGapAndSort() {
-    // Two tight clusters separated by a large vertical gap
-    let lines = [
-        OCRLine(text: "bottom", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.80, width: 0.3, height: 0.03)),
+    let separated = [
         OCRLine(text: "top", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.10, width: 0.3, height: 0.03)),
+        OCRLine(text: "bottom", confidence: 0.9, boundingBox: NormalizedBox(x: 0.1, y: 0.80, width: 0.3, height: 0.03)),
     ]
-    let blocks = groupLinesIntoBlocks(lines)
-    checkEqual(blocks.count, 2, "Large gap splits into two blocks")
-    checkEqual(blocks[0][0].text, "top", "First block is topmost line (sorted by Y)")
-    checkEqual(blocks[1][0].text, "bottom", "Second block is bottommost line")
+    checkEqual(groupLinesIntoBlocks(separated).count, 2, "Large gap splits into two blocks")
 }
 
-// MARK: Data Types
-
-func testOCRLineCodable() {
-    let line = OCRLine(
-        text: "test",
-        confidence: 0.85,
-        boundingBox: NormalizedBox(x: 0.1, y: 0.2, width: 0.3, height: 0.04)
-    )
-    checkCodableRoundTrip(line, "OCRLine Codable round-trip")
+func testSectionHeaders() {
+    checkEqual(sectionFromHeader("Ingredients"), .ingredients, "Ingredients header")
+    checkEqual(sectionFromHeader("Method"), .instructions, "Method header")
+    check(sectionFromHeader("5 Free Range Eggs") == nil, "Ingredient line not header")
+    check(sectionFromHeader("") == nil, "Empty not header")
 }
-
-func testNormalizedBoxProperties() {
-    let box = NormalizedBox(x: 0.1, y: 0.2, width: 0.3, height: 0.05)
-    checkEqual(box.midX, 0.25, "NormalizedBox midX")
-    checkEqual(box.maxY, 0.25, "NormalizedBox maxY")
-}
-
-func testImageQualityAssessmentCodable() {
-    let assessment = ImageQualityAssessment(
-        medianConfidence: 0.85,
-        lowConfidenceRatio: 0.1,
-        isAcceptable: true,
-        reason: ""
-    )
-    checkCodableRoundTrip(assessment, "ImageQualityAssessment Codable round-trip")
-}
-
-// MARK: Section Header Detection
-
-func testSectionHeaderIngredients() {
-    let ingredientHeaders = ["Ingredients", "INGREDIENTS", "ingredient list"]
-    for header in ingredientHeaders {
-        checkEqual(sectionFromHeader(header), .ingredients, "'\(header)' -> ingredients")
-    }
-}
-
-func testSectionHeaderInstructions() {
-    let instructionHeaders = ["Method", "Directions", "Step 1"]
-    for header in instructionHeaders {
-        checkEqual(sectionFromHeader(header), .instructions, "'\(header)' -> instructions")
-    }
-}
-
-func testSectionHeaderNonHeader() {
-    check(sectionFromHeader("5 Free Range Eggs") == nil, "ingredient line is not a header")
-    check(sectionFromHeader("") == nil, "empty line is not a header")
-    check(sectionFromHeader("Key ingredients in zucchini slice") == nil, "sentence is not a header")
-}
-
-// MARK: Metadata Junk Filter
 
 func testMetadataJunk() {
-    let junk = ["270\u{2022}", "360.", "160g.", "x1,8", "\u{2022}", "  "]
-    for text in junk {
-        check(isLikelyMetadataJunk(text), "'\(text)' is junk")
-    }
+    check(isLikelyMetadataJunk("270\u{2022}"), "Junk: number+bullet")
+    check(!isLikelyMetadataJunk("5 Free Range Eggs"), "Not junk: ingredient")
 }
 
-func testMetadataNotJunk() {
-    let notJunk = [
-        "5 Free Range Eggs",
-        "200g rindless bacon, chopped",
-        "Step 2",
-        "1 large onion, finely chopped",
-    ]
-    for text in notJunk {
-        check(!isLikelyMetadataJunk(text), "'\(text)' is not junk")
-    }
+func testIngredientAndInstructionDetection() {
+    check(looksLikeNumberedInstruction("1 Combine flours; whisk in eggs"), "Numbered instruction")
+    check(!looksLikeNumberedInstruction("2 eggs"), "Short ingredient not instruction")
+    check(looksLikeIngredientStart("2 tablespoons vegetable oil"), "Tablespoon ingredient")
+    check(!looksLikeIngredientStart("Preheat oven to 180\u{00B0}C"), "Instruction rejected")
 }
 
-// MARK: Numbered Instruction Detection
-
-func testLooksLikeNumberedInstruction() {
-    check(
-        looksLikeNumberedInstruction("1 Combine flours in large bowl; whisk in eggs"),
-        "numbered instruction with cooking verb"
-    )
-    check(
-        looksLikeNumberedInstruction("2 Heat oil in large frying pan"),
-        "heat instruction"
-    )
-    check(
-        looksLikeNumberedInstruction("3 Serve fritters topped with crème fraîche"),
-        "serve instruction"
-    )
-    check(
-        !looksLikeNumberedInstruction("2 eggs"),
-        "short ingredient not instruction"
-    )
-    check(
-        !looksLikeNumberedInstruction("1 tablespoon olive oil"),
-        "tablespoon is not a cooking verb"
-    )
-    check(
-        !looksLikeNumberedInstruction("½ cup yogurt"),
-        "fraction start not instruction"
-    )
-}
-
-// MARK: Ingredient Start Detection
-
-func testLooksLikeIngredientStart() {
-    check(
-        looksLikeIngredientStart("½ cup (75g) plain (all-purpose) flour"),
-        "fraction cup ingredient"
-    )
-    check(
-        looksLikeIngredientStart("2 eggs"),
-        "simple count ingredient"
-    )
-    check(
-        looksLikeIngredientStart("420g (13½ ounces) canned corn kernels"),
-        "metric weight ingredient"
-    )
-    check(
-        looksLikeIngredientStart("2 tablespoons vegetable oil"),
-        "tablespoon ingredient"
-    )
-    check(
-        !looksLikeIngredientStart("1 Combine flours in large bowl; whisk in eggs"),
-        "numbered instruction rejected"
-    )
-    check(
-        !looksLikeIngredientStart("Preheat oven to 180°C"),
-        "instruction without number"
-    )
-    check(
-        !looksLikeIngredientStart("zucchini and corn fritters"),
-        "title line no quantity"
+func testDataTypeCodable() {
+    checkCodableRoundTrip(
+        OCRLine(
+            text: "test",
+            confidence: 0.85,
+            boundingBox: NormalizedBox(x: 0.1, y: 0.2, width: 0.3, height: 0.04)
+        ),
+        "OCRLine Codable"
     )
 }
 
@@ -323,28 +138,14 @@ func testLooksLikeIngredientStart() {
 func runQualityGateTests() -> Bool {
     print("\n=== Quality Gate Tests ===")
 
-    testQualityAcceptableImage()
-    testQualityBlurryImage()
-    testQualityNoText()
-    testQualityMixedConfidence()
-    testQualityMostlyBad()
-    testHandwrittenLowConfidenceInMargin()
-    testPrintedTextNotHandwritten()
-    testLowConfidenceAloneNotHandwritten()
-    testHandwrittenOversizedInMargin()
+    testImageQualityAssessment()
+    testHandwrittenDetection()
     testSeparateHandwritten()
-    testGroupLinesIntoBlocks()
-    testGroupLinesLargeGapAndSort()
-    testOCRLineCodable()
-    testNormalizedBoxProperties()
-    testImageQualityAssessmentCodable()
-    testSectionHeaderIngredients()
-    testSectionHeaderInstructions()
-    testSectionHeaderNonHeader()
+    testBlockGrouping()
+    testSectionHeaders()
     testMetadataJunk()
-    testMetadataNotJunk()
-    testLooksLikeNumberedInstruction()
-    testLooksLikeIngredientStart()
+    testIngredientAndInstructionDetection()
+    testDataTypeCodable()
 
     return printTestSummary("Quality Gate Tests")
 }

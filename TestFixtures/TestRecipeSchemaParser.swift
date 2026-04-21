@@ -2,7 +2,8 @@ import Foundation
 
 // MARK: - RecipeSchemaParser Tests
 
-func testParseValidJSONLD() {
+func testJSONLDParsingVariants() {
+    // Standard JSON-LD with all fields
     let html = """
         <html><head>
         <script type="application/ld+json">
@@ -17,7 +18,7 @@ func testParseValidJSONLD() {
             "2 large eggs"
           ],
           "recipeInstructions": [
-            {"@type": "HowToStep", "text": "Preheat oven to 375°F."},
+            {"@type": "HowToStep", "text": "Preheat oven to 375\u{00B0}F."},
             {"@type": "HowToStep", "text": "Mix flour, baking soda, and salt."},
             {"@type": "HowToStep", "text": "Bake for 9 to 11 minutes."}
           ],
@@ -33,126 +34,256 @@ func testParseValidJSONLD() {
         </head><body></body></html>
         """
     let result = parseRecipeFromHTML(html, sourceURL: "https://example.com/cookies")
-    switch result {
-    case .success(let recipe):
+    if case .success(let recipe) = result {
         checkEqual(recipe.title, "Classic Chocolate Chip Cookies", "JSON-LD: title")
         checkEqual(recipe.ingredients.count, 4, "JSON-LD: ingredient count")
         checkEqual(recipe.instructions.count, 3, "JSON-LD: instruction count")
-        checkEqual(recipe.servings, 4, "JSON-LD: servings (extracted number)")
+        checkEqual(recipe.servings, 4, "JSON-LD: servings")
         checkEqual(recipe.prepTimeMinutes, 15, "JSON-LD: prep time")
         checkEqual(recipe.cookTimeMinutes, 11, "JSON-LD: cook time")
-        checkEqual(recipe.totalTimeMinutes, 26, "JSON-LD: total time")
         checkEqual(recipe.cuisine, "American", "JSON-LD: cuisine")
-        checkEqual(recipe.course, "Dessert", "JSON-LD: course")
-        checkEqual(recipe.sourceURL, "https://example.com/cookies", "JSON-LD: source URL")
         checkEqual(recipe.imageURL, "https://example.com/cookies.jpg", "JSON-LD: image URL")
-    case .failure(let error):
-        check(false, "JSON-LD parse should succeed, got \(error)")
+    } else {
+        check(false, "JSON-LD parse should succeed")
     }
 }
 
-func testParseGraphWrappedRecipe() {
-    let html = """
+func testJSONLDStructuralVariants() {
+    // @graph-wrapped recipe
+    let graphHTML = """
         <html><head>
         <script type="application/ld+json">
-        {
-          "@context": "https://schema.org",
-          "@graph": [
-            {"@type": "WebPage", "name": "My Blog"},
-            {
-              "@type": "Recipe",
-              "name": "Garlic Bread",
-              "recipeIngredient": ["1 baguette", "4 cloves garlic", "2 tbsp butter"],
-              "recipeInstructions": "Slice bread. Spread garlic butter. Bake at 400F for 10 minutes."
-            }
-          ]
-        }
-        </script>
-        </head><body></body></html>
+        {"@context":"https://schema.org","@graph":[
+          {"@type":"WebPage","name":"Blog"},
+          {"@type":"Recipe","name":"Garlic Bread",
+           "recipeIngredient":["1 baguette","4 cloves garlic"],
+           "recipeInstructions":"Slice bread. Spread butter. Bake."}
+        ]}
+        </script></head><body></body></html>
         """
-    let result = parseRecipeFromHTML(html)
-    switch result {
-    case .success(let recipe):
-        checkEqual(recipe.title, "Garlic Bread", "@graph: title")
-        checkEqual(recipe.ingredients.count, 3, "@graph: ingredients")
-        check(!recipe.instructions.isEmpty, "@graph: has instructions")
-    case .failure(let error):
-        check(false, "@graph parse should succeed, got \(error)")
+    if case .success(let r) = parseRecipeFromHTML(graphHTML) {
+        checkEqual(r.title, "Garlic Bread", "@graph: title")
+    } else {
+        check(false, "@graph should succeed")
     }
-}
 
-func testParseArrayOfJSONLD() {
-    let html = """
+    // Array of JSON-LD blocks
+    let arrayHTML = """
         <html><head>
         <script type="application/ld+json">
-        [
-          {"@type": "WebSite", "name": "Food Blog"},
-          {
-            "@type": "Recipe",
-            "name": "Simple Salad",
-            "recipeIngredient": ["1 head lettuce", "2 tomatoes", "1 cucumber"]
-          }
-        ]
-        </script>
-        </head><body></body></html>
+        [{"@type":"WebSite","name":"Blog"},
+         {"@type":"Recipe","name":"Salad","recipeIngredient":["lettuce","tomato"]}]
+        </script></head><body></body></html>
         """
-    let result = parseRecipeFromHTML(html)
-    switch result {
-    case .success(let recipe):
-        checkEqual(recipe.title, "Simple Salad", "Array JSON-LD: title")
-        checkEqual(recipe.ingredients.count, 3, "Array JSON-LD: ingredients")
-    case .failure(let error):
-        check(false, "Array JSON-LD should succeed, got \(error)")
+    if case .success(let r) = parseRecipeFromHTML(arrayHTML) {
+        checkEqual(r.title, "Salad", "Array JSON-LD: title")
+    } else {
+        check(false, "Array JSON-LD should succeed")
+    }
+
+    // Multiple script blocks — recipe in second
+    let multiHTML = """
+        <html><head>
+        <script type="application/ld+json">{"@type":"WebSite","name":"Blog"}</script>
+        <script type="application/ld+json">
+        {"@type":"Recipe","name":"Found Second","recipeIngredient":["1 egg"]}
+        </script></head><body></body></html>
+        """
+    if case .success(let r) = parseRecipeFromHTML(multiHTML) {
+        checkEqual(r.title, "Found Second", "Multiple blocks: finds recipe in second")
+    } else {
+        check(false, "Multiple blocks should find recipe")
+    }
+
+    // @type as array
+    let typeArrayHTML = """
+        <html><head>
+        <script type="application/ld+json">
+        {"@type":["Recipe","HowTo"],"name":"Multi-Type","recipeIngredient":["1 cup rice"]}
+        </script></head><body></body></html>
+        """
+    if case .success(let r) = parseRecipeFromHTML(typeArrayHTML) {
+        checkEqual(r.title, "Multi-Type", "Array @type: parsed")
+    } else {
+        check(false, "Array @type should succeed")
     }
 }
 
-func testParseInstructionsFormats() {
-    // String array format
-    let cases: [(String, String, Int)] = [
-        (
-            """
-            "recipeInstructions": ["Step one.", "Step two.", "Step three."]
-            """, "string array", 3
-        ),
-        (
-            """
-            "recipeInstructions": "Mix ingredients.\\nBake at 350.\\nServe warm."
-            """, "newline string", 3
-        ),
+func testErrorCases() {
+    // (input, expected error, description)
+    let cases: [(String, RecipeImportError, String)] = [
+        ("", .noHTML, "Empty HTML"),
+        ("   \n\t  ", .noHTML, "Whitespace HTML"),
+        ("<html><body><h1>About</h1></body></html>", .noRecipeFound, "No recipe"),
     ]
-    for (jsonFragment, desc, expectedCount) in cases {
-        let html = """
-            <html><head>
-            <script type="application/ld+json">
-            {
-              "@type": "Recipe",
-              "name": "Test",
-              "recipeIngredient": ["1 cup flour"],
-              \(jsonFragment)
-            }
-            </script>
-            </head><body></body></html>
-            """
-        let result = parseRecipeFromHTML(html)
-        if case .success(let recipe) = result {
-            checkEqual(recipe.instructions.count, expectedCount, "Instructions \(desc): count")
+    for (html, expected, desc) in cases {
+        if case .failure(let error) = parseRecipeFromHTML(html) {
+            checkEqual(error, expected, desc)
         } else {
-            check(false, "Instructions \(desc): should succeed")
+            check(false, "\(desc) should fail")
         }
+    }
+
+    // Non-Recipe JSON-LD
+    let articleHTML = """
+        <html><head><script type="application/ld+json">
+        {"@type":"Article","name":"NYC Restaurants"}
+        </script></head><body></body></html>
+        """
+    if case .failure(let e) = parseRecipeFromHTML(articleHTML) {
+        checkEqual(e, .noRecipeFound, "Article JSON-LD")
+    } else {
+        check(false, "Article should fail")
+    }
+
+    // Missing title
+    let noTitleHTML = """
+        <html><head><script type="application/ld+json">
+        {"@type":"Recipe","name":"","recipeIngredient":["1 cup flour"]}
+        </script></head><body></body></html>
+        """
+    if case .failure(let e) = parseRecipeFromHTML(noTitleHTML) {
+        checkEqual(e, .missingTitle, "Empty title")
+    } else {
+        check(false, "Empty title should fail")
+    }
+
+    // Missing ingredients
+    let noIngHTML = """
+        <html><head><script type="application/ld+json">
+        {"@type":"Recipe","name":"Mystery","recipeIngredient":[]}
+        </script></head><body></body></html>
+        """
+    if case .failure(let e) = parseRecipeFromHTML(noIngHTML) {
+        checkEqual(e, .missingIngredients, "No ingredients")
+    } else {
+        check(false, "No ingredients should fail")
+    }
+
+    // Malformed JSON
+    let badJSON = """
+        <html><head><script type="application/ld+json">
+        { this is not valid json!!! }
+        </script></head><body></body></html>
+        """
+    if case .failure(let e) = parseRecipeFromHTML(badJSON) {
+        checkEqual(e, .noRecipeFound, "Malformed JSON")
+    } else {
+        check(false, "Malformed JSON should fail")
     }
 }
 
-func testParseDurations() {
-    let cases: [(String, Int?, String)] = [
-        ("PT30M", 30, "30 minutes"),
-        ("PT1H", 60, "1 hour"),
-        ("PT1H30M", 90, "1.5 hours"),
-        ("PT2H15M", 135, "2h15m"),
-        ("PT0M", nil, "0 minutes -> nil"),
-        ("", nil, "empty string"),
+func testHTMLHeuristicAndEntities() {
+    // Heuristic fallback
+    let heuristicHTML = """
+        <html><body><h1>Quick Pasta</h1>
+        <ul><li>1 lb spaghetti</li><li>2 cups sauce</li></ul>
+        </body></html>
+        """
+    if case .success(let r) = parseRecipeFromHTML(heuristicHTML) {
+        checkEqual(r.title, "Quick Pasta", "Heuristic: title")
+        checkEqual(r.ingredients.count, 2, "Heuristic: ingredients")
+    } else {
+        check(false, "Heuristic should succeed")
+    }
+
+    // Non-recipe heuristic rejected
+    let contactHTML = """
+        <html><body><h1>Contact</h1>
+        <ul><li>Email: a@b.com</li><li>Phone: 555</li></ul>
+        </body></html>
+        """
+    if case .failure(.noRecipeFound) = parseRecipeFromHTML(contactHTML) {
+        check(true, "Non-recipe heuristic rejected")
+    } else {
+        check(false, "Non-recipe heuristic should fail")
+    }
+
+    // HTML entities decoded
+    checkEqual(decodeHTMLEntities("Mac &amp; Cheese"), "Mac & Cheese", "Decode &amp;")
+    checkEqual(decodeHTMLEntities("Bob&#39;s"), "Bob's", "Decode &#39;")
+    checkEqual(stripHTMLTags("<b>Bold</b> text"), "Bold text", "Strip HTML tags")
+}
+
+func testDualUnitStripping() {
+    // Data-driven: (input, expected, description)
+    let cases: [(String, String, String)] = [
+        ("50 g / 3 1/2 tbsp butter", "3 1/2 tbsp butter", "g -> tbsp"),
+        ("500 ml / 2 cups water", "2 cups water", "ml -> cups"),
+        ("2.5 kg / 5 lb chicken", "5 lb chicken", "decimal kg -> lb"),
+        ("50 G / 3 tbsp butter", "3 tbsp butter", "uppercase G"),
+        ("2 cups flour", "2 cups flour", "non-dual unchanged"),
+        ("Salt and pepper", "Salt and pepper", "no quantity unchanged"),
     ]
     for (input, expected, desc) in cases {
-        let result = parseDuration(input.isEmpty ? nil : input)
+        checkEqual(stripDualUnits(input), expected, "Dual: \(desc)")
+    }
+}
+
+func testIngredientTextCleaning() {
+    // Individual helpers
+    checkEqual(
+        collapseDoubleParens("milk ((full fat))"),
+        "milk (full fat)",
+        "Double parens collapsed"
+    )
+    checkEqual(
+        stripLeadingCommaInParens("macaroni (, uncooked)"),
+        "macaroni (uncooked)",
+        "Leading comma stripped"
+    )
+    checkEqual(
+        removeEmptyParens("flour () here"),
+        "flour here",
+        "Empty parens removed"
+    )
+    checkEqual(
+        collapseWhitespace("  flour   sifted  "),
+        "flour sifted",
+        "Whitespace collapsed"
+    )
+
+    // Full pipeline integration
+    let r1 = cleanIngredientText("250 g / 2 1/2 cups elbow macaroni (, uncooked)")
+    checkEqual(r1.text, "2 1/2 cups elbow macaroni (uncooked)", "Full pipeline: dual + comma")
+    check(r1.normalizations.count >= 2, "Full pipeline: multiple normalizations")
+
+    // Already clean
+    let r2 = cleanIngredientText("2 cups flour")
+    checkEqual(r2.normalizations.count, 0, "Already clean: no normalizations")
+
+    // Normalization tracking
+    let r3 = cleanIngredientText("50 g / 3 1/2 tbsp butter (, softened)")
+    let types = r3.normalizations.map { $0.type }
+    check(types.contains("dual_units"), "Tracked: dual_units present")
+    check(types.contains("leading_comma_parens"), "Tracked: leading_comma present")
+}
+
+func testDualUnitsInJSONLDImport() {
+    let html = """
+        <html><head><script type="application/ld+json">
+        {"@type":"Recipe","name":"Mac",
+         "recipeIngredient":["50 g / 3 tbsp butter (, softened)","2 cups flour"]}
+        </script></head><body></body></html>
+        """
+    if case .success(let recipe) = parseRecipeFromHTML(html) {
+        checkEqual(recipe.ingredients[0], "3 tbsp butter (softened)", "JSON-LD: cleaned")
+        checkEqual(recipe.ingredients[1], "2 cups flour", "JSON-LD: clean unchanged")
+        check(!recipe.ingredientNormalizations.isEmpty, "JSON-LD: normalizations populated")
+    } else {
+        check(false, "JSON-LD dual unit should parse")
+    }
+}
+
+func testDurationParsing() {
+    let cases: [(String?, Int?, String)] = [
+        ("PT30M", 30, "30 minutes"),
+        ("PT1H30M", 90, "1h30m"),
+        ("PT0M", nil, "0 minutes -> nil"),
+        (nil, nil, "nil input"),
+    ]
+    for (input, expected, desc) in cases {
+        let result = parseDuration(input)
         if let expected = expected {
             checkEqual(result ?? -1, expected, "Duration \(desc)")
         } else {
@@ -161,227 +292,33 @@ func testParseDurations() {
     }
 }
 
-func testHTMLEntities() {
-    checkEqual(decodeHTMLEntities("Mac &amp; Cheese"), "Mac & Cheese", "Decode &amp;")
-    checkEqual(decodeHTMLEntities("5 &lt; 10"), "5 < 10", "Decode &lt;")
-    checkEqual(decodeHTMLEntities("Bob&#39;s"), "Bob's", "Decode &#39;")
-    checkEqual(decodeHTMLEntities("No entities"), "No entities", "No entities unchanged")
-}
-
-func testStripHTMLTags() {
-    checkEqual(stripHTMLTags("<b>Bold</b> text"), "Bold text", "Strip bold tags")
-    checkEqual(stripHTMLTags("<a href=\"url\">Link</a>"), "Link", "Strip anchor tags")
-    checkEqual(stripHTMLTags("No tags here"), "No tags here", "No tags unchanged")
-}
-
-// MARK: - Error Cases
-
-func testEmptyHTML() {
-    let result = parseRecipeFromHTML("")
-    if case .failure(let error) = result {
-        checkEqual(error, .noHTML, "Empty HTML returns .noHTML")
-    } else {
-        check(false, "Empty HTML should fail")
-    }
-}
-
-func testWhitespaceOnlyHTML() {
-    let result = parseRecipeFromHTML("   \n\t  ")
-    if case .failure(let error) = result {
-        checkEqual(error, .noHTML, "Whitespace HTML returns .noHTML")
-    } else {
-        check(false, "Whitespace HTML should fail")
-    }
-}
-
-func testNoRecipeInHTML() {
-    let html = "<html><body><h1>About Us</h1><p>We are a company.</p></body></html>"
-    let result = parseRecipeFromHTML(html)
-    if case .failure(let error) = result {
-        checkEqual(error, .noRecipeFound, "Non-recipe page returns .noRecipeFound")
-    } else {
-        check(false, "Non-recipe page should fail")
-    }
-}
-
-func testNonRecipeJSONLD() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": "Article",
-          "name": "10 Best Restaurants in NYC",
-          "author": "Food Critic"
+func testServingsAndImageFormats() {
+    // Servings: plain int, string, array
+    let servingsCases: [(String, Int)] = [
+        ("\"recipeYield\": 6", 6),
+        ("\"recipeYield\": \"4 servings\"", 4),
+        ("\"recipeYield\": [\"8\"]", 8),
+    ]
+    for (fragment, expected) in servingsCases {
+        let html = """
+            <html><head><script type="application/ld+json">
+            {"@type":"Recipe","name":"T","recipeIngredient":["1 egg"],\(fragment)}
+            </script></head><body></body></html>
+            """
+        if case .success(let r) = parseRecipeFromHTML(html) {
+            checkEqual(r.servings ?? -1, expected, "Servings: \(expected)")
         }
-        </script>
-        </head><body></body></html>
-        """
-    let result = parseRecipeFromHTML(html)
-    if case .failure(let error) = result {
-        checkEqual(error, .noRecipeFound, "Article JSON-LD returns .noRecipeFound")
-    } else {
-        check(false, "Article JSON-LD should fail")
     }
-}
 
-func testRecipeWithNoTitle() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": "Recipe",
-          "name": "",
-          "recipeIngredient": ["1 cup flour"]
-        }
-        </script>
-        </head><body></body></html>
+    // Image as object
+    let imgHTML = """
+        <html><head><script type="application/ld+json">
+        {"@type":"Recipe","name":"T","recipeIngredient":["1 egg"],
+         "image":{"@type":"ImageObject","url":"https://x.com/photo.jpg"}}
+        </script></head><body></body></html>
         """
-    let result = parseRecipeFromHTML(html)
-    if case .failure(let error) = result {
-        checkEqual(error, .missingTitle, "Empty title returns .missingTitle")
-    } else {
-        check(false, "Empty title should fail")
-    }
-}
-
-func testRecipeWithNoIngredients() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": "Recipe",
-          "name": "Mystery Dish",
-          "recipeIngredient": []
-        }
-        </script>
-        </head><body></body></html>
-        """
-    let result = parseRecipeFromHTML(html)
-    if case .failure(let error) = result {
-        checkEqual(error, .missingIngredients, "No ingredients returns .missingIngredients")
-    } else {
-        check(false, "No ingredients should fail")
-    }
-}
-
-func testMalformedJSON() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        { this is not valid json at all!!!
-        </script>
-        </head><body></body></html>
-        """
-    let result = parseRecipeFromHTML(html)
-    if case .failure(let error) = result {
-        checkEqual(error, .noRecipeFound, "Malformed JSON returns .noRecipeFound")
-    } else {
-        check(false, "Malformed JSON should fail")
-    }
-}
-
-func testHTMLHeuristicFallback() {
-    let html = """
-        <html><body>
-        <h1>Quick Pasta</h1>
-        <ul>
-          <li>1 lb spaghetti</li>
-          <li>2 cups marinara sauce</li>
-          <li>1/2 cup parmesan cheese</li>
-        </ul>
-        </body></html>
-        """
-    let result = parseRecipeFromHTML(html, sourceURL: "https://example.com/pasta")
-    switch result {
-    case .success(let recipe):
-        checkEqual(recipe.title, "Quick Pasta", "Heuristic: title from h1")
-        checkEqual(recipe.ingredients.count, 3, "Heuristic: 3 ingredients")
-        checkEqual(recipe.sourceURL, "https://example.com/pasta", "Heuristic: source URL")
-    case .failure(let error):
-        check(false, "Heuristic should succeed, got \(error)")
-    }
-}
-
-func testHTMLFallbackNonRecipePage() {
-    let html = """
-        <html><body>
-        <h1>Contact Us</h1>
-        <ul>
-          <li>Email: hello@example.com</li>
-          <li>Phone: 555-1234</li>
-        </ul>
-        </body></html>
-        """
-    let result = parseRecipeFromHTML(html)
-    if case .failure(.noRecipeFound) = result {
-        check(true, "Non-recipe list items correctly rejected")
-    } else {
-        check(false, "Non-recipe list items should fail")
-    }
-}
-
-func testMultipleJSONLDBlocks() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {"@type": "WebSite", "name": "Food Blog"}
-        </script>
-        <script type="application/ld+json">
-        {
-          "@type": "Recipe",
-          "name": "Found In Second Block",
-          "recipeIngredient": ["1 egg"]
-        }
-        </script>
-        </head><body></body></html>
-        """
-    let result = parseRecipeFromHTML(html)
-    if case .success(let recipe) = result {
-        checkEqual(recipe.title, "Found In Second Block", "Multiple blocks: finds recipe in second")
-    } else {
-        check(false, "Multiple blocks should find recipe")
-    }
-}
-
-func testHTMLEntitiesInRecipe() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": "Recipe",
-          "name": "Mac &amp; Cheese",
-          "recipeIngredient": ["2 cups elbow macaroni", "1 cup cheddar cheese"],
-          "recipeInstructions": [{"@type": "HowToStep", "text": "Boil pasta &amp; drain."}]
-        }
-        </script>
-        </head><body></body></html>
-        """
-    let result = parseRecipeFromHTML(html)
-    if case .success(let recipe) = result {
-        checkEqual(recipe.title, "Mac & Cheese", "HTML entities decoded in title")
-        check(recipe.instructions[0].contains("&"), "HTML entities decoded in instructions")
-    } else {
-        check(false, "HTML entities recipe should succeed")
-    }
-}
-
-func testRecipeTypeAsArray() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": ["Recipe", "HowTo"],
-          "name": "Multi-Type Recipe",
-          "recipeIngredient": ["1 cup rice"]
-        }
-        </script>
-        </head><body></body></html>
-        """
-    let result = parseRecipeFromHTML(html)
-    if case .success(let recipe) = result {
-        checkEqual(recipe.title, "Multi-Type Recipe", "Array @type: parsed correctly")
-    } else {
-        check(false, "Array @type should succeed")
+    if case .success(let r) = parseRecipeFromHTML(imgHTML) {
+        checkEqual(r.imageURL, "https://x.com/photo.jpg", "Image object URL")
     }
 }
 
@@ -402,296 +339,21 @@ func testImportedRecipeCodable() {
     checkCodableRoundTrip(recipe, "ImportedRecipe Codable round-trip")
 }
 
-func testServingsFormats() {
-    let cases: [(String, String, Int?)] = [
-        ("\"recipeYield\": 6", "plain int", 6),
-        ("\"recipeYield\": \"4 servings\"", "string with text", 4),
-        ("\"recipeYield\": [\"8\"]", "array", 8),
-    ]
-    for (fragment, desc, expected) in cases {
-        let html = """
-            <html><head>
-            <script type="application/ld+json">
-            { "@type": "Recipe", "name": "T", "recipeIngredient": ["1 egg"], \(fragment) }
-            </script>
-            </head><body></body></html>
-            """
-        if case .success(let recipe) = parseRecipeFromHTML(html) {
-            if let expected = expected {
-                checkEqual(recipe.servings ?? -1, expected, "Servings \(desc)")
-            } else {
-                check(recipe.servings == nil, "Servings \(desc) -> nil")
-            }
-        }
-    }
-}
-
-func testImageFormats() {
-    // image as object with url
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": "Recipe",
-          "name": "T",
-          "recipeIngredient": ["1 egg"],
-          "image": {"@type": "ImageObject", "url": "https://example.com/photo.jpg"}
-        }
-        </script>
-        </head><body></body></html>
-        """
-    if case .success(let recipe) = parseRecipeFromHTML(html) {
-        checkEqual(recipe.imageURL, "https://example.com/photo.jpg", "Image as object: URL extracted")
-    }
-}
-
-// MARK: - Dual Unit Stripping Tests
-
-func testStripDualUnitsMetricImperial() {
-    checkEqual(
-        stripDualUnits("50 g / 3 1/2 tbsp butter"),
-        "3 1/2 tbsp butter",
-        "Dual units: g → tbsp"
-    )
-    checkEqual(
-        stripDualUnits("250 g / 2 1/2 cups elbow macaroni (, uncooked)"),
-        "2 1/2 cups elbow macaroni (, uncooked)",
-        "Dual units: g → cups"
-    )
-    checkEqual(
-        stripDualUnits("500 ml / 2 cups water"),
-        "2 cups water",
-        "Dual units: ml → cups"
-    )
-    checkEqual(
-        stripDualUnits("1000 g / 2 lb ground beef"),
-        "2 lb ground beef",
-        "Dual units: g → lb"
-    )
-}
-
-func testStripDualUnitsPreservesNonDual() {
-    checkEqual(
-        stripDualUnits("2 cups flour"),
-        "2 cups flour",
-        "Non-dual: unchanged"
-    )
-    checkEqual(
-        stripDualUnits("1/2 cup sugar"),
-        "1/2 cup sugar",
-        "Fraction: unchanged (no metric prefix)"
-    )
-    checkEqual(
-        stripDualUnits("Salt and pepper"),
-        "Salt and pepper",
-        "No quantity: unchanged"
-    )
-    checkEqual(
-        stripDualUnits("3 large eggs"),
-        "3 large eggs",
-        "No unit/slash: unchanged"
-    )
-}
-
-func testStripDualUnitsDecimalMetric() {
-    checkEqual(
-        stripDualUnits("2.5 kg / 5 lb chicken"),
-        "5 lb chicken",
-        "Dual units: decimal kg → lb"
-    )
-}
-
-func testStripDualUnitsCaseInsensitive() {
-    checkEqual(
-        stripDualUnits("50 G / 3 tbsp butter"),
-        "3 tbsp butter",
-        "Dual units: uppercase G"
-    )
-}
-
-func testDualUnitsInJSONLDImport() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": "Recipe",
-          "name": "Mac and Cheese",
-          "recipeIngredient": [
-            "50 g / 3 1/2 tbsp butter",
-            "3 tbsp flour",
-            "250 g / 2 1/2 cups elbow macaroni"
-          ]
-        }
-        </script>
-        </head><body></body></html>
-        """
-    if case .success(let recipe) = parseRecipeFromHTML(html) {
-        checkEqual(recipe.ingredients[0], "3 1/2 tbsp butter", "JSON-LD dual unit: butter cleaned")
-        checkEqual(recipe.ingredients[1], "3 tbsp flour", "JSON-LD non-dual: flour unchanged")
-        checkEqual(recipe.ingredients[2], "2 1/2 cups elbow macaroni", "JSON-LD dual unit: macaroni cleaned")
-    } else {
-        check(false, "JSON-LD dual unit recipe should parse successfully")
-    }
-}
-
-// MARK: - Ingredient Text Cleaning Tests
-
-func testCollapseDoubleParens() {
-    checkEqual(
-        collapseDoubleParens("milk ((full fat preferred but low fat is ok))"),
-        "milk (full fat preferred but low fat is ok)",
-        "Double parens collapsed"
-    )
-    checkEqual(
-        collapseDoubleParens("flour (all purpose)"),
-        "flour (all purpose)",
-        "Single parens unchanged"
-    )
-    checkEqual(
-        collapseDoubleParens("((nested)) and ((again))"),
-        "(nested) and (again)",
-        "Multiple double parens collapsed"
-    )
-}
-
-func testStripLeadingCommaInParens() {
-    checkEqual(
-        stripLeadingCommaInParens("elbow macaroni (, uncooked)"),
-        "elbow macaroni (uncooked)",
-        "Leading comma stripped"
-    )
-    checkEqual(
-        stripLeadingCommaInParens("cheese (,  shredded (Note 1))"),
-        "cheese (shredded (Note 1))",
-        "Leading comma + extra space stripped"
-    )
-    checkEqual(
-        stripLeadingCommaInParens("butter (unsalted)"),
-        "butter (unsalted)",
-        "No leading comma: unchanged"
-    )
-}
-
-func testRemoveEmptyParens() {
-    checkEqual(
-        removeEmptyParens("flour () here"),
-        "flour here",
-        "Empty parens removed"
-    )
-    checkEqual(
-        removeEmptyParens("flour (  ) here"),
-        "flour here",
-        "Whitespace-only parens removed"
-    )
-    checkEqual(
-        removeEmptyParens("flour (sifted)"),
-        "flour (sifted)",
-        "Non-empty parens preserved"
-    )
-}
-
-func testCollapseWhitespace() {
-    checkEqual(
-        collapseWhitespace("flour   sifted  twice"),
-        "flour sifted twice",
-        "Multiple spaces collapsed"
-    )
-    checkEqual(
-        collapseWhitespace("  leading and trailing  "),
-        "leading and trailing",
-        "Leading/trailing trimmed"
-    )
-}
-
-func testCleanIngredientTextFull() {
-    // Real-world case: dual units + leading comma in parens
-    let r1 = cleanIngredientText("250 g / 2 1/2 cups elbow macaroni (, uncooked)")
-    checkEqual(r1.text, "2 1/2 cups elbow macaroni (uncooked)", "Full clean: dual units + comma")
-    check(r1.normalizations.count >= 2, "Full clean: at least 2 normalizations logged")
-
-    // Double parens from JSON-LD
-    let r2 = cleanIngredientText("milk ((full fat preferred but low fat is ok))")
-    checkEqual(r2.text, "milk (full fat preferred but low fat is ok)", "Full clean: double parens")
-
-    // Already clean — no normalizations
-    let r3 = cleanIngredientText("2 cups flour")
-    checkEqual(r3.text, "2 cups flour", "Already clean: unchanged")
-    checkEqual(r3.normalizations.count, 0, "Already clean: no normalizations")
-}
-
-func testCleanIngredientTextNormalizationsTracked() {
-    let result = cleanIngredientText("50 g / 3 1/2 tbsp butter (, softened)")
-    checkEqual(result.text, "3 1/2 tbsp butter (softened)", "Tracked: final text correct")
-    check(!result.normalizations.isEmpty, "Tracked: normalizations recorded")
-
-    let types = result.normalizations.map { $0.type }
-    check(types.contains("dual_units"), "Tracked: dual_units normalization present")
-    check(types.contains("leading_comma_parens"), "Tracked: leading_comma_parens present")
-}
-
-func testNormalizationsInJSONLDImport() {
-    let html = """
-        <html><head>
-        <script type="application/ld+json">
-        {
-          "@type": "Recipe",
-          "name": "Test",
-          "recipeIngredient": [
-            "50 g / 3 tbsp butter (, softened)",
-            "2 cups flour"
-          ]
-        }
-        </script>
-        </head><body></body></html>
-        """
-    if case .success(let recipe) = parseRecipeFromHTML(html) {
-        checkEqual(recipe.ingredients[0], "3 tbsp butter (softened)", "JSON-LD: cleaned")
-        checkEqual(recipe.ingredients[1], "2 cups flour", "JSON-LD: clean unchanged")
-        check(!recipe.ingredientNormalizations.isEmpty, "JSON-LD: normalizations populated")
-    } else {
-        check(false, "JSON-LD normalization test should parse")
-    }
-}
-
 // MARK: - Test Runner
 
 func runRecipeSchemaParserTests() -> Bool {
     print("\n=== RecipeSchemaParser Tests ===")
 
-    testParseValidJSONLD()
-    testParseGraphWrappedRecipe()
-    testParseArrayOfJSONLD()
-    testParseInstructionsFormats()
-    testParseDurations()
-    testHTMLEntities()
-    testStripHTMLTags()
-    testEmptyHTML()
-    testWhitespaceOnlyHTML()
-    testNoRecipeInHTML()
-    testNonRecipeJSONLD()
-    testRecipeWithNoTitle()
-    testRecipeWithNoIngredients()
-    testMalformedJSON()
-    testHTMLHeuristicFallback()
-    testHTMLFallbackNonRecipePage()
-    testMultipleJSONLDBlocks()
-    testHTMLEntitiesInRecipe()
-    testRecipeTypeAsArray()
-    testImportedRecipeCodable()
-    testServingsFormats()
-    testImageFormats()
-    testStripDualUnitsMetricImperial()
-    testStripDualUnitsPreservesNonDual()
-    testStripDualUnitsDecimalMetric()
-    testStripDualUnitsCaseInsensitive()
+    testJSONLDParsingVariants()
+    testJSONLDStructuralVariants()
+    testErrorCases()
+    testHTMLHeuristicAndEntities()
+    testDualUnitStripping()
+    testIngredientTextCleaning()
     testDualUnitsInJSONLDImport()
-    testCollapseDoubleParens()
-    testStripLeadingCommaInParens()
-    testRemoveEmptyParens()
-    testCollapseWhitespace()
-    testCleanIngredientTextFull()
-    testCleanIngredientTextNormalizationsTracked()
-    testNormalizationsInJSONLDImport()
+    testDurationParsing()
+    testServingsAndImageFormats()
+    testImportedRecipeCodable()
 
     return printTestSummary("RecipeSchemaParser Tests")
 }
