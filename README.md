@@ -14,15 +14,23 @@ A full-stack recipe and grocery list iOS app with local-first architecture.
 
 ### Recipes
 - Create, edit, and delete recipes with ingredients, instructions, prep/cook time, and servings
-- Search recipes by name
+- Import recipes from URLs via Share Extension (JSON-LD Schema.org parsing)
+- Dual-unit normalization (e.g. "50 g / 3 1/2 tbsp" → keeps imperial)
+- Ingredient text cleanup: double parens, leading commas, empty parens
+- Search recipes by name, filter by cuisine/course/favorites
 - Swipe to delete
 
 ### Grocery Lists
 - Create grocery lists manually or generate from selected recipes
-- Items organized by category (Produce, Dairy, Meat, etc.)
+- Auto-categorization of items into store aisles (Produce, Dairy, Meat, etc.)
+- Items organized by category with manual override via Edit
 - Check/uncheck items with strikethrough
 - Remove all checked items or uncheck all
 - Ingredient consolidation when generating from multiple recipes
+
+### Settings
+- Opt-in improvement reporting: anonymous import normalization data sent
+  to server to improve the import pipeline
 
 ## Project Structure
 
@@ -136,7 +144,15 @@ handwritten margin notes you photograph. The log is stored only on device
 (`Documents/debug.jsonl`) and is never uploaded anywhere automatically.
 You choose when to export + share it via the in-app Share Log File button.
 
-This feature will be removed before any public/App Store release.
+**Improvement reporting** (opt-in via Settings): When enabled, anonymous
+data about recipe import normalizations (e.g. ingredient formatting fixes)
+is sent to the server endpoint `POST /api/v1/telemetry/import-normalizations`.
+Any imported recipes that fail to import or require normalization may be
+logged for app improvement. No personal data or recipe content is shared —
+only the text transformations applied during import. This should be
+disclosed in the privacy policy before public/App Store release.
+
+This debug logging feature will be removed before any public release.
 
 ## Status
 

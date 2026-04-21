@@ -11,9 +11,6 @@ struct AddTemplateItemView: View {
     @State private var name = ""
     @State private var quantity = "1"
     @State private var unit = ""
-    @State private var category = "Other"
-
-    let categories = ShoppingViewModel.categoryOrder
 
     var body: some View {
         NavigationStack {
@@ -25,9 +22,6 @@ struct AddTemplateItemView: View {
                         .frame(width: 80)
                     UnitPicker(unit: $unit, context: .shopping)
                 }
-                Picker("Category", selection: $category) {
-                    ForEach(categories, id: \.self) { Text($0) }
-                }
             }
             .navigationTitle("Add Staple")
             .toolbar {
@@ -36,6 +30,7 @@ struct AddTemplateItemView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
+                        let category = categorizeGroceryItem(name)
                         let nextSortOrder = (template.items ?? [])
                             .filter { $0.category == category }
                             .count

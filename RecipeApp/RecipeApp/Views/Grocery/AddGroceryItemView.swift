@@ -10,9 +10,6 @@ struct AddGroceryItemView: View {
     @State private var name = ""
     @State private var quantity = "1"
     @State private var unit = ""
-    @State private var category = "Other"
-
-    let categories = ShoppingViewModel.categoryOrder
 
     var body: some View {
         NavigationStack {
@@ -24,9 +21,6 @@ struct AddGroceryItemView: View {
                         .frame(width: 80)
                     UnitPicker(unit: $unit, context: .shopping)
                 }
-                Picker("Category", selection: $category) {
-                    ForEach(categories, id: \.self) { Text($0) }
-                }
             }
             .navigationTitle("Add Item")
             .toolbar {
@@ -35,6 +29,7 @@ struct AddGroceryItemView: View {
                 }
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Add") {
+                        let category = categorizeGroceryItem(name)
                         let item = GroceryItem(
                             name: name,
                             quantity: Double(quantity) ?? 1,

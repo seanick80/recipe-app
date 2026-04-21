@@ -92,6 +92,9 @@ class PendingImportService {
             context.insert(ingredient)
         }
 
+        // Log normalizations that were applied during import
+        logNormalizations(imported)
+
         log.log(
             category: "import",
             message: "Recipe imported to SwiftData",
@@ -104,6 +107,74 @@ class PendingImportService {
         log.log(category: "import", message: "Import cancelled")
         cleanup()
     }
+
+    // MARK: - Normalization Logging
+
+    private func logNormalizations(_ imported: ImportedRecipe) {
+        guard !imported.ingredientNormalizations.isEmpty else { return }
+
+        // Log each normalization locally
+        for norm in imported.ingredientNormalizations {
+            log.log(
+                category: "import.normalize",
+                message: "Ingredient cleaned: \(norm.type)",
+                details: [
+                    "original": norm.original,
+                    "cleaned": norm.cleaned,
+                    "source": imported.sourceURL,
+                ]
+            )
+        }
+
+        log.log(
+            category: "import.normalize",
+            message: "Total normalizations applied",
+            details: [
+                "count": "\(imported.ingredientNormalizations.count)",
+                "source": imported.sourceURL,
+            ]
+        )
+
+        // Queue for server reporting if user has opted in
+        if ImprovementReporting.isEnabled {
+            queueForServerReport(imported)
+        }
+    }
+
+    private func queueForServerReport(_ imported: ImportedRecipe) {
+        guard
+            let containerURL = FileManager.default.containerURL(
+                forSecurityApplicationGroupIdentifier: DebugLog.appGroupID
+            )
+        else { return }
+
+        let reportDir = containerURL.appendingPathComponent("PendingReports", isDirectory: true)
+        try? FileManager.default.createDirectory(at: reportDir, withIntermediateDirectories: true)
+
+        let entries = imported.ingredientNormalizations.map { norm -> [String: String] in
+            [
+                "source_url": imported.sourceURL,
+                "original_text": norm.original,
+                "cleaned_text": norm.cleaned,
+                "normalization_type": norm.type,
+            ]
+        }
+
+        let payload: [String: Any] = ["entries": entries]
+        guard let data = try? JSONSerialization.data(withJSONObject: payload) else { return }
+
+        let filename = "normalize-\(UUID().uuidString).json"
+        let fileURL = reportDir.appendingPathComponent(filename)
+        try? data.write(to: fileURL)
+
+        log.log(
+            category: "import.report",
+            message: "Normalization report queued",
+            details: ["file": filename, "entries": "\(entries.count)"]
+        )
+    }
+
+    // MARK: - Private
 
     private func cleanup() {
         if let url = pendingFileURL {

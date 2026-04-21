@@ -10,7 +10,7 @@ from slowapi.errors import RateLimitExceeded
 
 from logging_config import get_audit_logger, setup_logging
 from rate_limit import limiter
-from routers import auth_routes, grocery, recipes
+from routers import auth_routes, grocery, recipes, telemetry
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +53,7 @@ app.add_middleware(
 app.include_router(auth_routes.router)
 app.include_router(recipes.router)
 app.include_router(grocery.router)
+app.include_router(telemetry.router)
 
 
 @app.exception_handler(Exception)

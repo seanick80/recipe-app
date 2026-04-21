@@ -13,6 +13,60 @@ struct ImportedRecipe: Codable, Equatable {
     var course: String
     var sourceURL: String
     var imageURL: String
+    /// Normalizations applied to ingredient strings during import cleaning.
+    /// Empty if all ingredients were already clean.
+    var ingredientNormalizations: [IngredientNormalization] = []
+
+    /// Custom decoder: tolerates missing `ingredientNormalizations` key so
+    /// pending-import JSON files written before this field existed still load.
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        title = try c.decode(String.self, forKey: .title)
+        ingredients = try c.decode([String].self, forKey: .ingredients)
+        instructions = try c.decode([String].self, forKey: .instructions)
+        servings = try c.decodeIfPresent(Int.self, forKey: .servings)
+        prepTimeMinutes = try c.decodeIfPresent(Int.self, forKey: .prepTimeMinutes)
+        cookTimeMinutes = try c.decodeIfPresent(Int.self, forKey: .cookTimeMinutes)
+        totalTimeMinutes = try c.decodeIfPresent(Int.self, forKey: .totalTimeMinutes)
+        cuisine = try c.decode(String.self, forKey: .cuisine)
+        course = try c.decode(String.self, forKey: .course)
+        sourceURL = try c.decode(String.self, forKey: .sourceURL)
+        imageURL = try c.decode(String.self, forKey: .imageURL)
+        ingredientNormalizations =
+            try c.decodeIfPresent(
+                [IngredientNormalization].self,
+                forKey: .ingredientNormalizations
+            ) ?? []
+    }
+
+    /// Memberwise init (keeps existing call sites working).
+    init(
+        title: String,
+        ingredients: [String],
+        instructions: [String],
+        servings: Int? = nil,
+        prepTimeMinutes: Int? = nil,
+        cookTimeMinutes: Int? = nil,
+        totalTimeMinutes: Int? = nil,
+        cuisine: String,
+        course: String,
+        sourceURL: String,
+        imageURL: String,
+        ingredientNormalizations: [IngredientNormalization] = []
+    ) {
+        self.title = title
+        self.ingredients = ingredients
+        self.instructions = instructions
+        self.servings = servings
+        self.prepTimeMinutes = prepTimeMinutes
+        self.cookTimeMinutes = cookTimeMinutes
+        self.totalTimeMinutes = totalTimeMinutes
+        self.cuisine = cuisine
+        self.course = course
+        self.sourceURL = sourceURL
+        self.imageURL = imageURL
+        self.ingredientNormalizations = ingredientNormalizations
+    }
 }
 
 /// Errors that can occur during recipe import.
@@ -149,9 +203,17 @@ private func recipeFromDict(_ dict: [String: Any], sourceURL: String) -> Importe
     let course = extractFirstString(dict["recipeCategory"])
     let imageURL = extractImageURL(dict["image"])
 
+    var allNormalizations: [IngredientNormalization] = []
+    let cleanedIngredients = ingredients.map { raw -> String in
+        let decoded = decodeHTMLEntities(raw)
+        let result = cleanIngredientText(decoded)
+        allNormalizations.append(contentsOf: result.normalizations)
+        return result.text
+    }
+
     return ImportedRecipe(
         title: decodeHTMLEntities(title),
-        ingredients: ingredients.map { decodeHTMLEntities($0) },
+        ingredients: cleanedIngredients,
         instructions: instructions.map { decodeHTMLEntities($0) },
         servings: servings,
         prepTimeMinutes: prepTime,
@@ -160,7 +222,8 @@ private func recipeFromDict(_ dict: [String: Any], sourceURL: String) -> Importe
         cuisine: cuisine,
         course: course,
         sourceURL: sourceURL,
-        imageURL: imageURL
+        imageURL: imageURL,
+        ingredientNormalizations: allNormalizations
     )
 }
 
@@ -176,9 +239,16 @@ private func extractFromHTMLHeuristic(_ html: String, sourceURL: String) -> Impo
     let ingredients = listItems.filter { looksLikeIngredient($0) }
     if ingredients.isEmpty { return nil }
 
+    var allNormalizations: [IngredientNormalization] = []
+    let cleanedIngredients = ingredients.map { raw -> String in
+        let result = cleanIngredientText(raw)
+        allNormalizations.append(contentsOf: result.normalizations)
+        return result.text
+    }
+
     return ImportedRecipe(
         title: title,
-        ingredients: ingredients,
+        ingredients: cleanedIngredients,
         instructions: [],
         servings: nil,
         prepTimeMinutes: nil,
@@ -187,7 +257,8 @@ private func extractFromHTMLHeuristic(_ html: String, sourceURL: String) -> Impo
         cuisine: "",
         course: "",
         sourceURL: sourceURL,
-        imageURL: ""
+        imageURL: "",
+        ingredientNormalizations: allNormalizations
     )
 }
 
@@ -364,6 +435,140 @@ func parseDuration(_ iso: String?) -> Int? {
 
     let total = hours * 60 + minutes
     return total > 0 ? total : nil
+}
+
+// MARK: - Ingredient Cleaning
+
+/// A normalization applied to an ingredient string during import cleaning.
+struct IngredientNormalization: Codable, Equatable {
+    var type: String  // e.g. "dual_units", "leading_comma_parens", "double_parens"
+    var original: String  // text before this normalization
+    var cleaned: String  // text after this normalization
+}
+
+/// Result of cleaning an ingredient string: the final text plus any normalizations applied.
+struct CleanedIngredient: Equatable {
+    var text: String
+    var normalizations: [IngredientNormalization]
+}
+
+/// Applies all ingredient normalizations in sequence. Returns the cleaned text
+/// and a log of every transformation applied (empty if the input was already clean).
+func cleanIngredientText(_ raw: String) -> CleanedIngredient {
+    var text = raw
+    var normalizations: [IngredientNormalization] = []
+
+    let steps: [(String, (String) -> String?)] = [
+        (
+            "dual_units",
+            { s in
+                let r = stripDualUnits(s)
+                return r == s ? nil : r
+            }
+        ),
+        (
+            "double_parens",
+            { s in
+                let r = collapseDoubleParens(s)
+                return r == s ? nil : r
+            }
+        ),
+        (
+            "leading_comma_parens",
+            { s in
+                let r = stripLeadingCommaInParens(s)
+                return r == s ? nil : r
+            }
+        ),
+        (
+            "empty_parens",
+            { s in
+                let r = removeEmptyParens(s)
+                return r == s ? nil : r
+            }
+        ),
+        (
+            "excess_whitespace",
+            { s in
+                let r = collapseWhitespace(s)
+                return r == s ? nil : r
+            }
+        ),
+    ]
+
+    for (type, transform) in steps {
+        if let cleaned = transform(text) {
+            normalizations.append(
+                IngredientNormalization(
+                    type: type,
+                    original: text,
+                    cleaned: cleaned
+                )
+            )
+            text = cleaned
+        }
+    }
+
+    return CleanedIngredient(text: text, normalizations: normalizations)
+}
+
+/// Strips dual-unit patterns: "50 g / 3 1/2 tbsp butter" → "3 1/2 tbsp butter".
+func stripDualUnits(_ ingredient: String) -> String {
+    let trimmed = ingredient.trimmingCharacters(in: .whitespaces)
+    let pattern = #"^\d+(?:\.\d+)?\s+(?:g|kg|mg|ml|l)\s*/\s*(.+)$"#
+    guard let range = trimmed.range(of: pattern, options: [.regularExpression, .caseInsensitive]) else {
+        return ingredient
+    }
+    guard let slashRange = trimmed.range(of: "/", range: range) else {
+        return ingredient
+    }
+    let afterSlash = trimmed[slashRange.upperBound...]
+        .trimmingCharacters(in: .whitespaces)
+    return afterSlash.isEmpty ? ingredient : afterSlash
+}
+
+/// Collapses double parentheses: "((full fat preferred))" → "(full fat preferred)".
+func collapseDoubleParens(_ text: String) -> String {
+    var result = text
+    // Repeatedly collapse (( ... )) → ( ... ) until stable
+    while let open = result.range(of: "((") {
+        // Find matching ))
+        if let close = result.range(of: "))", range: open.upperBound..<result.endIndex) {
+            result.replaceSubrange(close, with: ")")
+            result.replaceSubrange(open, with: "(")
+        } else {
+            break
+        }
+    }
+    return result
+}
+
+/// Strips leading comma inside parentheses: "(, shredded)" → "(shredded)".
+func stripLeadingCommaInParens(_ text: String) -> String {
+    var result = text
+    // Pattern: "(" followed by optional spaces, comma, optional spaces → "("
+    while let range = result.range(of: #"\(\s*,\s*"#, options: .regularExpression) {
+        result.replaceSubrange(range, with: "(")
+    }
+    return result
+}
+
+/// Removes empty parentheses (with optional whitespace inside): "flour () here" → "flour here".
+func removeEmptyParens(_ text: String) -> String {
+    var result = text
+    while let range = result.range(of: #"\s*\(\s*\)"#, options: .regularExpression) {
+        result.replaceSubrange(range, with: "")
+    }
+    return result.trimmingCharacters(in: .whitespaces)
+}
+
+/// Collapses multiple spaces into one.
+func collapseWhitespace(_ text: String) -> String {
+    var result = text
+    while let range = result.range(of: "  ") {
+        result.replaceSubrange(range, with: " ")
+    }
+    return result.trimmingCharacters(in: .whitespaces)
 }
 
 // MARK: - HTML Utilities

@@ -445,6 +445,214 @@ func testImageFormats() {
     }
 }
 
+// MARK: - Dual Unit Stripping Tests
+
+func testStripDualUnitsMetricImperial() {
+    checkEqual(
+        stripDualUnits("50 g / 3 1/2 tbsp butter"),
+        "3 1/2 tbsp butter",
+        "Dual units: g → tbsp"
+    )
+    checkEqual(
+        stripDualUnits("250 g / 2 1/2 cups elbow macaroni (, uncooked)"),
+        "2 1/2 cups elbow macaroni (, uncooked)",
+        "Dual units: g → cups"
+    )
+    checkEqual(
+        stripDualUnits("500 ml / 2 cups water"),
+        "2 cups water",
+        "Dual units: ml → cups"
+    )
+    checkEqual(
+        stripDualUnits("1000 g / 2 lb ground beef"),
+        "2 lb ground beef",
+        "Dual units: g → lb"
+    )
+}
+
+func testStripDualUnitsPreservesNonDual() {
+    checkEqual(
+        stripDualUnits("2 cups flour"),
+        "2 cups flour",
+        "Non-dual: unchanged"
+    )
+    checkEqual(
+        stripDualUnits("1/2 cup sugar"),
+        "1/2 cup sugar",
+        "Fraction: unchanged (no metric prefix)"
+    )
+    checkEqual(
+        stripDualUnits("Salt and pepper"),
+        "Salt and pepper",
+        "No quantity: unchanged"
+    )
+    checkEqual(
+        stripDualUnits("3 large eggs"),
+        "3 large eggs",
+        "No unit/slash: unchanged"
+    )
+}
+
+func testStripDualUnitsDecimalMetric() {
+    checkEqual(
+        stripDualUnits("2.5 kg / 5 lb chicken"),
+        "5 lb chicken",
+        "Dual units: decimal kg → lb"
+    )
+}
+
+func testStripDualUnitsCaseInsensitive() {
+    checkEqual(
+        stripDualUnits("50 G / 3 tbsp butter"),
+        "3 tbsp butter",
+        "Dual units: uppercase G"
+    )
+}
+
+func testDualUnitsInJSONLDImport() {
+    let html = """
+        <html><head>
+        <script type="application/ld+json">
+        {
+          "@type": "Recipe",
+          "name": "Mac and Cheese",
+          "recipeIngredient": [
+            "50 g / 3 1/2 tbsp butter",
+            "3 tbsp flour",
+            "250 g / 2 1/2 cups elbow macaroni"
+          ]
+        }
+        </script>
+        </head><body></body></html>
+        """
+    if case .success(let recipe) = parseRecipeFromHTML(html) {
+        checkEqual(recipe.ingredients[0], "3 1/2 tbsp butter", "JSON-LD dual unit: butter cleaned")
+        checkEqual(recipe.ingredients[1], "3 tbsp flour", "JSON-LD non-dual: flour unchanged")
+        checkEqual(recipe.ingredients[2], "2 1/2 cups elbow macaroni", "JSON-LD dual unit: macaroni cleaned")
+    } else {
+        check(false, "JSON-LD dual unit recipe should parse successfully")
+    }
+}
+
+// MARK: - Ingredient Text Cleaning Tests
+
+func testCollapseDoubleParens() {
+    checkEqual(
+        collapseDoubleParens("milk ((full fat preferred but low fat is ok))"),
+        "milk (full fat preferred but low fat is ok)",
+        "Double parens collapsed"
+    )
+    checkEqual(
+        collapseDoubleParens("flour (all purpose)"),
+        "flour (all purpose)",
+        "Single parens unchanged"
+    )
+    checkEqual(
+        collapseDoubleParens("((nested)) and ((again))"),
+        "(nested) and (again)",
+        "Multiple double parens collapsed"
+    )
+}
+
+func testStripLeadingCommaInParens() {
+    checkEqual(
+        stripLeadingCommaInParens("elbow macaroni (, uncooked)"),
+        "elbow macaroni (uncooked)",
+        "Leading comma stripped"
+    )
+    checkEqual(
+        stripLeadingCommaInParens("cheese (,  shredded (Note 1))"),
+        "cheese (shredded (Note 1))",
+        "Leading comma + extra space stripped"
+    )
+    checkEqual(
+        stripLeadingCommaInParens("butter (unsalted)"),
+        "butter (unsalted)",
+        "No leading comma: unchanged"
+    )
+}
+
+func testRemoveEmptyParens() {
+    checkEqual(
+        removeEmptyParens("flour () here"),
+        "flour here",
+        "Empty parens removed"
+    )
+    checkEqual(
+        removeEmptyParens("flour (  ) here"),
+        "flour here",
+        "Whitespace-only parens removed"
+    )
+    checkEqual(
+        removeEmptyParens("flour (sifted)"),
+        "flour (sifted)",
+        "Non-empty parens preserved"
+    )
+}
+
+func testCollapseWhitespace() {
+    checkEqual(
+        collapseWhitespace("flour   sifted  twice"),
+        "flour sifted twice",
+        "Multiple spaces collapsed"
+    )
+    checkEqual(
+        collapseWhitespace("  leading and trailing  "),
+        "leading and trailing",
+        "Leading/trailing trimmed"
+    )
+}
+
+func testCleanIngredientTextFull() {
+    // Real-world case: dual units + leading comma in parens
+    let r1 = cleanIngredientText("250 g / 2 1/2 cups elbow macaroni (, uncooked)")
+    checkEqual(r1.text, "2 1/2 cups elbow macaroni (uncooked)", "Full clean: dual units + comma")
+    check(r1.normalizations.count >= 2, "Full clean: at least 2 normalizations logged")
+
+    // Double parens from JSON-LD
+    let r2 = cleanIngredientText("milk ((full fat preferred but low fat is ok))")
+    checkEqual(r2.text, "milk (full fat preferred but low fat is ok)", "Full clean: double parens")
+
+    // Already clean — no normalizations
+    let r3 = cleanIngredientText("2 cups flour")
+    checkEqual(r3.text, "2 cups flour", "Already clean: unchanged")
+    checkEqual(r3.normalizations.count, 0, "Already clean: no normalizations")
+}
+
+func testCleanIngredientTextNormalizationsTracked() {
+    let result = cleanIngredientText("50 g / 3 1/2 tbsp butter (, softened)")
+    checkEqual(result.text, "3 1/2 tbsp butter (softened)", "Tracked: final text correct")
+    check(!result.normalizations.isEmpty, "Tracked: normalizations recorded")
+
+    let types = result.normalizations.map { $0.type }
+    check(types.contains("dual_units"), "Tracked: dual_units normalization present")
+    check(types.contains("leading_comma_parens"), "Tracked: leading_comma_parens present")
+}
+
+func testNormalizationsInJSONLDImport() {
+    let html = """
+        <html><head>
+        <script type="application/ld+json">
+        {
+          "@type": "Recipe",
+          "name": "Test",
+          "recipeIngredient": [
+            "50 g / 3 tbsp butter (, softened)",
+            "2 cups flour"
+          ]
+        }
+        </script>
+        </head><body></body></html>
+        """
+    if case .success(let recipe) = parseRecipeFromHTML(html) {
+        checkEqual(recipe.ingredients[0], "3 tbsp butter (softened)", "JSON-LD: cleaned")
+        checkEqual(recipe.ingredients[1], "2 cups flour", "JSON-LD: clean unchanged")
+        check(!recipe.ingredientNormalizations.isEmpty, "JSON-LD: normalizations populated")
+    } else {
+        check(false, "JSON-LD normalization test should parse")
+    }
+}
+
 // MARK: - Test Runner
 
 func runRecipeSchemaParserTests() -> Bool {
@@ -472,6 +680,18 @@ func runRecipeSchemaParserTests() -> Bool {
     testImportedRecipeCodable()
     testServingsFormats()
     testImageFormats()
+    testStripDualUnitsMetricImperial()
+    testStripDualUnitsPreservesNonDual()
+    testStripDualUnitsDecimalMetric()
+    testStripDualUnitsCaseInsensitive()
+    testDualUnitsInJSONLDImport()
+    testCollapseDoubleParens()
+    testStripLeadingCommaInParens()
+    testRemoveEmptyParens()
+    testCollapseWhitespace()
+    testCleanIngredientTextFull()
+    testCleanIngredientTextNormalizationsTracked()
+    testNormalizationsInJSONLDImport()
 
     return printTestSummary("RecipeSchemaParser Tests")
 }

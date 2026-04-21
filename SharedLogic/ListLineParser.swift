@@ -21,6 +21,11 @@ struct ParsedListItem: Codable, Equatable {
 
 /// Known unit abbreviations and their canonical forms.
 let knownUnits: [String: String] = [
+    "g": "g", "gram": "g", "grams": "g",
+    "kg": "kg", "kilogram": "kg", "kilograms": "kg",
+    "mg": "mg", "milligram": "mg", "milligrams": "mg",
+    "ml": "ml", "milliliter": "ml", "milliliters": "ml", "millilitre": "ml", "millilitres": "ml",
+    "l": "l", "liter": "l", "liters": "l", "litre": "l", "litres": "l",
     "lb": "lb", "lbs": "lb", "pound": "lb", "pounds": "lb",
     "oz": "oz", "ounce": "oz", "ounces": "oz",
     "gal": "gallon", "gallon": "gallon", "gallons": "gallon",

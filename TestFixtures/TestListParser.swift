@@ -142,13 +142,15 @@ func testParseFusedWithAlternateUnitInParens() {
 func testParseBareNumberStillWinsOverFused() {
     let r = parseListLine("2 g sugar")!
     checkEqual(r.quantity, 2, "Bare 2 quantity")
-    checkEqual(r.name, "g sugar", "Space-separated short unit unchanged")
+    checkEqual(r.unit, "g", "Space-separated g recognized as unit")
+    checkEqual(r.name, "sugar", "Space-separated g: name is remainder")
 }
 
 func testParseFusedIgnoredWhenNotFused() {
     let r = parseListLine("grams of truth")!
     checkEqual(r.quantity, 1, "Non-fused quantity defaults to 1")
-    checkEqual(r.name, "grams of truth", "Non-fused name preserved")
+    checkEqual(r.name, "of truth", "Non-fused: 'grams' consumed as unit, rest is name")
+    checkEqual(r.unit, "g", "Non-fused: 'grams' canonicalized to g")
 }
 
 func testParseFusedWithTrailingPunctuation() {
@@ -197,6 +199,35 @@ func testCompoundFractions() {
     checkEqual(r6.name, "milk", "Spaced '1 ½' name")
 }
 
+// MARK: - Metric Unit Tests
+
+func testParseMetricUnits() {
+    let r1 = parseListLine("500 g chicken breast")!
+    checkEqual(r1.quantity, 500, "Metric g: quantity")
+    checkEqual(r1.unit, "g", "Metric g: unit")
+    checkEqual(r1.name, "chicken breast", "Metric g: name")
+
+    let r2 = parseListLine("2 kg potatoes")!
+    checkEqual(r2.quantity, 2, "Metric kg: quantity")
+    checkEqual(r2.unit, "kg", "Metric kg: unit")
+    checkEqual(r2.name, "potatoes", "Metric kg: name")
+
+    let r3 = parseListLine("250 ml milk")!
+    checkEqual(r3.quantity, 250, "Metric ml: quantity")
+    checkEqual(r3.unit, "ml", "Metric ml: unit")
+    checkEqual(r3.name, "milk", "Metric ml: name")
+
+    let r4 = parseListLine("1 l water")!
+    checkEqual(r4.quantity, 1, "Metric l: quantity")
+    checkEqual(r4.unit, "l", "Metric l: unit")
+    checkEqual(r4.name, "water", "Metric l: name")
+
+    let r5 = parseListLine("100 grams flour")!
+    checkEqual(r5.quantity, 100, "Metric grams: quantity")
+    checkEqual(r5.unit, "g", "Metric grams: canonical unit")
+    checkEqual(r5.name, "flour", "Metric grams: name")
+}
+
 // MARK: - Test Runner
 
 func runListParserTests() -> Bool {
@@ -224,6 +255,7 @@ func runListParserTests() -> Bool {
     testParseFusedIgnoredWhenNotFused()
     testParseFusedWithTrailingPunctuation()
     testCompoundFractions()
+    testParseMetricUnits()
 
     return printTestSummary("List Parser Tests")
 }

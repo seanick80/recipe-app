@@ -5,6 +5,7 @@ struct RecipeListView: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Recipe.updatedAt, order: .reverse) private var recipes: [Recipe]
     @State private var showingAddRecipe = false
+    @State private var showingSettings = false
     @State private var searchText = ""
     @State private var filterCuisine: String?
     @State private var filterCourse: String?
@@ -107,6 +108,11 @@ struct RecipeListView: View {
             .navigationTitle("Recipes")
             .searchable(text: $searchText, prompt: "Search recipes")
             .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: { showingSettings = true }) {
+                        Label("Settings", systemImage: "gearshape")
+                    }
+                }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { showingAddRecipe = true }) {
                         Label("Add Recipe", systemImage: "plus")
@@ -115,6 +121,9 @@ struct RecipeListView: View {
             }
             .sheet(isPresented: $showingAddRecipe) {
                 RecipeEditView()
+            }
+            .sheet(isPresented: $showingSettings) {
+                SettingsView()
             }
             .overlay {
                 if recipes.isEmpty {
