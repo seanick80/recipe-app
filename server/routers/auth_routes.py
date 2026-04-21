@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import secrets
+from datetime import timedelta
 from uuid import UUID
 
 import httpx
@@ -9,11 +10,13 @@ from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
-from auth import create_jwt, get_current_user, require_admin
+from auth import create_jwt, decode_jwt, get_current_user, require_admin
 from config import (
     FRONTEND_URL,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
+    MOBILE_APP_SCHEME,
+    MOBILE_REDIRECT_URI,
     OAUTH_REDIRECT_URI,
 )
 from database import get_db
@@ -218,3 +221,181 @@ def delete_user(
     audit.info("USER_DELETED email=%s by=admin", user.email)
     db.delete(user)
     db.commit()
+
+
+# ---------------------------------------------------------------------------
+# Mobile OAuth flow (iOS / Android)
+#
+# Instead of setting a cookie, the mobile callback redirects to the app's
+# custom URL scheme with the JWT as a query parameter:
+#   recipeapp://auth?token=<jwt>
+#
+# The iOS app opens the /mobile/login URL in ASWebAuthenticationSession,
+# which captures the redirect and extracts the token.
+# ---------------------------------------------------------------------------
+
+
+@router.get("/mobile/login")
+def mobile_login(response: Response) -> RedirectResponse:
+    """Redirect to Google OAuth for mobile clients."""
+    state = secrets.token_urlsafe(32)
+    params = {
+        "client_id": GOOGLE_CLIENT_ID,
+        "redirect_uri": MOBILE_REDIRECT_URI,
+        "response_type": "code",
+        "scope": "openid email profile",
+        "state": state,
+        "access_type": "offline",
+        "prompt": "consent",
+    }
+    query = "&".join(f"{k}={v}" for k, v in params.items())
+    redirect = RedirectResponse(url=f"{GOOGLE_AUTH_URL}?{query}")
+    redirect.set_cookie(
+        key="mobile_oauth_state",
+        value=state,
+        httponly=True,
+        samesite="lax",
+        max_age=600,
+    )
+    return redirect
+
+
+@router.get("/mobile/callback")
+def mobile_callback(
+    request: Request,
+    code: str = "",
+    state: str = "",
+    db: Session = Depends(get_db),
+) -> RedirectResponse:
+    """Handle Google OAuth callback for mobile clients.
+
+    Redirects to recipeapp://auth?token=<jwt> on success,
+    or recipeapp://auth?error=<message> on failure.
+    """
+    error_url = f"{MOBILE_APP_SCHEME}://auth?error="
+
+    # CSRF check
+    stored_state = request.cookies.get("mobile_oauth_state", "")
+    if not state or not stored_state or state != stored_state:
+        audit.warning("MOBILE_OAUTH_CSRF_MISMATCH")
+        return RedirectResponse(url=f"{error_url}csrf_mismatch", status_code=302)
+
+    # Exchange auth code for tokens
+    token_data = {
+        "code": code,
+        "client_id": GOOGLE_CLIENT_ID,
+        "client_secret": GOOGLE_CLIENT_SECRET,
+        "redirect_uri": MOBILE_REDIRECT_URI,
+        "grant_type": "authorization_code",
+    }
+    with httpx.Client() as client:
+        token_resp = client.post(GOOGLE_TOKEN_URL, data=token_data)
+    if token_resp.status_code != 200:
+        audit.warning(
+            "MOBILE_OAUTH_TOKEN_EXCHANGE_FAILED status=%s",
+            token_resp.status_code,
+        )
+        return RedirectResponse(url=f"{error_url}token_exchange_failed", status_code=302)
+
+    tokens = token_resp.json()
+    id_token = tokens.get("id_token", "")
+
+    # Verify ID token
+    with httpx.Client() as client:
+        info_resp = client.get(GOOGLE_TOKENINFO_URL, params={"id_token": id_token})
+    if info_resp.status_code != 200:
+        audit.warning("MOBILE_OAUTH_ID_TOKEN_INVALID status=%s", info_resp.status_code)
+        return RedirectResponse(url=f"{error_url}invalid_id_token", status_code=302)
+
+    info = info_resp.json()
+    email = info.get("email", "")
+    name = info.get("name", info.get("given_name", ""))
+
+    # Verify audience
+    if info.get("aud") != GOOGLE_CLIENT_ID:
+        audit.warning("MOBILE_OAUTH_AUDIENCE_MISMATCH aud=%s", info.get("aud"))
+        return RedirectResponse(url=f"{error_url}audience_mismatch", status_code=302)
+
+    # Check allowlist
+    user = db.query(AllowedUser).filter(AllowedUser.email == email).first()
+    if not user:
+        audit.warning("MOBILE_OAUTH_DENIED email=%s reason=not_in_allowlist", email)
+        return RedirectResponse(url=f"{error_url}not_authorized", status_code=302)
+
+    # Issue JWT and redirect to app
+    audit.info("MOBILE_LOGIN_SUCCESS email=%s role=%s", user.email, user.role)
+    jwt_token = create_jwt(user.email, user.name, user.role)
+    redirect = RedirectResponse(
+        url=f"{MOBILE_APP_SCHEME}://auth?token={jwt_token}",
+        status_code=302,
+    )
+    redirect.delete_cookie("mobile_oauth_state")
+    return redirect
+
+
+# ---------------------------------------------------------------------------
+# Token refresh
+# ---------------------------------------------------------------------------
+
+
+class TokenResponse(BaseModel):
+    token: str
+    email: str
+    name: str
+    role: str
+
+
+@router.post("/refresh", response_model=TokenResponse)
+def refresh_token(
+    request: Request,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Exchange a valid (or recently expired) JWT for a fresh one.
+
+    Accepts the token via Authorization: Bearer header or session_token cookie.
+    Allows tokens expired by up to 24 hours to be refreshed (grace period).
+    """
+    # Extract token from Bearer header or cookie
+    auth_header = request.headers.get("Authorization", "")
+    token: str | None = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+    if not token:
+        token = request.cookies.get("session_token")
+    if not token:
+        raise HTTPException(401, detail="No token provided")
+
+    # Decode with leeway for recently expired tokens (24h grace)
+    import jwt as pyjwt
+
+    from auth import JWT_ALGORITHM, JWT_SECRET
+
+    try:
+        payload = pyjwt.decode(
+            token,
+            JWT_SECRET,
+            algorithms=[JWT_ALGORITHM],
+            options={"verify_exp": True},
+            leeway=timedelta(hours=24),
+        )
+    except pyjwt.ExpiredSignatureError:
+        audit.warning("REFRESH_DENIED reason=token_too_old")
+        raise HTTPException(401, detail="Token too old to refresh")
+    except pyjwt.InvalidTokenError:
+        audit.warning("REFRESH_DENIED reason=invalid_token")
+        raise HTTPException(401, detail="Invalid token")
+
+    email = payload.get("sub", "")
+    user = db.query(AllowedUser).filter(AllowedUser.email == email).first()
+    if not user:
+        audit.warning("REFRESH_DENIED email=%s reason=not_in_allowlist", email)
+        raise HTTPException(401, detail="User not found in allowlist")
+
+    new_token = create_jwt(user.email, user.name, user.role)
+    audit.info("TOKEN_REFRESHED email=%s", user.email)
+    return TokenResponse(
+        token=new_token,
+        email=user.email,
+        name=user.name,
+        role=user.role,
+    )

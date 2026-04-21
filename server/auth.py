@@ -62,12 +62,20 @@ def get_current_user(
     db: Session = Depends(get_db),
     key: str | None = Security(_header),
 ) -> AllowedUser:
-    """Authenticate via JWT cookie first, then fall back to API key.
+    """Authenticate via Bearer token, JWT cookie, or API key (in that order).
 
     Returns the AllowedUser record for the authenticated user.
     """
-    # Try JWT cookie first
-    token = request.cookies.get("session_token")
+    # Try Authorization: Bearer header first (mobile clients)
+    auth_header = request.headers.get("Authorization", "")
+    token: str | None = None
+    if auth_header.startswith("Bearer "):
+        token = auth_header[7:]
+
+    # Fall back to JWT cookie (web clients)
+    if not token:
+        token = request.cookies.get("session_token")
+
     if token:
         payload = decode_jwt(token)
         email = payload.get("sub", "")

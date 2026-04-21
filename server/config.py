@@ -20,3 +20,8 @@ OAUTH_REDIRECT_URI = os.getenv(
     "http://localhost:8000/api/v1/auth/callback",
 )
 FRONTEND_URL = os.getenv("FRONTEND_URL", "http://localhost:5173")
+MOBILE_REDIRECT_URI = os.getenv(
+    "MOBILE_REDIRECT_URI",
+    "http://localhost:8000/api/v1/auth/mobile/callback",
+)
+MOBILE_APP_SCHEME = os.getenv("MOBILE_APP_SCHEME", "recipeapp")
