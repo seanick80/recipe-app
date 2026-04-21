@@ -83,15 +83,55 @@
 - Frontend `client.ts` updated: `VITE_API_URL` env var for production base URL
 - gcloud CLI installed locally (`/c/Program Files (x86)/Google/Cloud SDK/`)
 
-**GCP Console action required:** Add production OAuth redirect URI:
+**GCP Console action required:** ~~Add production OAuth redirect URI~~ DONE (verified 2026-04-21)
 `https://recipe-api-972511622379.us-west1.run.app/api/v1/auth/callback`
 
-## Not Started
+## In Progress
 
-### Step 3: Sync Bridge
-- CloudKit server-to-server API
-- Bidirectional sync: iOS ↔ PostgreSQL
-- Conflict resolution strategy TBD
+### Step 3: Sync Bridge — Investigation (2026-04-21)
+
+**CloudKit S2S key setup — DONE:**
+- Generated EC P-256 private key: `secrets/cloudkit_server_key.pem`
+- Public key uploaded to CloudKit Dashboard (development environment)
+- Key ID: `e5b711ffebc17e0e0d58ce8ae056b1c798adecaa02c0ea2293ba1181f8e98250`
+- Test script: `scripts/test_cloudkit_api.py` (Python, uses `ecdsa` library)
+- Auth confirmed working: public zone listing returns 200
+
+**Critical finding: S2S keys CANNOT access the private database.**
+- Public DB: 200 OK (zones list works)
+- Private DB: 500 INTERNAL_ERROR on every operation (zones/list, records/query)
+- This is an Apple platform limitation, not a bug — S2S keys are scoped to public DB
+- The proposal flagged this as the #1 risk, and it materialized
+
+**CloudKit record structure confirmed (via Dashboard):**
+- Record types use `CD_` prefix: `CD_Recipe`, `CD_Ingredient`, `CD_GroceryList`, etc.
+- Fields also use `CD_` prefix with camelCase: `CD_cookTimeMinutes` (int64), etc.
+- SwiftData records live in the private database `com.apple.coredata.cloudkit.zone`
+- Also found: `Users` record type
+
+**S2S key is in development only.** No key exists in production environment.
+To use S2S in production, would need to deploy schema to production and create a new key there.
+
+**Decision needed — two sync approaches:**
+
+1. **iOS-initiated sync (recommended fallback from proposal)**
+   - iOS app pushes/pulls to FastAPI via `BGAppRefreshTask`
+   - Web edits go to PostgreSQL, iOS pulls on next background sync
+   - No CloudKit Web Services needed at all
+   - Simpler, no private DB access issue
+   - Requires iOS app changes (new SyncService + background task)
+
+2. **CloudKit JS with user auth (complex)**
+   - User authenticates via Apple ID on the web
+   - Gets a user token that CAN access private DB
+   - Much more complex, requires Apple ID sign-in on web
+   - Doesn't work for automated/background sync
+
+**Installed tooling:**
+- `ecdsa` Python package in server venv
+- gcloud CLI at `/c/Program Files (x86)/Google/Cloud SDK/`
+
+## Not Started
 
 ### Step 5: Multi-user
 - Anna: shared shopping lists, recipe voting
@@ -107,6 +147,8 @@
 | Google OAuth client ID | `secrets/google_oauth.env`, `server/.env` | OAuth login |
 | Google OAuth client secret | `secrets/google_oauth.env`, `server/.env` | OAuth login |
 | JWT secret | `server/.env` | Session tokens |
+| CloudKit S2S private key | `secrets/cloudkit_server_key.pem` | CloudKit Web Services (dev env only) |
+| CloudKit S2S Key ID | `e5b711ff...8e98250` | CloudKit Web Services auth header |
 
 ## GCP Console Action Required
 
