@@ -9,8 +9,9 @@ build/test/lint commands see `README.md` and `CLAUDE.md`.
 ## One-screen summary
 
 - Single-user iOS app. Persistence is **SwiftData + CloudKit private DB**.
-  No backend server is deployed. The `server/` directory is a future-work
-  placeholder.
+- **Web editor**: FastAPI backend deployed on **Google Cloud Run**
+  (`https://recipe-api-972511622379.us-west1.run.app`), React SPA frontend,
+  Neon PostgreSQL. iOS and web are not yet synced (Step 3).
 - Windows is the primary dev environment. The iOS build is cross-compiled
   on **Codemagic** from the pushed git repo. No Mac is involved in the
   dev loop.
@@ -66,7 +67,7 @@ scripts/                     Bash scripts that glue everything together
 docs/                        This file
 secrets/                     Local-only key material (gitignored). Signing
                              identities actually live in Codemagic's store.
-server/                      FastAPI skeleton (not deployed; future work)
+server/                      FastAPI backend (deployed on Cloud Run)
 database/                    SQL schema + seed (not used by iOS today)
 data/                        Layout-bench fixtures + golden outputs
 
@@ -111,13 +112,17 @@ Git LFS, and pushed — that's how CoreML models get into the repo.
 
 ## Persistence + sync
 
-- SwiftData with `ModelConfiguration(cloudKitDatabase: .private("iCloud.com.seanick80.recipeapp"))`.
+- **iOS**: SwiftData with `ModelConfiguration(cloudKitDatabase: .private("iCloud.com.seanick80.recipeapp"))`.
 - CloudKit constraints observed on every `@Model`:
   every stored property is defaulted or optional, every relationship is
   optional with explicit `inverse:`, no `@Attribute(.unique)` anywhere.
-- No backend server today. The `GroceryItem.sourceRecipeName` /
-  `sourceRecipeId` fields are string-based traceability (not FKs) so
-  cascade deletes don't cross zone boundaries.
+- **Web**: FastAPI + SQLAlchemy + Neon PostgreSQL (free tier, us-west-2).
+  Google OAuth + JWT cookie auth, API key for scripts.
+- **Sync**: iOS (CloudKit) and web (PostgreSQL) are **independent** today.
+  Step 3 (Sync Bridge) will add CloudKit server-to-server bidirectional sync.
+- The `GroceryItem.sourceRecipeName` / `sourceRecipeId` fields are
+  string-based traceability (not FKs) so cascade deletes don't cross zone
+  boundaries.
 
 ## Scan pipeline
 
@@ -196,7 +201,9 @@ New parsing / classification logic gets a corresponding
 
 See `BACKLOG.md` for full reasoning.
 
-- **No hosted backend.** CloudKit private DB covers single-user sync.
+- **Backend is read/write for web only.** iOS still uses CloudKit private DB
+  for persistence. The FastAPI server on Cloud Run serves the React SPA and
+  is not yet synced with CloudKit (Step 3: Sync Bridge).
 - **No cloud LLM calls.** Every vision/OCR step runs on-device.
 - **No multi-language support.** English-only assumptions are pervasive
   (Vision `recognitionLanguages`, categorizer keywords, section headers,
