@@ -13,18 +13,26 @@ actor APIClient {
 
     func fetchRecipes() async throws -> [RecipeDTO] {
         let url = baseURL.appendingPathComponent("recipes")
-        let (data, _) = try await session.data(from: url)
+        let (data, _) = try await session.data(for: authorizedRequest(for: url))
         return try JSONDecoder().decode([RecipeDTO].self, from: data)
     }
 
     func createRecipe(_ recipe: RecipeDTO) async throws -> RecipeDTO {
         let url = baseURL.appendingPathComponent("recipes")
-        var request = URLRequest(url: url)
+        var request = authorizedRequest(for: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try JSONEncoder().encode(recipe)
         let (data, _) = try await session.data(for: request)
         return try JSONDecoder().decode(RecipeDTO.self, from: data)
+    }
+
+    private func authorizedRequest(for url: URL) -> URLRequest {
+        var request = URLRequest(url: url)
+        if let token = KeychainService.loadToken() {
+            request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+        }
+        return request
     }
 }
 

@@ -2,11 +2,27 @@ import SwiftUI
 
 struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var authService: AuthService
     @AppStorage("improvementReportingEnabled") private var improvementReporting = false
 
     var body: some View {
         NavigationStack {
             Form {
+                if let user = authService.currentUser {
+                    Section("Account") {
+                        LabeledContent("Name", value: user.name)
+                        LabeledContent("Email", value: user.email)
+                        LabeledContent("Role", value: user.role.capitalized)
+                    }
+
+                    Section {
+                        Button("Sign Out", role: .destructive) {
+                            authService.logout()
+                            dismiss()
+                        }
+                    }
+                }
+
                 Section {
                     Toggle("Help improve imports", isOn: $improvementReporting)
                 } footer: {

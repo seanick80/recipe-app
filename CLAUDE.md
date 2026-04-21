@@ -98,6 +98,41 @@ Key ID pairs for App Store Connect API keys. If any of these are ever
 added by mistake, stop and ask — do not just `git rm` because they may
 already be in the remote history.
 
+## Authentication
+
+The app uses Google OAuth + JWT for authentication across all clients.
+
+### Server Auth (FastAPI)
+- **Web flow**: `/api/v1/auth/login` → Google OAuth → session cookie (`session_token`)
+- **Mobile flow**: `/api/v1/auth/mobile/login` → Google OAuth → redirect to `recipeapp://auth?token=<jwt>`
+- **Token refresh**: `POST /api/v1/auth/refresh` — accepts Bearer or cookie, 24h grace period for expired tokens
+- **Auth priority** in `get_current_user`: Bearer header → cookie → API key
+- JWT: HS256, 7-day expiry, claims: `sub` (email), `name`, `role`
+- Allowlist-based: only users in `AllowedUser` table can authenticate
+
+### iOS Auth Client
+- **OAuth**: `ASWebAuthenticationSession` opens `/api/v1/auth/mobile/login`, captures `recipeapp://auth?token=<jwt>` redirect
+- **Token storage**: Keychain (`KeychainService.swift`) with `kSecAttrAccessibleAfterFirstUnlock`
+- **API calls**: `APIClient` attaches `Authorization: Bearer <token>` to all requests
+- **Session restore**: On launch, validates stored token via `/auth/me`; refreshes if 401
+- **UI gate**: App shows `LoginView` until authenticated, then `ContentView`
+- **Settings**: Account info (name, email, role) + sign out in `SettingsView`
+- **URL scheme**: `recipeapp://` registered in `project.yml` for OAuth callback
+
+### Auth Endpoints
+| Endpoint | Method | Purpose |
+|----------|--------|---------|
+| `/api/v1/auth/login` | GET | Web OAuth redirect |
+| `/api/v1/auth/callback` | GET | Web OAuth callback |
+| `/api/v1/auth/mobile/login` | GET | Mobile OAuth redirect |
+| `/api/v1/auth/mobile/callback` | GET | Mobile OAuth callback |
+| `/api/v1/auth/me` | GET | Current user info |
+| `/api/v1/auth/refresh` | POST | Token refresh |
+| `/api/v1/auth/logout` | POST | Clear session (web) |
+| `/api/v1/auth/invite` | POST | Invite user (admin) |
+| `/api/v1/auth/users` | GET | List users (admin) |
+| `/api/v1/auth/users/{id}` | DELETE | Remove user (admin) |
+
 ## Backend Server
 ```bash
 cd server
@@ -105,7 +140,7 @@ pip install -r requirements.txt
 uvicorn main:app --reload --port 8000
 ```
 - Neon PostgreSQL (free tier, SSL enforced)
-- Google OAuth + JWT cookie auth (allowlist-based)
+- Google OAuth + JWT auth (allowlist-based, Bearer + cookie + API key)
 - Server logs: `server/logs/server.log`, `server/logs/audit.log`
 
 ## Frontend (Web)
@@ -131,7 +166,7 @@ When adding a field: update `canonical.yaml` first, then propagate to each surfa
 
 ## Testing
 ```bash
-# All tests (Windows) — 300 tests across 15 Swift suites + 41 server tests
+# All tests (Windows) — 300 tests across 15 Swift suites + 49 server tests
 ./scripts/test.sh
 
 # Full build validation (lint + tests + config)

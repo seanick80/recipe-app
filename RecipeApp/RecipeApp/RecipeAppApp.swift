@@ -4,6 +4,8 @@ import SwiftUI
 @main
 struct RecipeAppApp: App {
     @Environment(\.scenePhase) private var scenePhase
+    @StateObject private var authService = AuthService()
+
     var sharedModelContainer: ModelContainer = {
         let schema = Schema([
             Recipe.self,
@@ -32,18 +34,25 @@ struct RecipeAppApp: App {
 
     var body: some Scene {
         WindowGroup {
-            ContentView()
-                .onAppear { importService.checkForPendingImports() }
-                .onChange(of: scenePhase) { _, newPhase in
-                    if newPhase == .active {
-                        importService.checkForPendingImports()
-                    }
+            Group {
+                if authService.isAuthenticated {
+                    ContentView()
+                        .onAppear { importService.checkForPendingImports() }
+                        .onChange(of: scenePhase) { _, newPhase in
+                            if newPhase == .active {
+                                importService.checkForPendingImports()
+                            }
+                        }
+                        .sheet(isPresented: $importService.showingImportReview) {
+                            if let recipe = importService.pendingRecipe {
+                                ImportReviewView(recipe: recipe, importService: importService)
+                            }
+                        }
+                } else {
+                    LoginView()
                 }
-                .sheet(isPresented: $importService.showingImportReview) {
-                    if let recipe = importService.pendingRecipe {
-                        ImportReviewView(recipe: recipe, importService: importService)
-                    }
-                }
+            }
+            .environmentObject(authService)
         }
         .modelContainer(sharedModelContainer)
     }
