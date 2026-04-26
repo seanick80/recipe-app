@@ -14,6 +14,7 @@ struct ShoppingListDetailView: View {
     @State private var scanProcessor = ScanProcessor()
     @State private var showingCameraPermissionAlert = false
     @State private var showingClearAllConfirmation = false
+    @State private var editingItem: GroceryItem?
 
     var body: some View {
         List {
@@ -21,6 +22,10 @@ struct ShoppingListDetailView: View {
                 Section(category) {
                     ForEach(items) { item in
                         GroceryItemRow(item: item)
+                            .contentShape(Rectangle())
+                            .onTapGesture {
+                                editingItem = item
+                            }
                     }
                     .onDelete { offsets in
                         for index in offsets {
@@ -99,6 +104,9 @@ struct ShoppingListDetailView: View {
             if hasResults {
                 showingScanReview = true
             }
+        }
+        .sheet(item: $editingItem) { item in
+            EditGroceryItemView(item: item)
         }
         .alert("Camera Access Required", isPresented: $showingCameraPermissionAlert) {
             Button("Open Settings") {
