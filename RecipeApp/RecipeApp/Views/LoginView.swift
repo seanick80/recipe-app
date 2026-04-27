@@ -9,7 +9,7 @@ struct LoginView: View {
 
             Image(systemName: "book.closed.fill")
                 .font(.system(size: 72))
-                .foregroundStyle(.accent)
+                .foregroundStyle(.tint)
 
             Text("Recipe App")
                 .font(.largeTitle.bold())
@@ -29,7 +29,7 @@ struct LoginView: View {
                     .font(.headline)
                     .frame(maxWidth: .infinity)
                     .padding()
-                    .background(.accent)
+                    .background(.tint)
                     .foregroundStyle(.white)
                     .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
