@@ -35,10 +35,7 @@ targets:
     dependencies:
       - target: ShareExtension
     info:
-      properties:
-        CFBundleURLTypes:
-          - CFBundleURLSchemes:
-              - recipeapp
+      path: RecipeApp/Info.plist
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp

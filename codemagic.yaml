@@ -60,9 +60,12 @@ workflows:
     scripts:
       - name: Install xcodegen
         script: |
+          set -euo pipefail
           brew install xcodegen
+          xcodegen --version
       - name: Copy shared parser modules into iOS sources
         script: |
+          set -euo pipefail
           mkdir -p RecipeApp/RecipeApp/Parsers
           cp SharedLogic/ListLineParser.swift \
              SharedLogic/OCRParser.swift \
@@ -78,8 +81,11 @@ workflows:
              SharedLogic/FuzzyMatcher.swift \
              SharedLogic/RecipeSchemaParser.swift \
              RecipeApp/RecipeApp/Parsers/
+          echo "Copied $(ls RecipeApp/RecipeApp/Parsers/ | wc -l) files to Parsers/"
+          ls -la RecipeApp/RecipeApp/Parsers/
       - name: Generate Xcode project
         script: |
+          set -euo pipefail
           cd RecipeApp
           xcodegen generate
       - name: Bump CFBundleVersion for TestFlight upload
@@ -266,9 +272,12 @@ workflows:
           du -sh RecipeApp/RecipeApp/MLModels/*.mlpackage
       - name: Install xcodegen
         script: |
+          set -euo pipefail
           brew install xcodegen
+          xcodegen --version
       - name: Prepare Xcode project for tests
         script: |
+          set -euo pipefail
           mkdir -p RecipeApp/RecipeApp/Parsers
           cp SharedLogic/ListLineParser.swift \
              SharedLogic/OCRParser.swift \
@@ -284,6 +293,8 @@ workflows:
              SharedLogic/FuzzyMatcher.swift \
              SharedLogic/RecipeSchemaParser.swift \
              RecipeApp/RecipeApp/Parsers/
+          echo "Copied $(ls RecipeApp/RecipeApp/Parsers/ | wc -l) files to Parsers/"
+          ls -la RecipeApp/RecipeApp/Parsers/
           cd RecipeApp
           xcodegen generate
       - name: Run ML model tests
