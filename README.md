@@ -22,10 +22,14 @@ A full-stack recipe and grocery list iOS app with local-first architecture.
 
 ### Grocery Lists
 - Create grocery lists manually or generate from selected recipes
+- Import recipe ingredients into an existing list (preserves manual items)
+- Duplicate items merged automatically on import (same name + unit → quantity summed)
 - Auto-categorization of items into store aisles (Produce, Dairy, Meat, etc.)
+- Tap any item to edit name, quantity, unit, or category
 - Items organized by category with manual override via Edit
 - Check/uncheck items with strikethrough
 - Remove all checked items or uncheck all
+- Merge multiple lists with duplicate consolidation
 - Ingredient consolidation when generating from multiple recipes
 
 ### Settings

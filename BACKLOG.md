@@ -20,8 +20,10 @@ Currently the iOS app writes to SwiftData/CloudKit and the server is a
 separate island. To share anything, the server must own the data.
 
 **Work required**:
-- **Auth on iOS**: Server has Google OAuth + JWT. Add sign-in flow to iOS
-  (Google Sign-In SDK → exchange for JWT → store in Keychain).
+- ~~**Auth on iOS**: Server has Google OAuth + JWT. Add sign-in flow to iOS
+  (Google Sign-In SDK → exchange for JWT → store in Keychain).~~ **Done**
+  (2026-04-22): `ASWebAuthenticationSession` → server OAuth → JWT in
+  Keychain. `LoginView` gates app access. `APIClient` sends Bearer token.
 - **Sync protocol**: On app launch and periodically, sync local SwiftData
   with server. Conflict resolution: server wins (last-write-wins by
   `updatedAt`). Offline edits queue locally and push on next connectivity.
