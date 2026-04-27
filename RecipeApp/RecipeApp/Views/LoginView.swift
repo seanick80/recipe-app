@@ -44,6 +44,12 @@ struct LoginView: View {
                     .padding(.horizontal)
             }
 
+            Button("Continue without signing in") {
+                authService.skipLogin()
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
+
             Spacer()
             Spacer()
         }

@@ -22,7 +22,9 @@ final class AuthService: ObservableObject {
 
     private let baseURL: URL
 
-    var isAuthenticated: Bool { currentUser != nil }
+    @Published var skippedLogin = false
+
+    var isAuthenticated: Bool { currentUser != nil || skippedLogin }
     var token: String? { KeychainService.loadToken() }
 
     init(baseURL: URL = URL(string: "http://localhost:8000/api/v1/auth")!) {
@@ -143,9 +145,14 @@ final class AuthService: ObservableObject {
 
     // MARK: - Logout
 
+    func skipLogin() {
+        skippedLogin = true
+    }
+
     func logout() {
         KeychainService.deleteToken()
         currentUser = nil
+        skippedLogin = false
         error = nil
     }
 
