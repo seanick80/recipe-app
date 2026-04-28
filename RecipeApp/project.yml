@@ -9,7 +9,7 @@ options:
 packages:
   GoogleSignIn-iOS:
     url: https://github.com/google/GoogleSignIn-iOS
-    from: "9.0.0"
+    from: "8.0.0"
 
 settings:
   base:
@@ -45,6 +45,15 @@ targets:
         product: GoogleSignInSwift
     info:
       path: RecipeApp/Info.plist
+      properties:
+        GIDClientID: "972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com"
+        GIDServerClientID: "972511622379-s2ivecpg4492gg7dbq21c3ev3slqeukp.apps.googleusercontent.com"
+        CFBundleURLTypes:
+          - CFBundleTypeRole: Editor
+            CFBundleURLSchemes:
+              - "com.googleusercontent.apps.972511622379-mak8qoj1corsaria7f2k8ainq715al7u"
+          - CFBundleURLSchemes:
+              - recipeapp
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp
