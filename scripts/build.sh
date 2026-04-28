@@ -66,13 +66,15 @@ else
         "CODE_SIGN_ENTITLEMENTS: RecipeApp/RecipeApp.entitlements"
         # Universal iOS bundles must declare iPad orientations or altool
         # rejects the TestFlight upload with a 409 validation error.
-        # See project.yml comment for the iPhone-only alternative.
-        "INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad"
+        "UISupportedInterfaceOrientations~ipad"
         # CameraViewModel uses CMMotionManager; without this string iOS
         # terminates the app the first time motion updates start.
-        "INFOPLIST_KEY_NSMotionUsageDescription"
+        "NSMotionUsageDescription"
         # Avoids the per-build Export Compliance prompt in App Store Connect.
-        "INFOPLIST_KEY_ITSAppUsesNonExemptEncryption"
+        "ITSAppUsesNonExemptEncryption"
+        # Google Sign-In requires reversed client ID URL scheme
+        "GIDClientID"
+        "CFBundleURLTypes"
     )
     for key in "${REQUIRED_KEYS[@]}"; do
         if ! grep -Fq "$key" RecipeApp/project.yml; then

@@ -46,6 +46,7 @@ targets:
     info:
       path: RecipeApp/Info.plist
       properties:
+        # Google Sign-In
         GIDClientID: "972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com"
         GIDServerClientID: "972511622379-s2ivecpg4492gg7dbq21c3ev3slqeukp.apps.googleusercontent.com"
         CFBundleURLTypes:
@@ -54,32 +55,35 @@ targets:
               - "com.googleusercontent.apps.972511622379-mak8qoj1corsaria7f2k8ainq715al7u"
           - CFBundleURLSchemes:
               - recipeapp
+        # Launch screen (replaces INFOPLIST_KEY_UILaunchScreen_Generation)
+        UILaunchScreen: {}
+        # Scene manifest (replaces INFOPLIST_KEY_UIApplicationSceneManifest_Generation)
+        UIApplicationSceneManifest:
+          UIApplicationSupportsMultipleScenes: false
+        # Orientations
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # iPad requires all four orientations for multitasking support. altool
+        # (TestFlight validator) rejects universal iOS bundles with a 409
+        # "No orientations were specified" unless this key is set.
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
+        # Privacy usage descriptions
+        NSCameraUsageDescription: "Camera is used to scan barcodes, shopping lists, and recipes"
+        NSMotionUsageDescription: "Motion data is used to coach you to hold the phone level while scanning"
+        # Skip the per-build "Export Compliance" prompt in App Store Connect.
+        ITSAppUsesNonExemptEncryption: false
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.seanick80.recipeapp
         CODE_SIGN_ENTITLEMENTS: RecipeApp/RecipeApp.entitlements
-        GENERATE_INFOPLIST_FILE: "YES"
-        INFOPLIST_KEY_UILaunchScreen_Generation: "YES"
-        INFOPLIST_KEY_UIApplicationSceneManifest_Generation: "YES"
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPhone: "UIInterfaceOrientationPortrait UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
-        # iPad requires all four orientations for multitasking support. altool
-        # (TestFlight validator) rejects universal iOS bundles with a 409
-        # "No orientations were specified" unless this key is set, even if the
-        # app will rarely be launched on iPad. To ship iPhone-only instead,
-        # set TARGETED_DEVICE_FAMILY: "1" and drop this key.
-        INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad: "UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight"
         CURRENT_PROJECT_VERSION: "1"
         MARKETING_VERSION: "0.2.0"
-        INFOPLIST_KEY_NSCameraUsageDescription: "Camera is used to scan barcodes, shopping lists, and recipes"
-        # CoreMotion is used by the camera-preview tilt coach. Without this
-        # string iOS kills the app the moment we call
-        # `CMMotionManager.startDeviceMotionUpdates` — see CameraViewModel.
-        INFOPLIST_KEY_NSMotionUsageDescription: "Motion data is used to coach you to hold the phone level while scanning"
-        # Skip the per-build "Export Compliance" prompt in App Store Connect.
-        # The app uses only HTTPS (URLSession) which is exempt; no custom
-        # crypto is bundled. If that ever changes (e.g. we add an encrypted
-        # local cache), flip this to true and answer the prompts in ASC.
-        INFOPLIST_KEY_ITSAppUsesNonExemptEncryption: "NO"
 
   ShareExtension:
     type: app-extension
