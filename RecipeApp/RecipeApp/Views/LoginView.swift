@@ -22,7 +22,7 @@ struct LoginView: View {
             if authService.isLoading {
                 ProgressView("Signing in…")
             } else {
-                GoogleSignInButton(style: .wide, scheme: .dark) {
+                GoogleSignInButton(scheme: .dark, style: .wide) {
                     authService.login()
                 }
                 .padding(.horizontal, 40)
