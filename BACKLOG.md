@@ -19,21 +19,69 @@ made (into an issue, into the plan, or deleted with a reason).
 Currently the iOS app writes to SwiftData/CloudKit and the server is a
 separate island. To share anything, the server must own the data.
 
-**Work required**:
-- ~~**Auth on iOS**: Server has Google OAuth + JWT. Add sign-in flow to iOS
-  (Google Sign-In SDK → exchange for JWT → store in Keychain).~~ **Done**
-  (2026-04-27): Migrated from `ASWebAuthenticationSession` (broken on device —
-  routed to localhost) to native Google Sign-In iOS SDK. Flow: native Google
-  sheet → ID token → `POST /auth/mobile/google` → server verifies token via
+**Status**: Auth complete (2026-04-27). Sync protocol is next.
+
+**Auth (DONE)**:
+- ~~Auth on iOS~~ — Native Google Sign-In SDK. Flow: native Google
+  sheet → ID token → `POST /auth/mobile/google` → server verifies via
   `google-auth` → JWT. "Continue without signing in" for local-only use.
-- **Sync protocol**: On app launch and periodically, sync local SwiftData
-  with server. Conflict resolution: server wins (last-write-wins by
-  `updatedAt`). Offline edits queue locally and push on next connectivity.
-- **Migration**: Existing local-only recipes need a one-time upload to
-  server on first sign-in.
-- **Schema alignment**: Server `Recipe`/`Ingredient` models already mirror
-  iOS. Verify parity and add any missing fields (e.g. `isFavorite`,
-  `imageData`).
+- Server redeployed to Cloud Run (2026-04-28) with `google-auth` +
+  `requests` dependencies. Endpoint live and verified.
+
+**Sync protocol (TODO)**:
+
+*First login flow*:
+1. User signs in with Google for the first time.
+2. App detects no server-side recipes for this user.
+3. All local SwiftData recipes uploaded to server in bulk
+   (`POST /api/v1/recipes` per recipe, or batch endpoint).
+4. Each local recipe gets a `serverId` stored locally for future sync.
+
+*Ongoing sync*:
+- On app launch + pull-to-refresh: fetch server recipe list with
+  `updatedAt` timestamps. Compare against local `updatedAt`.
+- **Server newer** → pull and overwrite local copy.
+- **Local newer** → push to server (`PUT /api/v1/recipes/:id`).
+- **New local recipe** (no `serverId`) → push to server, store returned ID.
+- **Deleted on server** (server returns 404 for known `serverId`) → mark
+  local as deleted (soft-delete, recoverable for 30 days).
+- **Deleted locally** → `DELETE /api/v1/recipes/:id` on server.
+- **Conflict** (both changed since last sync) → server wins, but stash
+  local version as "conflicted copy" the user can review.
+
+*Data safety (critical)*:
+- **Never delete without confirmation**: conflicting changes produce a
+  recoverable copy, not silent overwrite.
+- `needsSync: Bool` + `lastSyncedAt: Date?` + `serverId: String?` on
+  local `Recipe` model.
+- Offline edits queue locally and push on next connectivity.
+- All sync operations are idempotent (PUT with full recipe payload).
+
+*Server-side backup*:
+- Weekly automated DB backup (pg_dump or equivalent).
+- Keep 4 rolling backups (1 month of coverage).
+- Store in Cloud Storage bucket with lifecycle policy to auto-delete
+  older backups.
+- Manual restore script for disaster recovery.
+
+*Schema alignment*:
+- Server `Recipe`/`Ingredient` models already mirror iOS.
+- Verify field parity: `isFavorite`, `cuisine`, `course`, `tags`,
+  `sourceUrl`, `difficulty`, `isPublished`, `imageData`.
+- Add any missing fields to server before starting sync work.
+
+**Research done (2026-04-28)**:
+- Web frontend at `recipes.ouryearofwander.com` reads from server
+  Postgres via `GET /api/v1/recipes`. Currently shows placeholder data.
+- Frontend has full CRUD: `RecipeListPage`, `RecipeDetailPage`,
+  `RecipeEditorPage`. Auth-guarded editing. Login page exists at `/login`.
+- Server API already has `POST`, `PUT`, `PATCH`, `DELETE` for recipes.
+- iOS `Recipe` SwiftData model fields: `name`, `summary`, `instructions`,
+  `prepTimeMinutes`, `cookTimeMinutes`, `servings`, `cuisine`, `course`,
+  `tags`, `sourceUrl`, `difficulty`, `isFavorite`, `isPublished`,
+  ingredients (relationship).
+- Server `Recipe` SQLAlchemy model fields: same set, plus `created_at`,
+  `updated_at`, `user_id`.
 
 ### Share-by-link (read-only)
 The simplest sharing primitive. Covers 80% of use cases.
@@ -59,6 +107,42 @@ Connect cert from a script crash).
 ---
 
 ## P1 — Medium priority (valuable, not blocking)
+
+### Auto-populated staples from purchase history
+"Remove Checked" in the grocery store is a natural purchase signal. Use
+it to build purchase history and auto-suggest staples.
+
+**Model changes**:
+- `GroceryItem`: add `checkedAt: Date?` (set on check toggle),
+  `archivedAt: Date?` (set on "Remove Checked" — soft delete).
+- "Remove Checked" = archive (soft delete), not hard delete.
+  Items disappear from active view but stay in DB as purchase history.
+- Settings → "Clear Purchase History" for hard delete.
+
+**Staple suggestion logic**:
+- Query archived items grouped by normalized name.
+- Compute frequency: `appearances / weeks_of_history`.
+- Items with frequency >= 0.6 AND not already in template →
+  "Suggested Staples" section in TemplateEditorView.
+- User taps "Add" to promote a suggestion to the template.
+
+**Files to change**: `GroceryItem.swift`, `GroceryItemRow.swift`,
+`ShoppingListDetailView.swift`, `ShoppingViewModel.swift`,
+`TemplateEditorView.swift`, Settings view (new "Clear Purchase History").
+
+**User context**: Nick uses "Remove Checked" while walking through the
+store to keep the view clear. This workflow naturally captures purchase
+events with no extra taps.
+
+### Server-side recipe backup
+Weekly automated backup of the recipe Postgres database. Protects
+against sync bugs, accidental deletions, and data corruption.
+
+- `pg_dump` via Cloud Scheduler → Cloud Storage bucket.
+- 4 rolling weekly backups (1 month retention).
+- Lifecycle policy auto-deletes older backups.
+- Manual restore script (`scripts/restore-db-backup.sh`).
+- Consider: also export recipes as JSON for human-readable backup.
 
 ### Recipe images: step photos + hero image
 Recipes imported from the web often have images. Currently
