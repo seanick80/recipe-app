@@ -29,6 +29,8 @@ final class AuthService: ObservableObject {
 
     private static let iosClientID =
         "972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com"
+    private static let webClientID =
+        "972511622379-s2ivecpg4492gg7dbq21c3ev3slqeukp.apps.googleusercontent.com"
 
     init(baseURL: URL = URL(string: "https://recipe-api-972511622379.us-west1.run.app/api/v1/auth")!) {
         self.baseURL = baseURL
@@ -39,7 +41,10 @@ final class AuthService: ObservableObject {
     // MARK: - Google Sign-In Configuration
 
     private func configureGoogleSignIn() {
-        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: Self.iosClientID)
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(
+            clientID: Self.iosClientID,
+            serverClientID: Self.webClientID
+        )
     }
 
     // MARK: - Native Google Sign-In
@@ -49,14 +54,20 @@ final class AuthService: ObservableObject {
         error = nil
 
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-            let rootViewController = windowScene.windows.first?.rootViewController
+            let rootVC = windowScene.windows.first?.rootViewController
         else {
             isLoading = false
             error = "Cannot find root view controller"
             return
         }
 
-        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [weak self] result, signInError in
+        // Walk to the topmost presented VC (sheets, alerts, etc.)
+        var presentingVC = rootVC
+        while let presented = presentingVC.presentedViewController {
+            presentingVC = presented
+        }
+
+        GIDSignIn.sharedInstance.signIn(withPresenting: presentingVC) { [weak self] result, signInError in
             Task { @MainActor in
                 guard let self else { return }
 
