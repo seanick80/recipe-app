@@ -95,8 +95,10 @@ info "validating codemagic.yaml uses ASC API key integration"
 if ! grep -Fq "app_store_connect: recipe-app-appstore-key" codemagic.yaml; then
     err "codemagic.yaml missing app_store_connect integration"
 fi
-if grep -Fq "CODE_SIGNING_ALLOWED=NO" codemagic.yaml; then
-    err "codemagic.yaml still has CODE_SIGNING_ALLOWED=NO (remove for device builds)"
+# Only flag CODE_SIGNING_ALLOWED=NO if it appears in a non-diagnostic context
+# (the diagnostic plist-dump step uses it for unsigned simulator builds).
+if grep -B5 "CODE_SIGNING_ALLOWED=NO" codemagic.yaml | grep -q 'name: Build'; then
+    err "codemagic.yaml still has CODE_SIGNING_ALLOWED=NO in the Build step (remove for device builds)"
 fi
 # Signing uses explicit pre-uploaded identities under environment.ios_signing:
 # the persistent IOS_DISTRIBUTION .p12 (reference: ios_distribution_cert)

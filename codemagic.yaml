@@ -165,6 +165,45 @@ workflows:
           echo ""
           echo "=== Diagnostic step complete ==="
           exit 0  # always succeed
+      - name: Dump final RecipeApp Info.plist (diagnostic)
+        script: |
+          set +e
+          cd RecipeApp
+          echo "=== RecipeApp build settings (plist-related) ==="
+          SETTINGS=$(xcodebuild -project RecipeApp.xcodeproj \
+            -target RecipeApp -showBuildSettings 2>/dev/null)
+          echo "$SETTINGS" | grep -E 'INFOPLIST_FILE|GENERATE_INFOPLIST'
+
+          echo ""
+          echo "=== Source Info.plist (before Xcode processing) ==="
+          cat RecipeApp/Info.plist
+
+          echo ""
+          echo "=== Build RecipeApp for simulator to inspect processed plist ==="
+          xcodebuild build \
+            -project RecipeApp.xcodeproj \
+            -target RecipeApp \
+            -sdk iphonesimulator \
+            -configuration Debug \
+            CODE_SIGNING_ALLOWED=NO \
+            CONFIGURATION_BUILD_DIR=/tmp/recipeapp_debug \
+            2>&1 | tail -5 || true
+
+          APP=$(find /tmp/recipeapp_debug -name 'RecipeApp.app' -type d 2>/dev/null | head -1)
+          if [ -n "$APP" ]; then
+            echo ""
+            echo "=== Processed Info.plist in built .app ==="
+            plutil -p "$APP/Info.plist"
+            echo ""
+            echo "=== CFBundleURLTypes check ==="
+            plutil -extract CFBundleURLTypes json "$APP/Info.plist" 2>/dev/null || echo "CFBundleURLTypes NOT FOUND in built plist"
+            echo ""
+            echo "=== GIDClientID check ==="
+            plutil -extract GIDClientID raw "$APP/Info.plist" 2>/dev/null || echo "GIDClientID NOT FOUND in built plist"
+          else
+            echo "No RecipeApp.app found under /tmp/recipeapp_debug"
+          fi
+          exit 0
       - name: Apply provisioning profiles to Xcode project
         script: |
           xcode-project use-profiles

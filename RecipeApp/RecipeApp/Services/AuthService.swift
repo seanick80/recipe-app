@@ -36,6 +36,21 @@ final class AuthService: ObservableObject {
         self.baseURL = baseURL
         configureGoogleSignIn()
         restoreSession()
+        restoreGoogleSignIn()
+    }
+
+    // MARK: - Restore Previous Google Sign-In
+
+    private func restoreGoogleSignIn() {
+        GIDSignIn.sharedInstance.restorePreviousSignIn { [weak self] user, error in
+            // If the user already has a JWT we don't need to re-exchange.
+            // This just keeps the Google SDK session warm for silent re-auth.
+            if let error {
+                print("[AuthService] restorePreviousSignIn: \(error.localizedDescription)")
+            } else if user != nil {
+                print("[AuthService] Google session restored")
+            }
+        }
     }
 
     // MARK: - Google Sign-In Configuration
@@ -52,6 +67,19 @@ final class AuthService: ObservableObject {
     func login() {
         isLoading = true
         error = nil
+
+        // Pre-flight: verify the reversed-client-ID URL scheme is registered
+        // in the built app bundle. GIDSignIn crashes (NSException) if missing.
+        let expectedScheme = "com.googleusercontent.apps.972511622379-mak8qoj1corsaria7f2k8ainq715al7u"
+        let urlTypes = Bundle.main.infoDictionary?["CFBundleURLTypes"] as? [[String: Any]] ?? []
+        let registeredSchemes = urlTypes.flatMap { $0["CFBundleURLSchemes"] as? [String] ?? [] }
+        if !registeredSchemes.contains(expectedScheme) {
+            isLoading = false
+            error =
+                "Google Sign-In misconfigured: reversed client ID URL scheme missing from app bundle. "
+                + "Registered schemes: \(registeredSchemes)"
+            return
+        }
 
         guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
             let rootVC = windowScene.windows.first?.rootViewController
