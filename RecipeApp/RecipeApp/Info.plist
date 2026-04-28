@@ -5,17 +5,23 @@
 	<key>CFBundleURLTypes</key>
 	<array>
 		<dict>
-			<key>CFBundleURLSchemes</key>
-			<array>
-				<string>recipeapp</string>
-			</array>
-		</dict>
-		<dict>
+			<key>CFBundleTypeRole</key>
+			<string>Editor</string>
 			<key>CFBundleURLSchemes</key>
 			<array>
 				<string>com.googleusercontent.apps.972511622379-mak8qoj1corsaria7f2k8ainq715al7u</string>
 			</array>
 		</dict>
+		<dict>
+			<key>CFBundleURLSchemes</key>
+			<array>
+				<string>recipeapp</string>
+			</array>
+		</dict>
 	</array>
+	<key>GIDClientID</key>
+	<string>972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com</string>
+	<key>GIDServerClientID</key>
+	<string>972511622379-s2ivecpg4492gg7dbq21c3ev3slqeukp.apps.googleusercontent.com</string>
 </dict>
 </plist>
