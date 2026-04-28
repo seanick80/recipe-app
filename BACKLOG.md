@@ -144,6 +144,13 @@ against sync bugs, accidental deletions, and data corruption.
 - Manual restore script (`scripts/restore-db-backup.sh`).
 - Consider: also export recipes as JSON for human-readable backup.
 
+**Anomaly detection**: Before writing the new backup, compare record
+count and file size against the previous week's backup. If either
+changes by more than 20%, **fail the backup** and email an alert
+(via `$RECIPIENT_EMAIL`). This catches sync bugs, runaway deletes,
+or corruption before the good backup gets rotated out. The previous
+week's backup is preserved untouched when the check fails.
+
 ### Recipe images: step photos + hero image
 Recipes imported from the web often have images. Currently
 `ImportedRecipe.imageURL` is extracted but never fetched or stored.
