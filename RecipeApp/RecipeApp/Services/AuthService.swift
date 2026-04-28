@@ -42,9 +42,7 @@ final class AuthService: ObservableObject {
     // MARK: - Restore Previous Google Sign-In
 
     private func restoreGoogleSignIn() {
-        GIDSignIn.sharedInstance.restorePreviousSignIn { [weak self] user, error in
-            // If the user already has a JWT we don't need to re-exchange.
-            // This just keeps the Google SDK session warm for silent re-auth.
+        GIDSignIn.sharedInstance.restorePreviousSignIn { user, error in
             if let error {
                 print("[AuthService] restorePreviousSignIn: \(error.localizedDescription)")
             } else if user != nil {
