@@ -6,6 +6,11 @@ options:
     iOS: "17.0"
   createIntermediateGroups: true
 
+packages:
+  GoogleSignIn-iOS:
+    url: https://github.com/google/GoogleSignIn-iOS
+    from: "8.0.0"
+
 settings:
   base:
     DEVELOPMENT_TEAM: 3JR8WTJUV6
@@ -34,6 +39,10 @@ targets:
       - path: RecipeApp
     dependencies:
       - target: ShareExtension
+      - package: GoogleSignIn-iOS
+        product: GoogleSignIn
+      - package: GoogleSignIn-iOS
+        product: GoogleSignInSwift
     info:
       path: RecipeApp/Info.plist
     settings:

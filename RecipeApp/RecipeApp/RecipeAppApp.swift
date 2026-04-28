@@ -52,6 +52,9 @@ struct RecipeAppApp: App {
                     LoginView()
                 }
             }
+            .onOpenURL { url in
+                authService.handleURL(url)
+            }
             .environmentObject(authService)
         }
         .modelContainer(sharedModelContainer)

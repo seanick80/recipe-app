@@ -104,28 +104,34 @@ The app uses Google OAuth + JWT for authentication across all clients.
 
 ### Server Auth (FastAPI)
 - **Web flow**: `/api/v1/auth/login` → Google OAuth → session cookie (`session_token`)
-- **Mobile flow**: `/api/v1/auth/mobile/login` → Google OAuth → redirect to `recipeapp://auth?token=<jwt>`
+- **Mobile flow (native)**: iOS sends Google ID token → `POST /api/v1/auth/mobile/google` → server verifies via `google-auth` library → returns JWT
+- **Mobile flow (legacy)**: `/api/v1/auth/mobile/login` → ASWebAuthenticationSession OAuth → redirect to `recipeapp://auth?token=<jwt>` (deprecated, kept for backwards compat)
 - **Token refresh**: `POST /api/v1/auth/refresh` — accepts Bearer or cookie, 24h grace period for expired tokens
 - **Auth priority** in `get_current_user`: Bearer header → cookie → API key
 - JWT: HS256, 7-day expiry, claims: `sub` (email), `name`, `role`
 - Allowlist-based: only users in `AllowedUser` table can authenticate
+- Server accepts tokens from both iOS client ID and web client ID
 
 ### iOS Auth Client
-- **OAuth**: `ASWebAuthenticationSession` opens `/api/v1/auth/mobile/login`, captures `recipeapp://auth?token=<jwt>` redirect
+- **OAuth**: Google Sign-In iOS SDK (`GoogleSignIn-iOS` SPM package). Native Google sign-in sheet → ID token → `POST /auth/mobile/google` → JWT
+- **iOS Client ID**: `972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com`
 - **Token storage**: Keychain (`KeychainService.swift`) with `kSecAttrAccessibleAfterFirstUnlock`
 - **API calls**: `APIClient` attaches `Authorization: Bearer <token>` to all requests
 - **Session restore**: On launch, validates stored token via `/auth/me`; refreshes if 401
 - **UI gate**: App shows `LoginView` until authenticated, then `ContentView`
+- **Skip login**: "Continue without signing in" allows local-only use without auth
 - **Settings**: Account info (name, email, role) + sign out in `SettingsView`
-- **URL scheme**: `recipeapp://` registered in `project.yml` for OAuth callback
+- **URL schemes**: `recipeapp://` (app links) + reversed iOS client ID (Google Sign-In redirect) in `Info.plist`
+- **URL handling**: `RecipeAppApp.onOpenURL` forwards to `GIDSignIn.sharedInstance.handle()`
 
 ### Auth Endpoints
 | Endpoint | Method | Purpose |
 |----------|--------|---------|
 | `/api/v1/auth/login` | GET | Web OAuth redirect |
 | `/api/v1/auth/callback` | GET | Web OAuth callback |
-| `/api/v1/auth/mobile/login` | GET | Mobile OAuth redirect |
-| `/api/v1/auth/mobile/callback` | GET | Mobile OAuth callback |
+| `/api/v1/auth/mobile/google` | POST | Native iOS token exchange |
+| `/api/v1/auth/mobile/login` | GET | Legacy mobile OAuth redirect |
+| `/api/v1/auth/mobile/callback` | GET | Legacy mobile OAuth callback |
 | `/api/v1/auth/me` | GET | Current user info |
 | `/api/v1/auth/refresh` | POST | Token refresh |
 | `/api/v1/auth/logout` | POST | Clear session (web) |

@@ -22,8 +22,10 @@ separate island. To share anything, the server must own the data.
 **Work required**:
 - ~~**Auth on iOS**: Server has Google OAuth + JWT. Add sign-in flow to iOS
   (Google Sign-In SDK → exchange for JWT → store in Keychain).~~ **Done**
-  (2026-04-22): `ASWebAuthenticationSession` → server OAuth → JWT in
-  Keychain. `LoginView` gates app access. `APIClient` sends Bearer token.
+  (2026-04-27): Migrated from `ASWebAuthenticationSession` (broken on device —
+  routed to localhost) to native Google Sign-In iOS SDK. Flow: native Google
+  sheet → ID token → `POST /auth/mobile/google` → server verifies token via
+  `google-auth` → JWT. "Continue without signing in" for local-only use.
 - **Sync protocol**: On app launch and periodically, sync local SwiftData
   with server. Conflict resolution: server wins (last-write-wins by
   `updatedAt`). Offline edits queue locally and push on next connectivity.

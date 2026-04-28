@@ -25,3 +25,7 @@ MOBILE_REDIRECT_URI = os.getenv(
     "http://localhost:8000/api/v1/auth/mobile/callback",
 )
 MOBILE_APP_SCHEME = os.getenv("MOBILE_APP_SCHEME", "recipeapp")
+GOOGLE_IOS_CLIENT_ID = os.getenv(
+    "GOOGLE_IOS_CLIENT_ID",
+    "972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com",
+)

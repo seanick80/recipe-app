@@ -1,5 +1,5 @@
-import AuthenticationServices
 import Foundation
+import GoogleSignIn
 
 struct AuthUser: Codable, Sendable {
     let email: String
@@ -27,61 +27,96 @@ final class AuthService: ObservableObject {
     var isAuthenticated: Bool { currentUser != nil || skippedLogin }
     var token: String? { KeychainService.loadToken() }
 
-    init(baseURL: URL = URL(string: "http://localhost:8000/api/v1/auth")!) {
+    private static let iosClientID =
+        "972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com"
+
+    init(baseURL: URL = URL(string: "https://recipe-api-972511622379.us-west1.run.app/api/v1/auth")!) {
         self.baseURL = baseURL
+        configureGoogleSignIn()
         restoreSession()
     }
 
-    // MARK: - OAuth Login
+    // MARK: - Google Sign-In Configuration
+
+    private func configureGoogleSignIn() {
+        GIDSignIn.sharedInstance.configuration = GIDConfiguration(clientID: Self.iosClientID)
+    }
+
+    // MARK: - Native Google Sign-In
 
     func login() {
         isLoading = true
         error = nil
 
-        let loginURL = baseURL.appendingPathComponent("mobile/login")
-        let scheme = "recipeapp"
-
-        let session = ASWebAuthenticationSession(
-            url: loginURL,
-            callbackURLScheme: scheme
-        ) { [weak self] callbackURL, authError in
-            Task { @MainActor in
-                guard let self else { return }
-                self.isLoading = false
-
-                if let authError {
-                    if (authError as NSError).code == ASWebAuthenticationSessionError.canceledLogin.rawValue {
-                        return
-                    }
-                    self.error = authError.localizedDescription
-                    return
-                }
-
-                guard let callbackURL,
-                    let components = URLComponents(url: callbackURL, resolvingAgainstBaseURL: false)
-                else {
-                    self.error = "Invalid callback URL"
-                    return
-                }
-
-                if let errorParam = components.queryItems?.first(where: { $0.name == "error" })?.value {
-                    self.error = errorParam.replacingOccurrences(of: "_", with: " ")
-                    return
-                }
-
-                guard let token = components.queryItems?.first(where: { $0.name == "token" })?.value else {
-                    self.error = "No token received"
-                    return
-                }
-
-                KeychainService.saveToken(token)
-                await self.fetchMe()
-            }
+        guard let windowScene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
+            let rootViewController = windowScene.windows.first?.rootViewController
+        else {
+            isLoading = false
+            error = "Cannot find root view controller"
+            return
         }
 
-        session.prefersEphemeralWebBrowserSession = false
-        session.presentationContextProvider = PresentationContextProvider.shared
-        session.start()
+        GIDSignIn.sharedInstance.signIn(withPresenting: rootViewController) { [weak self] result, signInError in
+            Task { @MainActor in
+                guard let self else { return }
+
+                if let signInError {
+                    self.isLoading = false
+                    let nsError = signInError as NSError
+                    if nsError.code == GIDSignInError.canceled.rawValue {
+                        return
+                    }
+                    self.error = signInError.localizedDescription
+                    return
+                }
+
+                guard let idToken = result?.user.idToken?.tokenString else {
+                    self.isLoading = false
+                    self.error = "No ID token from Google"
+                    return
+                }
+
+                await self.exchangeGoogleToken(idToken)
+            }
+        }
+    }
+
+    // MARK: - Token Exchange
+
+    private func exchangeGoogleToken(_ idToken: String) async {
+        let url = baseURL.appendingPathComponent("mobile/google")
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+
+        let body = ["id_token": idToken]
+        request.httpBody = try? JSONSerialization.data(withJSONObject: body)
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else {
+                isLoading = false
+                error = "Invalid server response"
+                return
+            }
+
+            if httpResponse.statusCode == 200 {
+                let tokenResponse = try JSONDecoder().decode(TokenResponse.self, from: data)
+                KeychainService.saveToken(tokenResponse.token)
+                currentUser = AuthUser(
+                    email: tokenResponse.email,
+                    name: tokenResponse.name,
+                    role: tokenResponse.role
+                )
+            } else if httpResponse.statusCode == 403 {
+                error = "Not authorized -- ask Nick for an invite"
+            } else {
+                error = "Authentication failed (status \(httpResponse.statusCode))"
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+        isLoading = false
     }
 
     // MARK: - Fetch Current User
@@ -150,6 +185,7 @@ final class AuthService: ObservableObject {
     }
 
     func logout() {
+        GIDSignIn.sharedInstance.signOut()
         KeychainService.deleteToken()
         currentUser = nil
         skippedLogin = false
@@ -166,19 +202,10 @@ final class AuthService: ObservableObject {
             isLoading = false
         }
     }
-}
 
-// MARK: - Presentation Context
+    // MARK: - URL Handling
 
-private final class PresentationContextProvider: NSObject, ASWebAuthenticationPresentationContextProviding {
-    static let shared = PresentationContextProvider()
-
-    func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
-        guard let scene = UIApplication.shared.connectedScenes.first as? UIWindowScene,
-            let window = scene.windows.first
-        else {
-            return ASPresentationAnchor()
-        }
-        return window
+    func handleURL(_ url: URL) {
+        GIDSignIn.sharedInstance.handle(url)
     }
 }

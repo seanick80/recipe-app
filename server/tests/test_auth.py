@@ -189,3 +189,92 @@ def test_refresh_with_invalid_token_returns_401(client):
         headers={"Authorization": "Bearer totally-invalid"},
     )
     assert response.status_code == 401
+
+
+# ---------------------------------------------------------------------------
+# Native Google Sign-In (POST /mobile/google)
+# ---------------------------------------------------------------------------
+
+
+def test_mobile_google_valid_token(client, monkeypatch):
+    """Valid Google ID token for an allowed user returns a JWT."""
+
+    def fake_verify(token, request, **kwargs):
+        return {
+            "aud": "test-client-id",
+            "email": "admin@test.com",
+            "name": "Test Admin",
+        }
+
+    monkeypatch.setattr(
+        "routers.auth_routes.google_id_token.verify_oauth2_token",
+        fake_verify,
+    )
+    response = client.post(
+        "/api/v1/auth/mobile/google",
+        json={"id_token": "valid-google-token"},
+    )
+    assert response.status_code == 200
+    data = response.json()
+    assert data["email"] == "admin@test.com"
+    assert data["role"] == "admin"
+    assert len(data["token"]) > 50
+
+
+def test_mobile_google_invalid_token(client, monkeypatch):
+    """Invalid Google ID token returns 401."""
+
+    def fake_verify(token, request, **kwargs):
+        raise ValueError("Invalid token")
+
+    monkeypatch.setattr(
+        "routers.auth_routes.google_id_token.verify_oauth2_token",
+        fake_verify,
+    )
+    response = client.post(
+        "/api/v1/auth/mobile/google",
+        json={"id_token": "garbage"},
+    )
+    assert response.status_code == 401
+
+
+def test_mobile_google_wrong_audience(client, monkeypatch):
+    """Token with wrong audience returns 401."""
+
+    def fake_verify(token, request, **kwargs):
+        return {
+            "aud": "some-other-client-id",
+            "email": "admin@test.com",
+            "name": "Test Admin",
+        }
+
+    monkeypatch.setattr(
+        "routers.auth_routes.google_id_token.verify_oauth2_token",
+        fake_verify,
+    )
+    response = client.post(
+        "/api/v1/auth/mobile/google",
+        json={"id_token": "wrong-aud-token"},
+    )
+    assert response.status_code == 401
+
+
+def test_mobile_google_user_not_allowed(client, monkeypatch):
+    """Valid token for a non-allowed user returns 403."""
+
+    def fake_verify(token, request, **kwargs):
+        return {
+            "aud": "test-client-id",
+            "email": "stranger@example.com",
+            "name": "Stranger",
+        }
+
+    monkeypatch.setattr(
+        "routers.auth_routes.google_id_token.verify_oauth2_token",
+        fake_verify,
+    )
+    response = client.post(
+        "/api/v1/auth/mobile/google",
+        json={"id_token": "valid-but-not-allowed"},
+    )
+    assert response.status_code == 403

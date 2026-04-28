@@ -1,3 +1,4 @@
+import GoogleSignInSwift
 import SwiftUI
 
 struct LoginView: View {
@@ -21,17 +22,8 @@ struct LoginView: View {
             if authService.isLoading {
                 ProgressView("Signing in…")
             } else {
-                Button(action: { authService.login() }) {
-                    HStack {
-                        Image(systemName: "person.crop.circle")
-                        Text("Sign in with Google")
-                    }
-                    .font(.headline)
-                    .frame(maxWidth: .infinity)
-                    .padding()
-                    .background(.tint)
-                    .foregroundStyle(.white)
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                GoogleSignInButton(style: .wide, scheme: .dark) {
+                    authService.login()
                 }
                 .padding(.horizontal, 40)
             }

@@ -6,6 +6,8 @@ from uuid import UUID
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Request, Response
+from google.auth.transport import requests as google_requests
+from google.oauth2 import id_token as google_id_token
 from fastapi.responses import RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -15,6 +17,7 @@ from config import (
     FRONTEND_URL,
     GOOGLE_CLIENT_ID,
     GOOGLE_CLIENT_SECRET,
+    GOOGLE_IOS_CLIENT_ID,
     MOBILE_APP_SCHEME,
     MOBILE_REDIRECT_URI,
     OAUTH_REDIRECT_URI,
@@ -30,6 +33,10 @@ router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth"
 GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token"
 GOOGLE_TOKENINFO_URL = "https://oauth2.googleapis.com/tokeninfo"
+
+
+class GoogleIdTokenRequest(BaseModel):
+    id_token: str = Field(..., min_length=1)
 
 
 class InviteRequest(BaseModel):
@@ -48,6 +55,13 @@ class UserResponse(BaseModel):
 
 
 class MeResponse(BaseModel):
+    email: str
+    name: str
+    role: str
+
+
+class TokenResponse(BaseModel):
+    token: str
     email: str
     name: str
     role: str
@@ -334,15 +348,64 @@ def mobile_callback(
 
 
 # ---------------------------------------------------------------------------
-# Token refresh
+# Native Google Sign-In (iOS SDK → server token exchange)
 # ---------------------------------------------------------------------------
 
 
-class TokenResponse(BaseModel):
-    token: str
-    email: str
-    name: str
-    role: str
+@router.post("/mobile/google", response_model=TokenResponse)
+def mobile_google_signin(
+    body: GoogleIdTokenRequest,
+    db: Session = Depends(get_db),
+) -> TokenResponse:
+    """Exchange a Google ID token from the iOS SDK for a server JWT.
+
+    The iOS app uses the native Google Sign-In SDK to authenticate,
+    then sends the resulting ID token here for verification and JWT
+    issuance.
+    """
+    # Accept tokens issued to either the iOS or web client ID
+    valid_client_ids = {GOOGLE_CLIENT_ID, GOOGLE_IOS_CLIENT_ID}
+
+    try:
+        idinfo = google_id_token.verify_oauth2_token(
+            body.id_token,
+            google_requests.Request(),
+        )
+    except ValueError:
+        audit.warning("MOBILE_GOOGLE_ID_TOKEN_INVALID")
+        raise HTTPException(401, detail="Invalid Google ID token")
+
+    if idinfo.get("aud") not in valid_client_ids:
+        audit.warning(
+            "MOBILE_GOOGLE_AUDIENCE_MISMATCH aud=%s", idinfo.get("aud"),
+        )
+        raise HTTPException(401, detail="Token audience mismatch")
+
+    email = idinfo.get("email", "")
+    name = idinfo.get("name", idinfo.get("given_name", ""))
+
+    user = db.query(AllowedUser).filter(AllowedUser.email == email).first()
+    if not user:
+        audit.warning(
+            "MOBILE_GOOGLE_DENIED email=%s reason=not_in_allowlist", email,
+        )
+        raise HTTPException(
+            403, detail="Not authorized -- ask Nick for an invite",
+        )
+
+    audit.info("MOBILE_GOOGLE_LOGIN_SUCCESS email=%s role=%s", user.email, user.role)
+    jwt_token = create_jwt(user.email, user.name, user.role)
+    return TokenResponse(
+        token=jwt_token,
+        email=user.email,
+        name=user.name,
+        role=user.role,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Token refresh
+# ---------------------------------------------------------------------------
 
 
 @router.post("/refresh", response_model=TokenResponse)
