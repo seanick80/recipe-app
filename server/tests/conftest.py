@@ -8,6 +8,7 @@ os.environ["API_KEY"] = TEST_API_KEY
 os.environ["GOOGLE_CLIENT_ID"] = "test-client-id"
 os.environ["GOOGLE_CLIENT_SECRET"] = "test-client-secret"
 os.environ["JWT_SECRET"] = "test-secret-that-is-long-enough-for-hmac-sha256"
+os.environ["RATE_LIMIT_ENABLED"] = "0"
 
 import jwt
 import pytest
@@ -43,15 +44,21 @@ def override_get_db():
 app.dependency_overrides[get_db] = override_get_db
 
 
-def _seed_test_admin(session) -> None:
-    """Seed the admin user used by API key fallback and JWT tests."""
+def _seed_test_users(session) -> None:
+    """Seed the admin + second user for isolation tests."""
     admin = AllowedUser(
         email="admin@test.com",
         name="Test Admin",
         role="admin",
         invited_by="system",
     )
-    session.add(admin)
+    user_b = AllowedUser(
+        email="userb@test.com",
+        name="User B",
+        role="editor",
+        invited_by="system",
+    )
+    session.add_all([admin, user_b])
     session.commit()
 
 
@@ -71,7 +78,7 @@ def client():
     Base.metadata.drop_all(bind=engine)
     Base.metadata.create_all(bind=engine)
     db = TestingSessionLocal()
-    _seed_test_admin(db)
+    _seed_test_users(db)
     db.close()
     with TestClient(app) as c:
         yield c
@@ -92,3 +99,9 @@ def auth_cookie() -> dict[str, str]:
 def editor_cookie() -> dict[str, str]:
     """Return a cookie dict with a valid JWT for an editor user."""
     return {"session_token": make_jwt("editor@test.com", "Editor", "editor")}
+
+
+@pytest.fixture
+def user_b_headers() -> dict[str, str]:
+    """Auth headers for a second user — should NOT see admin's recipes."""
+    return {"Authorization": f"Bearer {make_jwt('userb@test.com', 'User B', 'editor')}"}

@@ -32,7 +32,7 @@ final class AuthService: ObservableObject {
     private static let webClientID =
         "972511622379-s2ivecpg4492gg7dbq21c3ev3slqeukp.apps.googleusercontent.com"
 
-    init(baseURL: URL = URL(string: "https://recipe-api-972511622379.us-west1.run.app/api/v1/auth")!) {
+    init(baseURL: URL = ServerConfig.baseURL.appendingPathComponent("auth")) {
         self.baseURL = baseURL
         configureGoogleSignIn()
         restoreSession()

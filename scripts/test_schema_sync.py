@@ -344,6 +344,117 @@ def parse_static_site() -> dict[str, set[str]]:
 
 
 # ---------------------------------------------------------------------------
+# Wire format validation — RecipeDTO (Swift) vs RecipeResponse (Pydantic)
+# ---------------------------------------------------------------------------
+
+def parse_dto_coding_keys() -> dict[str, set[str]]:
+    """Parse RecipeDTO and IngredientDTO CodingKeys from APIClient.swift.
+
+    Returns snake_case field names as they appear on the wire.
+    """
+    path = (
+        REPO_ROOT
+        / "RecipeApp"
+        / "RecipeApp"
+        / "Services"
+        / "APIClient.swift"
+    )
+    content = path.read_text(encoding="utf-8")
+    result: dict[str, set[str]] = {}
+
+    dto_map = {"RecipeDTO": "Recipe", "IngredientDTO": "Ingredient"}
+    struct_re = re.compile(r"^struct (\w+DTO)\s*:")
+    coding_key_re = re.compile(
+        r'^\s+case\s+(\w+)\s*=\s*"(\w+)"'
+    )
+    bare_case_re = re.compile(r"^\s+case\s+(.+)")
+
+    current_struct: str | None = None
+    in_coding_keys = False
+
+    for line in content.split("\n"):
+        sm = struct_re.match(line)
+        if sm:
+            if sm.group(1) in dto_map:
+                current_struct = sm.group(1)
+                in_coding_keys = False
+            else:
+                current_struct = None
+            continue
+        if current_struct is None:
+            continue
+
+        if "enum CodingKeys" in line:
+            in_coding_keys = True
+            continue
+        if in_coding_keys:
+            if line.strip() == "}":
+                in_coding_keys = False
+                continue
+            # Explicit mapping: case foo = "bar"
+            ck = coding_key_re.match(line)
+            if ck:
+                model = dto_map[current_struct]
+                result.setdefault(model, set()).add(ck.group(2))
+                continue
+            # Bare cases: case id, name, summary
+            bk = bare_case_re.match(line)
+            if bk:
+                model = dto_map[current_struct]
+                for name in bk.group(1).split(","):
+                    name = name.strip()
+                    if name:
+                        result.setdefault(model, set()).add(
+                            camel_to_snake(name),
+                        )
+
+    return result
+
+
+def check_wire_format(
+    pydantic_fields: dict[str, set[str]],
+) -> list[str]:
+    """Validate RecipeDTO CodingKeys match RecipeResponse fields.
+
+    Checks both directions:
+    - Every pydantic response field must exist in the DTO (or be exempted)
+    - Every DTO field must exist in the pydantic response
+    """
+    failures: list[str] = []
+
+    try:
+        dto_fields = parse_dto_coding_keys()
+    except FileNotFoundError:
+        return ["WIRE FORMAT: APIClient.swift not found"]
+
+    # Fields the iOS DTO intentionally omits from the server response
+    dto_exemptions: dict[str, set[str]] = {
+        "Recipe": {"deleted_at"},
+    }
+
+    for model in ("Recipe", "Ingredient"):
+        pydantic = pydantic_fields.get(model, set())
+        dto = dto_fields.get(model, set())
+        exempt = dto_exemptions.get(model, set())
+
+        # Server → iOS: every response field should be decodable
+        for field in pydantic - dto - exempt:
+            failures.append(
+                f"WIRE DRIFT: {model}.{field} in server response "
+                f"but missing from {model}DTO CodingKeys",
+            )
+
+        # iOS → Server: every encoded field should be accepted
+        for field in dto - pydantic:
+            failures.append(
+                f"WIRE DRIFT: {model}.{field} in {model}DTO CodingKeys "
+                f"but missing from server response",
+            )
+
+    return failures
+
+
+# ---------------------------------------------------------------------------
 # Main comparison logic
 # ---------------------------------------------------------------------------
 
@@ -393,6 +504,11 @@ def run_checks() -> list[str]:
                     failures.append(
                         f"MISSING FIELD: {model_name}.{field_name} not in {surface}"
                     )
+
+    # Wire format check: RecipeDTO CodingKeys vs RecipeResponse fields
+    pydantic_fields = surface_data.get("pydantic_response", {})
+    if pydantic_fields:
+        failures.extend(check_wire_format(pydantic_fields))
 
     return failures
 

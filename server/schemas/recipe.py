@@ -53,6 +53,15 @@ class RecipePatch(BaseModel):
     is_published: bool | None = None
 
 
+class RecipeListItem(BaseModel):
+    """Lightweight response for sync — only id and updated_at."""
+
+    id: UUID
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
 class RecipeResponse(BaseModel):
     id: UUID
     name: str
@@ -71,5 +80,6 @@ class RecipeResponse(BaseModel):
     ingredients: list[IngredientResponse]
     created_at: datetime
     updated_at: datetime
+    deleted_at: datetime | None = None
 
     model_config = {"from_attributes": True}

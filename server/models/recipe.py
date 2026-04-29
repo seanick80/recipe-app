@@ -23,6 +23,12 @@ class Recipe(Base):
     __tablename__ = "recipes"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id = Column(
+        UUID(as_uuid=True),
+        ForeignKey("allowed_users.id"),
+        nullable=True,
+        index=True,
+    )
     name = Column(Text, nullable=False)
     summary = Column(Text, default="")
     instructions = Column(Text, default="")
@@ -46,6 +52,7 @@ class Recipe(Base):
         default=lambda: datetime.now(timezone.utc),
         onupdate=lambda: datetime.now(timezone.utc),
     )
+    deleted_at = Column(DateTime(timezone=True), nullable=True)
 
     ingredients = relationship(
         "Ingredient",

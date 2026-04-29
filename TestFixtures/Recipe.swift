@@ -21,6 +21,14 @@ struct RecipeModel: Codable, Identifiable, Hashable {
     var createdAt: Date
     var updatedAt: Date
 
+    // Sync metadata (mirrors SwiftData Recipe model; not in canonical schema)
+    var serverId: String?
+    var needsSync: Bool
+    var lastSyncedAt: Date?
+    var locallyDeleted: Bool
+    var deletedAt: Date?
+    var isConflictedCopy: Bool
+
     var totalTimeMinutes: Int { prepTimeMinutes + cookTimeMinutes }
 
     init(
@@ -38,7 +46,13 @@ struct RecipeModel: Codable, Identifiable, Hashable {
         difficulty: String = "",
         isFavorite: Bool = false,
         isPublished: Bool = false,
-        ingredients: [IngredientModel] = []
+        ingredients: [IngredientModel] = [],
+        serverId: String? = nil,
+        needsSync: Bool = false,
+        lastSyncedAt: Date? = nil,
+        locallyDeleted: Bool = false,
+        deletedAt: Date? = nil,
+        isConflictedCopy: Bool = false
     ) {
         self.id = id
         self.name = name
@@ -57,6 +71,12 @@ struct RecipeModel: Codable, Identifiable, Hashable {
         self.ingredients = ingredients
         self.createdAt = Date()
         self.updatedAt = Date()
+        self.serverId = serverId
+        self.needsSync = needsSync
+        self.lastSyncedAt = lastSyncedAt
+        self.locallyDeleted = locallyDeleted
+        self.deletedAt = deletedAt
+        self.isConflictedCopy = isConflictedCopy
     }
 }
 

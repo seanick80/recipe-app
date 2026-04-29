@@ -3,6 +3,7 @@ import SwiftUI
 
 struct RecipeListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(SyncService.self) private var syncService
     @Query(sort: \Recipe.updatedAt, order: .reverse) private var recipes: [Recipe]
     @State private var showingAddRecipe = false
     @State private var showingSettings = false
@@ -11,16 +12,21 @@ struct RecipeListView: View {
     @State private var filterCourse: String?
     @State private var filterFavoritesOnly = false
 
+    private var visibleRecipes: [Recipe] {
+        recipes.filter { !$0.locallyDeleted }
+    }
+
     private var availableCuisines: [String] {
-        Array(Set(recipes.compactMap { $0.cuisine.isEmpty ? nil : $0.cuisine })).sorted()
+        Array(Set(visibleRecipes.compactMap { $0.cuisine.isEmpty ? nil : $0.cuisine })).sorted()
     }
 
     private var availableCourses: [String] {
-        Array(Set(recipes.compactMap { $0.course.isEmpty ? nil : $0.course })).sorted()
+        Array(Set(visibleRecipes.compactMap { $0.course.isEmpty ? nil : $0.course })).sorted()
     }
 
     var filteredRecipes: [Recipe] {
         recipes.filter { recipe in
+            if recipe.locallyDeleted { return false }
             if !searchText.isEmpty
                 && !recipe.name.localizedCaseInsensitiveContains(searchText)
                 && !recipe.tags.localizedCaseInsensitiveContains(searchText)
@@ -107,16 +113,47 @@ struct RecipeListView: View {
             }
             .navigationTitle("Recipes")
             .searchable(text: $searchText, prompt: "Search recipes")
+            .refreshable { await syncService.sync() }
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button(action: { showingSettings = true }) {
-                        Label("Settings", systemImage: "gearshape")
+                    HStack(spacing: 8) {
+                        Button(action: { showingSettings = true }) {
+                            Label("Settings", systemImage: "gearshape")
+                        }
+                        if syncService.isSyncing {
+                            ProgressView()
+                                .controlSize(.small)
+                        }
                     }
                 }
                 ToolbarItem(placement: .primaryAction) {
                     Button(action: { showingAddRecipe = true }) {
                         Label("Add Recipe", systemImage: "plus")
                     }
+                }
+            }
+            .safeAreaInset(edge: .top) {
+                if let error = syncService.lastSyncError {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                        Text(error)
+                        Spacer()
+                    }
+                    .font(.caption)
+                    .padding(8)
+                    .background(.yellow.opacity(0.3))
+                }
+                if syncService.conflictCount > 0 {
+                    HStack {
+                        Image(systemName: "doc.on.doc.fill")
+                        Text(
+                            "\(syncService.conflictCount) conflict\(syncService.conflictCount == 1 ? "" : "s") resolved — check conflicted copies"
+                        )
+                        Spacer()
+                    }
+                    .font(.caption)
+                    .padding(8)
+                    .background(.orange.opacity(0.3))
                 }
             }
             .sheet(isPresented: $showingAddRecipe) {
@@ -126,7 +163,7 @@ struct RecipeListView: View {
                 SettingsView()
             }
             .overlay {
-                if recipes.isEmpty {
+                if visibleRecipes.isEmpty {
                     ContentUnavailableView(
                         "No Recipes",
                         systemImage: "book",
@@ -141,7 +178,10 @@ struct RecipeListView: View {
 
     private func deleteRecipes(at offsets: IndexSet) {
         for index in offsets {
-            modelContext.delete(filteredRecipes[index])
+            let recipe = filteredRecipes[index]
+            recipe.locallyDeleted = true
+            recipe.deletedAt = Date()
+            recipe.needsSync = true
         }
     }
 }

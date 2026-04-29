@@ -130,6 +130,7 @@ struct RecipeEditView: View {
         target.sourceURL = sourceURL
         target.difficulty = difficulty
         target.updatedAt = Date()
+        target.needsSync = true
 
         if isEditing {
             for old in target.ingredients ?? [] {

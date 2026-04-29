@@ -31,16 +31,26 @@ struct RecipeAppApp: App {
     }()
 
     @State private var importService = PendingImportService()
+    @State private var syncService = SyncService()
 
     var body: some Scene {
         WindowGroup {
             Group {
                 if authService.isAuthenticated {
                     ContentView()
-                        .onAppear { importService.checkForPendingImports() }
+                        .onAppear {
+                            importService.checkForPendingImports()
+                            syncService.configure(
+                                modelContext: sharedModelContainer.mainContext
+                            )
+                            Task { await syncService.sync() }
+                        }
                         .onChange(of: scenePhase) { _, newPhase in
                             if newPhase == .active {
                                 importService.checkForPendingImports()
+                                if authService.currentUser != nil {
+                                    Task { await syncService.sync() }
+                                }
                             }
                         }
                         .sheet(isPresented: $importService.showingImportReview) {
@@ -56,6 +66,7 @@ struct RecipeAppApp: App {
                 authService.handleURL(url)
             }
             .environmentObject(authService)
+            .environment(syncService)
         }
         .modelContainer(sharedModelContainer)
     }

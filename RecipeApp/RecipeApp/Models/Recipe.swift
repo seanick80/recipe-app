@@ -23,6 +23,14 @@ final class Recipe {
     var createdAt: Date = Date()
     var updatedAt: Date = Date()
 
+    // Sync metadata
+    var serverId: String?
+    var needsSync: Bool = false
+    var lastSyncedAt: Date?
+    var locallyDeleted: Bool = false
+    var deletedAt: Date?
+    var isConflictedCopy: Bool = false
+
     @Relationship(deleteRule: .cascade, inverse: \Ingredient.recipe)
     var ingredients: [Ingredient]?
 

@@ -1,7 +1,20 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
+CREATE TABLE allowed_users (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    email TEXT NOT NULL UNIQUE,
+    name TEXT DEFAULT '',
+    role TEXT DEFAULT 'editor',
+    invited_by TEXT DEFAULT '',
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+);
+
+INSERT INTO allowed_users (email, name, role, invited_by)
+VALUES ('seanickharlson@gmail.com', 'Nick', 'admin', 'system');
+
 CREATE TABLE recipes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID REFERENCES allowed_users(id),
     name TEXT NOT NULL,
     summary TEXT DEFAULT '',
     instructions TEXT DEFAULT '',
@@ -17,7 +30,8 @@ CREATE TABLE recipes (
     is_published BOOLEAN DEFAULT FALSE,
     image_data BYTEA,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    deleted_at TIMESTAMP WITH TIME ZONE
 );
 
 CREATE TABLE ingredients (
@@ -67,18 +81,7 @@ CREATE TABLE template_items (
     template_id UUID NOT NULL REFERENCES shopping_templates(id) ON DELETE CASCADE
 );
 
-CREATE TABLE allowed_users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email TEXT NOT NULL UNIQUE,
-    name TEXT DEFAULT '',
-    role TEXT DEFAULT 'editor',
-    invited_by TEXT DEFAULT '',
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
-);
-
+CREATE INDEX idx_recipes_user ON recipes(user_id);
 CREATE INDEX idx_ingredients_recipe ON ingredients(recipe_id);
 CREATE INDEX idx_grocery_items_list ON grocery_items(grocery_list_id);
 CREATE INDEX idx_template_items_template ON template_items(template_id);
-
-INSERT INTO allowed_users (email, name, role, invited_by)
-VALUES ('seanickharlson@gmail.com', 'Nick', 'admin', 'system');

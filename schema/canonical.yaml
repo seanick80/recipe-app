@@ -64,6 +64,9 @@ models:
       updated_at:
         type: datetime
         surfaces: [sql, sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
+      deleted_at:
+        type: datetime_optional
+        surfaces: [sql, sqlalchemy, pydantic_response]
       ingredients:
         type: relationship
         surfaces: [sqlalchemy, pydantic_response, typescript, swiftdata, testfixtures]
