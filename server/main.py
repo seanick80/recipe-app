@@ -25,7 +25,12 @@ async def lifespan(app: FastAPI):
     logger.info("Recipe App server shutting down")
 
 
-app = FastAPI(title="Recipe App API", version="1.0.0", lifespan=lifespan)
+app = FastAPI(
+    title="Recipe App API",
+    version="1.0.0",
+    lifespan=lifespan,
+    redirect_slashes=False,
+)
 
 audit = get_audit_logger()
 

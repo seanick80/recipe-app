@@ -29,6 +29,7 @@ def _active_recipes(db: Session, user: AllowedUser | None = None):
     return q
 
 
+@router.get("")
 @router.get("/")
 @limiter.limit("120/minute")
 def list_recipes(
@@ -119,6 +120,7 @@ def get_recipe(
     return recipe
 
 
+@router.post("", response_model=RecipeResponse, status_code=201)
 @router.post("/", response_model=RecipeResponse, status_code=201)
 @limiter.limit("30/minute")
 def create_recipe(

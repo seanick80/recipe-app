@@ -8,7 +8,7 @@ remains as a local cache for offline access but is no longer authoritative.
 
 ---
 
-## What Has Been Implemented (Phase 1 + Partial Phase 2)
+## What Has Been Implemented (Phases 1–5)
 
 ### Phase 1: Server-Side Soft Delete + Lightweight List ✅
 
@@ -44,9 +44,10 @@ remains as a local cache for offline access but is no longer authoritative.
 - `test_lightweight_list_excludes_deleted` — lightweight list filters soft-deleted
 - `test_soft_delete_blocks_update` — PUT on deleted recipe returns 404
 
-**All 60 server tests pass.**
+**All 78 server tests pass** (31 recipe + 7 sync integration + 9 auth +
+6 telemetry + 5 user isolation + 20 sync-specific).
 
-### Phase 2: iOS Model + APIClient (Partial) 🔧
+### Phase 2: iOS Model + APIClient ✅
 
 **Files changed:**
 
@@ -519,155 +520,74 @@ Any scenario where writing to the server fails (create, update, or delete).
 
 ---
 
+## What Has Been Implemented (Phases 2–5, continued)
+
+### Phase 2 Addendum: user_id Scoping + Dirty Marking ✅
+
+**Implemented 2026-04-29.**
+
+- `server/models/recipe.py` — added `user_id` FK to `allowed_users`
+- `server/routers/recipes.py` — all endpoints scoped by `user_id = current_user.id`
+- `database/init.sql` — added `user_id` column + index
+- `server/tests/test_recipes.py` — 5 user-isolation tests
+- `server/tests/conftest.py` — second test user, `RATE_LIMIT_ENABLED=0`
+- `RecipeEditView.swift` — sets `needsSync = true` on save
+- `RecipeListView.swift` — filters `locallyDeleted`, soft-deletes on swipe
+- `TestFixtures/Recipe.swift` — 6 sync metadata fields
+- Live Neon migration: `ALTER TABLE recipes ADD COLUMN user_id/deleted_at`
+
+### Phase 3: SyncService Core ✅
+
+**Implemented 2026-04-29.**
+
+New file: `RecipeApp/Services/SyncService.swift` — `@Observable @MainActor`
+class implementing all 9 sync scenarios:
+- `sync()` → `pullChanges()` → `pushChanges()` → `processDeletions()`
+- `performFirstSync()` — bulk upload when server is empty
+- `resolveConflict()` — server wins, local copy preserved
+- `forceFullSync()` — clears `lastSyncedAt`, re-downloads everything
+- `purgeExpiredDeletions()` — hard-deletes 30-day-old soft deletes
+
+Wired into `RecipeAppApp.swift`: syncs on app foreground + pull-to-refresh.
+
+### Phase 4: UI Polish ✅
+
+**Implemented 2026-04-29.**
+
+- **RecipeListView**: pull-to-refresh, sync spinner, error/conflict banners
+- **SettingsView**: last sync timestamp, Sync Now, Force Full Sync,
+  Recently Deleted (with swipe-to-restore)
+- Error handling: session expired banner, write failure warning, conflict count
+
+### Phase 5: Maintenance Script ✅
+
+**Implemented 2026-04-29.**
+
+- `server/maintenance.py` — Python script (reuses SQLAlchemy, no `psql` needed):
+  1. Purge expired soft-deletes (>30 days)
+  2. Backup via `pg_dump` with anomaly detection (>20% record count change aborts)
+  3. Neon free-tier quota check (warns at >80% of 512 MB)
+- `scripts/maintenance.sh` — shell wrapper (alternative for environments with `psql`)
+- `scripts/restore-db-backup.sh` — restore from local or Cloud Storage backup
+- Flags: `--dry-run`, `--skip-backup`, `--skip-purge`, `--skip-quota`
+- Decision: run as Cloud Run Job (same image, different entrypoint), all free tier
+
+**Deployment note (2026-04-29):** Server deployed to Cloud Run revision
+`recipe-api-00007-sfh`. Required `redirect_slashes=False` on FastAPI app +
+dual route registration (`@router.get("")` + `@router.get("/")`) because
+iOS `URLSession` strips `Authorization` header on 307 redirects.
+
+---
+
 ## What Remains To Be Done
 
-### Phase 1 Addendum: Add `user_id` to Recipes
+### Phase 5b: Cloud Run Job Setup (maintenance cron)
 
-The recipes table currently has no user scoping. Every uploaded recipe needs
-a `user_id` FK to `allowed_users.id`.
-
-**Server changes:**
-- `server/models/recipe.py` — add `user_id` column (UUID FK to allowed_users, nullable
-  for now to avoid breaking existing data, but required on create)
-- `server/routers/recipes.py` — all queries filter by `user_id = current_user.id`;
-  create sets `user_id = current_user.id`
-- `database/init.sql` — add `user_id UUID REFERENCES allowed_users(id)` + index
-- `server/tests/test_recipes.py` — verify user scoping (user A can't see user B's recipes)
-
-**Migration for existing data:** Any existing recipes in Postgres without a
-`user_id` will be assigned to the admin user (seanickharlson@gmail.com) via a
-one-time data migration script.
-
-### Phase 2 Remaining: Dirty Marking + TestFixtures
-
-**RecipeEditView.swift** — mark recipes dirty on save:
-```swift
-// In save(), after setting all fields:
-target.needsSync = true
-```
-
-**TestFixtures/Recipe.swift** — add matching sync fields to `RecipeModel`:
-```swift
-var serverId: String?
-var needsSync: Bool
-var lastSyncedAt: Date?
-var locallyDeleted: Bool
-var deletedAt: Date?
-var isConflictedCopy: Bool
-```
-
-**RecipeListView.swift** — hide locally-deleted and conflicted-copy recipes
-from the default list (filter `locallyDeleted == false`).
-
-### Phase 3: SyncService Core
-
-**New file: `RecipeApp/Services/SyncService.swift`**
-
-An `@Observable` class orchestrating all sync logic. Single entry point: `sync()`.
-
-```
-SyncService
-  ├── sync()                    // Main: called on launch + pull-to-refresh
-  ├── performFirstSync()        // Upload all local recipes (first login)
-  ├── pullChanges()             // Fetch server state, apply to local
-  ├── pushChanges()             // Push needsSync=true recipes to server
-  ├── resolveConflict(local:server:)
-  ├── processDeletions()        // Push/pull deletes
-  └── purgeExpiredDeletions()   // Remove 30-day-old soft deletes
-```
-
-**Sync algorithm (on each `sync()` call):**
-
-1. `GET /recipes?fields=id,updated_at` — get server inventory
-2. Compare against local SwiftData:
-   - **Server-only recipe** → `GET /recipes/{id}` → insert locally
-   - **Local-only recipe** (no `serverId`) → `POST /recipes` → store `serverId`
-   - **Both exist, server newer** → pull and overwrite local
-   - **Both exist, local newer** (`needsSync=true`) → `PUT /recipes/{id}`
-   - **Both changed** (conflict) → server wins, local copy saved as
-     "[Name] (conflicted copy [date])" with `isConflictedCopy=true`
-   - **Server missing, local has serverId** → soft-delete locally
-   - **Local `locallyDeleted=true`** → `DELETE /recipes/{id}` on server
-3. Set `lastSyncedAt = now`, `needsSync = false` on all synced recipes
-
-**First-sync detection:**
-- User is authenticated (has JWT)
-- Server returned 0 recipes
-- Local SwiftData has ≥ 1 recipe with `serverId == nil`
-- Upload automatically — no confirmation dialog (see Scenario 8)
-
-**Wire into app lifecycle (`RecipeAppApp.swift`):**
-- Call `sync()` when scene enters `.active` (if authenticated)
-- Pass `SyncService` as environment object to views
-
-### Phase 4: UI Polish
-
-**RecipeListView.swift:**
-- Sync status indicator in toolbar (spinning arrow during sync, brief checkmark after)
-- Conflict banner: "N conflicts resolved" with tap to filter conflicted copies
-- Pull-to-refresh triggers sync
-- Filter out `locallyDeleted == true` recipes
-- Swipe-to-delete sets `locallyDeleted = true` + `deletedAt = now` instead of
-  immediate `modelContext.delete()`
-
-**SettingsView.swift:**
-- "Force Full Sync" button — clears all `lastSyncedAt`, re-downloads everything
-- "Recently Deleted" link → list of soft-deleted recipes with restore option
-- Last sync timestamp display
-
-**Error handling:**
-| Error | UI | Behavior |
-|-------|-----|----------|
-| No network | Silent | Sync skipped, retry next launch |
-| 401 Unauthorized | Banner + auto-logout | "Session expired — sign in again" |
-| Conflict | Banner | "N conflicts resolved — check conflicted copies" |
-| Write failure (create/update/delete) | Persistent warning banner | "Could not sync recipes — will retry" (see Scenario 9). Stays until next successful sync. |
-| Read failure (pull) | Silent | Retry next sync |
-
-### Phase 5: Maintenance Cron Job + Backup
-
-A single script handles all periodic maintenance. Runs weekly via Cloud
-Scheduler (or system cron on the server).
-
-**New file: `scripts/maintenance.sh`**
-
-Three tasks in one invocation:
-1. **Purge expired soft-deletes** — hard-delete recipes where `deleted_at` > 30 days
-2. **Backup** — `pg_dump` → gzip → upload to Cloud Storage bucket
-   - Anomaly detection: compare record count + dump size against previous
-     backup's JSON sidecar metadata; if >20% change, FAIL (do not overwrite)
-   - Email alert on anomaly (via SendGrid/SMTP)
-   - Retention: 4 rolling weekly backups (28-day lifecycle policy)
-3. **Quota check** — query Neon/Cloud Run free-tier usage, log warning if
-   approaching limits (e.g., >80% of storage or compute)
-
-Flags: `--dry-run` (show plan without executing), `--skip-backup`,
-`--skip-purge`, `--skip-quota`.
-
-**Where does the cron job run?**
-
-| Option | Free tier? | Auth model | Pros | Cons |
-|--------|-----------|------------|------|------|
-| **Cloud Scheduler → Cloud Run Job** | Yes (3 free jobs, 2M free invocations/mo) | Service account with Cloud SQL/Storage IAM roles. DB connection via `DATABASE_URL` env var (same as API server). No user auth needed — it's infra, not a user. | Native GCP, no server to maintain, logs in Cloud Logging | Needs a container image (can share the API image + entrypoint override) |
-| **GitHub Actions scheduled workflow** | Yes (2000 min/mo free) | `DATABASE_URL` + `GCLOUD_SERVICE_KEY` as repo secrets. `pg_dump` via psql client in runner. | Already have GitHub, familiar CI, no new infra | Runner has no persistent state, needs to install tools each run, egress from GitHub to Neon adds latency |
-| **Raspberry Pi cron** | Yes (already running) | SSH access already configured. `DATABASE_URL` as env var or in `.env` file. `gcloud` CLI or `gsutil` for Cloud Storage. | Zero cost, full control, already used for deployment | Pi must be online, no alerting if it's down, manual `gcloud` auth setup |
-
-**Recommendation:** Cloud Run Job triggered by Cloud Scheduler. It's the
-simplest option that stays within free tier, runs in the same environment as
-the API, and inherits the same service account for DB access and Cloud Storage.
-The maintenance script runs as a container entrypoint — no user-level auth
-needed, just the service account's IAM permissions.
-
-**Auth context:** The cron job connects directly to Postgres via `DATABASE_URL`
-(same connection string the API server uses). It doesn't go through the API
-endpoints, so it doesn't need JWT/API key auth. For Cloud Storage uploads,
-the Cloud Run service account gets `storage.objectAdmin` on the backup bucket.
-No additional credentials to manage.
-
-**New file: `scripts/restore-db-backup.sh`**
-- Downloads specified backup from Cloud Storage
-- Confirms with user before restoring
-- Restores via `psql`
+Deploy `server/maintenance.py` as a Cloud Run Job triggered by Cloud Scheduler.
+- Create GCS bucket `recipe-app-backups`
+- Create Cloud Run Job with same image, entrypoint `python maintenance.py`
+- Create Cloud Scheduler job (weekly)
+- Grant service account `storage.objectAdmin` on bucket
 
 ### Phase 6: Canonical Schema + Schema Sync Test
 
@@ -700,25 +620,25 @@ canonical schema tracks the *recipe data model*, not sync metadata.
 | Lightweight list returns id+updated_at only | 1 | ✅ Passes |
 | Lightweight list excludes deleted | 1 | ✅ Passes |
 | Soft delete blocks PUT update | 1 | ✅ Passes |
-| All 60 existing server tests | 1 | ✅ Pass |
+| All 78 server tests (31 recipe + 7 sync + 9 auth + 6 telemetry + 5 user isolation + 20 sync) | 1–3 | ✅ Pass |
 
 ### iOS (manual — device/simulator testing)
 
 | Test | Phase | How to verify |
 |------|-------|---------------|
-| SwiftData migration non-destructive | 2 | Install old build with recipes → update → recipes still there |
-| APIClient hits Cloud Run, not localhost | 2 | Check network inspector in release build |
-| Editing a recipe sets `needsSync = true` | 2 | Edit recipe, check SwiftData in debugger |
-| First-sync upload prompt appears | 3 | Fresh login with local recipes, server empty |
-| Upload all recipes → visible on web | 3 | Complete first sync → check web frontend |
-| Edit on web → pull-to-refresh → change appears | 3 | Edit name on web, pull-to-refresh on iOS |
-| Conflict creates copy | 3 | Edit same recipe on iOS (offline) + web → reconnect |
-| Delete on web → iOS shows as deleted | 3 | Delete via web, sync on iOS, check "Recently Deleted" |
-| Delete on iOS → web no longer shows | 3 | Delete on iOS, sync, check web |
-| Sync spinner visible | 4 | Watch nav bar during sync |
-| Conflict banner taps to review | 4 | Create conflict, tap banner |
-| Error toast on server error | 4 | Disable network, trigger sync |
-| Force Full Sync re-downloads everything | 4 | Tap in Settings |
+| SwiftData migration non-destructive | 2 | Install old build with recipes → update → recipes still there | ✅ Verified |
+| APIClient hits Cloud Run, not localhost | 2 | Check network inspector in release build | ✅ Verified |
+| Editing a recipe sets `needsSync = true` | 2 | Edit recipe, check SwiftData in debugger | ✅ Verified |
+| First-sync upload prompt appears | 3 | Fresh login with local recipes, server empty | ✅ Verified (12 recipes uploaded) |
+| Upload all recipes → visible on web | 3 | Complete first sync → check web frontend | ✅ Verified via DB query |
+| Edit on web → pull-to-refresh → change appears | 3 | Edit name on web, pull-to-refresh on iOS | ⬜ Not tested |
+| Conflict creates copy | 3 | Edit same recipe on iOS (offline) + web → reconnect | ⬜ Not tested |
+| Delete on web → iOS shows as deleted | 3 | Delete via web, sync on iOS, check "Recently Deleted" | ⬜ Not tested |
+| Delete on iOS → web no longer shows | 3 | Delete on iOS, sync, check web | ✅ Verified (Mapo Tofu soft-deleted) |
+| Sync spinner visible | 4 | Watch nav bar during sync | ✅ Verified |
+| Conflict banner taps to review | 4 | Create conflict, tap banner | ⬜ Not tested |
+| Error toast on server error | 4 | Disable network, trigger sync | ✅ Verified (401 error shown) |
+| Force Full Sync re-downloads everything | 4 | Tap in Settings | ⬜ Not tested |
 
 ### Schema sync (automated)
 
@@ -868,14 +788,18 @@ python scripts/test_schema_sync.py   # must pass after Phase 6
 | `server/tests/test_recipes.py` | 1 | 7 new tests | ✅ Done |
 | `RecipeApp/Models/Recipe.swift` | 2 | Sync metadata fields | ✅ Done |
 | `RecipeApp/Services/APIClient.swift` | 2 | Full rewrite — CRUD, retry, DTOs | ✅ Done |
-| `RecipeApp/Views/Recipes/RecipeEditView.swift` | 2 | `needsSync = true` on save | ⬜ TODO |
-| `RecipeApp/Views/Recipes/RecipeListView.swift` | 2,4 | Hide deleted, sync UI | ⬜ TODO |
+| `RecipeApp/Views/Recipes/RecipeEditView.swift` | 2 | `needsSync = true` on save | ✅ Done |
+| `RecipeApp/Views/Recipes/RecipeListView.swift` | 2,4 | Hide deleted, sync UI, pull-to-refresh | ✅ Done |
 | `TestFixtures/Recipe.swift` | 2 | Sync fields on `RecipeModel` | ⬜ TODO |
-| `RecipeApp/Services/SyncService.swift` | 3 | **New** — sync orchestration | ⬜ TODO |
-| `RecipeApp/RecipeAppApp.swift` | 3 | Wire sync on foreground | ⬜ TODO |
-| `RecipeApp/Views/SettingsView.swift` | 4 | Force sync, recently deleted | ⬜ TODO |
-| `scripts/maintenance.sh` | 5 | **New** — purge + backup + quota check | ⬜ TODO |
-| `scripts/restore-db-backup.sh` | 5 | **New** — restore script | ⬜ TODO |
+| `RecipeApp/Services/SyncService.swift` | 3 | **New** — sync orchestration | ✅ Done |
+| `RecipeApp/RecipeAppApp.swift` | 3 | Wire sync on foreground + `.active` scene phase | ✅ Done |
+| `RecipeApp/Views/SettingsView.swift` | 4 | Force sync, recently deleted, sync status | ✅ Done |
+| `server/maintenance.py` | 5 | **New** — purge + backup + quota check (Python/SQLAlchemy) | ✅ Done |
+| `scripts/maintenance.sh` | 5 | **New** — shell version of maintenance | ✅ Done |
+| `scripts/restore-db-backup.sh` | 5 | **New** — restore from backup script | ✅ Done |
+| `server/main.py` | 3 | `redirect_slashes=False` — prevents 307→401 on iOS | ✅ Done |
+| `server/routers/recipes.py` | 3 | Dual route registration (`""` + `"/"`) | ✅ Done |
+| `RecipeApp/Services/APIClient.swift` | 3 | Trailing slashes on collection URLs | ✅ Done |
 | `schema/canonical.yaml` | 6 | `deleted_at` field | ⬜ TODO |
 
 ---
@@ -1054,7 +978,7 @@ quality-of-life improvements that prevent bugs during sync implementation.
 
 | Layer | Framework | Count | Coverage | Gaps |
 |-------|-----------|-------|----------|------|
-| Server (Python) | pytest + TestClient | 60 | Good — CRUD, auth, soft delete | No user-scoping tests, no concurrent write tests |
+| Server (Python) | pytest + TestClient | 78 | Good — CRUD, auth, soft delete, user isolation, sync integration | No concurrent write tests |
 | SharedLogic (Swift) | swiftc test suites | 300 | Good — parsers, classifiers | No sync/network tests (expected) |
 | iOS (XCTest) | Codemagic simulator | 3 suites | Minimal — model init, template, ML | No APIClient tests, no SyncService tests |
 | Web frontend | None | 0 | None | No tests at all |

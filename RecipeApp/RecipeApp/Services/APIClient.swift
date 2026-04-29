@@ -14,14 +14,14 @@ actor APIClient {
     // MARK: - Recipe CRUD
 
     func fetchRecipes() async throws -> [RecipeDTO] {
-        let url = baseURL.appendingPathComponent("recipes")
+        let url = baseURL.appendingPathComponent("recipes/")
         let data = try await performRequest(authorizedRequest(for: url))
         return try JSONDecoder.apiDecoder.decode([RecipeDTO].self, from: data)
     }
 
     func fetchRecipeList() async throws -> [RecipeListItemDTO] {
         var components = URLComponents(
-            url: baseURL.appendingPathComponent("recipes"),
+            url: baseURL.appendingPathComponent("recipes/"),
             resolvingAgainstBaseURL: false
         )!
         components.queryItems = [URLQueryItem(name: "fields", value: "id,updated_at")]
@@ -36,7 +36,7 @@ actor APIClient {
     }
 
     func createRecipe(_ recipe: RecipeDTO) async throws -> RecipeDTO {
-        let url = baseURL.appendingPathComponent("recipes")
+        let url = baseURL.appendingPathComponent("recipes/")
         var request = authorizedRequest(for: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")

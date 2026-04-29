@@ -172,7 +172,7 @@ When adding a field: update `canonical.yaml` first, then propagate to each surfa
 
 ## Testing
 ```bash
-# All tests (Windows) — 300 tests across 15 Swift suites + 49 server tests
+# All tests (Windows) — 300 tests across 15 Swift suites + 78 server tests
 ./scripts/test.sh
 
 # Full build validation (lint + tests + config)

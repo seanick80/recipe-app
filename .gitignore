@@ -52,6 +52,9 @@ data/pantry-bench/results/*_annotated.jpg
 # Server logs
 server/logs/
 
+# Database backups (created by scripts/maintenance.sh)
+backups/
+
 # Env
 .env
 
