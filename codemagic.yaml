@@ -250,6 +250,12 @@ workflows:
         # higher role for TestFlight uploads. `--testflight` alone
         # submits for internal testing (ASC users); add `--beta-group`
         # once an external group is configured in ASC.
+        #
+        # The beta review submission (last step of --testflight) can
+        # 422 if a previous build is still in review. The IPA upload
+        # itself succeeds — internal testers get it immediately. We
+        # treat this specific 422 as non-fatal so it doesn't fail the
+        # whole build.
         script: |
           set -euo pipefail
           NOTES="$(cat /tmp/release_notes.txt)"
@@ -257,10 +263,19 @@ workflows:
             echo "ERROR: refusing to publish with empty --whats-new" >&2
             exit 1
           fi
-          app-store-connect publish \
+          OUTPUT=$(app-store-connect publish \
             --path 'RecipeApp/build/ios/ipa/*.ipa' \
             --testflight \
-            --whats-new "${NOTES}"
+            --whats-new "${NOTES}" 2>&1) && echo "$OUTPUT" || {
+            RC=$?
+            echo "$OUTPUT"
+            if echo "$OUTPUT" | grep -q "Another build in the same train"; then
+              echo "WARNING: beta review queue conflict (422) — non-fatal."
+              echo "The IPA was uploaded. Internal testers receive it without beta review."
+            else
+              exit $RC
+            fi
+          }
     artifacts:
       # The Build step cd's into RecipeApp/ before running
       # `xcode-project build-ipa`, so the IPA lands at
