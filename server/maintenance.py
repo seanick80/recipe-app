@@ -256,7 +256,7 @@ def check_quota(engine, *, dry_run: bool) -> bool:
 
         rows = conn.execute(
             text(
-                "SELECT tablename, n_live_tup "
+                "SELECT relname, n_live_tup "
                 "FROM pg_stat_user_tables "
                 "ORDER BY n_live_tup DESC"
             ),
