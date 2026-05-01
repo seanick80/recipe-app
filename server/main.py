@@ -2,10 +2,12 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
+from pathlib import Path
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import FileResponse, JSONResponse
+from fastapi.staticfiles import StaticFiles
 from slowapi.errors import RateLimitExceeded
 
 from logging_config import get_audit_logger, setup_logging
@@ -76,3 +78,24 @@ async def global_exception_handler(
 @app.get("/health")
 def health() -> dict[str, str]:
     return {"status": "ok"}
+
+
+# --- Serve frontend SPA from static/ (must be after all API routes) ---
+
+STATIC_DIR = Path(__file__).parent / "static"
+
+if STATIC_DIR.is_dir():
+    # Serve JS/CSS/assets at their exact paths
+    app.mount(
+        "/assets",
+        StaticFiles(directory=STATIC_DIR / "assets"),
+        name="static-assets",
+    )
+
+    @app.get("/{path:path}")
+    async def spa_fallback(path: str) -> FileResponse:
+        """Serve index.html for all non-API routes (SPA client-side routing)."""
+        file = STATIC_DIR / path
+        if file.is_file():
+            return FileResponse(file)
+        return FileResponse(STATIC_DIR / "index.html")

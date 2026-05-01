@@ -52,6 +52,13 @@ data/pantry-bench/results/*_annotated.jpg
 # Server logs
 server/logs/
 
+# Frontend build output copied into server for deployment
+server/static/
+
+# Node
+frontend/node_modules/
+frontend/dist/
+
 # Database backups (created by scripts/maintenance.sh)
 backups/
 
