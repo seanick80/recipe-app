@@ -579,15 +579,30 @@ iOS `URLSession` strips `Authorization` header on 307 redirects.
 
 ---
 
+## What Has Been Deployed (Post-Sync)
+
+### Phase 5b: Cloud Run Job Setup (maintenance cron) ✅
+
+Deployed `server/maintenance.py` as a Cloud Run Job triggered by Cloud Scheduler.
+- GCS bucket `recipe-app-backups` created
+- Cloud Run Job `recipe-maintenance` running same image, entrypoint `python maintenance.py`
+- Cloud Scheduler job runs weekly (Sun 6 AM Pacific)
+- Service account granted `storage.objectAdmin` on bucket
+
+### Web Frontend Login ✅ (2026-05-04)
+
+SPA served same-origin from Cloud Run. Google OAuth login working end-to-end.
+Bugs fixed:
+- `pool_pre_ping=True` on SQLAlchemy engine (stale Neon SSL connections crashed on cold start)
+- `secure=True` on `session_token` cookie (HTTPS requires Secure flag for SameSite=Lax)
+- Audit logger writes to `console` handler (Cloud Run only captures stdout/stderr)
+- Removed `VITE_API_URL=/api/v1` from deploy script (Git Bash MSYS path conversion
+  mangled it to `C:/sourcecode/tools/Git/Git/api/v1`, breaking all API calls)
+- Frontend auth-gates recipe list behind `useAuth()` check
+
+---
+
 ## What Remains To Be Done
-
-### Phase 5b: Cloud Run Job Setup (maintenance cron)
-
-Deploy `server/maintenance.py` as a Cloud Run Job triggered by Cloud Scheduler.
-- Create GCS bucket `recipe-app-backups`
-- Create Cloud Run Job with same image, entrypoint `python maintenance.py`
-- Create Cloud Scheduler job (weekly)
-- Grant service account `storage.objectAdmin` on bucket
 
 ### Phase 6: Canonical Schema + Schema Sync Test
 

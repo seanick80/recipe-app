@@ -72,7 +72,7 @@ LOGGING_CONFIG: dict = {
             "propagate": False,
         },
         "audit": {
-            "handlers": ["audit_file", "server_file"],
+            "handlers": ["audit_file", "server_file", "console"],
             "level": "INFO",
             "propagate": False,
         },

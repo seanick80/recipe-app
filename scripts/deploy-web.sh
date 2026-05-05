@@ -13,7 +13,10 @@ SERVICE="recipe-api"
 if [[ "${1:-}" != "--skip-build" ]]; then
   echo "==> Building frontend..."
   cd "$FRONTEND_DIR"
-  VITE_API_URL=/api/v1 npm run build
+  # Don't set VITE_API_URL — Git Bash MSYS path conversion mangles
+  # "/api/v1" into "C:/sourcecode/tools/Git/Git/api/v1".
+  # client.ts already defaults to "/api/v1" at runtime.
+  npm run build
 fi
 
 # Copy dist into server/static

@@ -155,10 +155,12 @@ def callback(
     audit.info("LOGIN_SUCCESS email=%s role=%s", user.email, user.role)
     token = create_jwt(user.email, user.name, user.role)
     redirect = RedirectResponse(url=FRONTEND_URL, status_code=302)
+    is_https = FRONTEND_URL.startswith("https")
     redirect.set_cookie(
         key="session_token",
         value=token,
         httponly=True,
+        secure=is_https,
         samesite="lax",
         max_age=7 * 24 * 3600,
     )

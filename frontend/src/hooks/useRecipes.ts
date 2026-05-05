@@ -7,11 +7,14 @@ import {
   updateRecipe,
   type RecipeCreate,
 } from "../api/recipes";
+import { useAuth } from "./useAuth";
 
 export function useRecipes() {
+  const { data: user } = useAuth();
   return useQuery({
     queryKey: ["recipes"],
     queryFn: fetchRecipes,
+    enabled: !!user,
   });
 }
 
