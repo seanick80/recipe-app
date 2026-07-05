@@ -134,6 +134,25 @@ it to build purchase history and auto-suggest staples.
 store to keep the view clear. This workflow naturally captures purchase
 events with no extra taps.
 
+### Re-seed grocery list with Staples
+There is currently **no way to re-populate a grocery list from the staples
+template** — you can build a template but not one-tap seed a fresh/active
+grocery list from it. Add an explicit "Add Staples" (or "Re-seed from
+template") action on the grocery list.
+
+- Action lives on the Grocery/Lists view: pick a `ShoppingTemplate` (default
+  to the primary staples template if one exists) → its `TemplateItem`s are
+  appended to the active `GroceryList` as `GroceryItem`s.
+- Skip items already present (match on normalized name) so re-seeding an
+  in-progress list doesn't create duplicates.
+- Carry over `category`/`unit`/`quantity` from the template item.
+- Related but distinct from *Auto-populated staples from purchase history*
+  above: that one *suggests* staples from history; this one just *seeds* a
+  list from an existing template on demand.
+
+**Files to change**: `GroceryListView.swift`, `ShoppingViewModel.swift`
+(or grocery VM), possibly `ShoppingTemplate` accessor for "primary" template.
+
 ### Server-side recipe backup
 Weekly automated backup of the recipe Postgres database. Protects
 against sync bugs, accidental deletions, and data corruption.
@@ -150,6 +169,28 @@ changes by more than 20%, **fail the backup** and email an alert
 (via `$RECIPIENT_EMAIL`). This catches sync bugs, runaway deletes,
 or corruption before the good backup gets rotated out. The previous
 week's backup is preserved untouched when the check fails.
+
+### Imperial ↔ metric unit toggle on any recipe
+Let the user flip a recipe's ingredient units between imperial and metric on
+the recipe detail screen (a toggle/segmented control), without mutating the
+stored recipe.
+
+- Display-only conversion by default — the canonical stored `quantity`/`unit`
+  stays as entered; the toggle is a view-layer transform. (Optionally persist a
+  per-user "preferred units" setting so it defaults correctly everywhere.)
+- Conversion table for common cooking units: volume (cup/tbsp/tsp/fl oz ↔
+  ml/l), weight (oz/lb ↔ g/kg), temperature in instructions (°F ↔ °C).
+- Round to sensible cooking precision (e.g. 240 ml, not 236.588 ml) — reuse /
+  extend `RecipeDetailView.formatQuantityAsFraction` on the imperial side.
+- Non-convertible units (e.g. "1 egg", "to taste", "clove") pass through
+  unchanged.
+- Consider a pure `UnitConverter` module in `SharedLogic/` (framework-free,
+  Windows-testable) so it's covered by the Swift test suites and reusable by
+  the web frontend.
+
+**Files to change**: `RecipeDetailView.swift` (toggle + display), new
+`SharedLogic/UnitConverter.swift` (+ TestFixtures suite), possibly
+`SettingsView.swift` for a global default.
 
 ### Recipe images: step photos + hero image
 Recipes imported from the web often have images. Currently
