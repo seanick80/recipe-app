@@ -20,6 +20,13 @@ final class AuthService: ObservableObject {
     @Published var isLoading = false
     @Published var error: String?
 
+    /// Set when a previously-valid session can no longer be validated with the
+    /// server (e.g. the user changed their Google password, or the token was
+    /// revoked). The app stays usable — local + CloudKit data are untouched —
+    /// but cloud sync is paused until the user signs in again. Surfaced as a
+    /// non-blocking banner rather than kicking the user back to the login gate.
+    @Published var needsReauth = false
+
     private let baseURL: URL
 
     @Published var skippedLogin = false
@@ -145,6 +152,7 @@ final class AuthService: ObservableObject {
                     name: tokenResponse.name,
                     role: tokenResponse.role
                 )
+                needsReauth = false
             } else if httpResponse.statusCode == 403 {
                 error = "Not authorized -- ask Nick for an invite"
             } else {
@@ -154,35 +162,6 @@ final class AuthService: ObservableObject {
             self.error = error.localizedDescription
         }
         isLoading = false
-    }
-
-    // MARK: - Fetch Current User
-
-    func fetchMe() async {
-        guard let token = KeychainService.loadToken() else {
-            currentUser = nil
-            return
-        }
-
-        let url = baseURL.appendingPathComponent("me")
-        var request = URLRequest(url: url)
-        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
-
-        do {
-            let (data, response) = try await URLSession.shared.data(for: request)
-            guard let httpResponse = response as? HTTPURLResponse else { return }
-
-            if httpResponse.statusCode == 200 {
-                currentUser = try JSONDecoder().decode(AuthUser.self, from: data)
-            } else if httpResponse.statusCode == 401 {
-                let refreshed = await refreshToken()
-                if !refreshed {
-                    logout()
-                }
-            }
-        } catch {
-            self.error = error.localizedDescription
-        }
     }
 
     // MARK: - Token Refresh
@@ -209,6 +188,7 @@ final class AuthService: ObservableObject {
                 name: tokenResponse.name,
                 role: tokenResponse.role
             )
+            needsReauth = false
             return true
         } catch {
             return false
@@ -226,17 +206,66 @@ final class AuthService: ObservableObject {
         KeychainService.deleteToken()
         currentUser = nil
         skippedLogin = false
+        needsReauth = false
         error = nil
     }
 
     // MARK: - Session Restore
 
+    /// Restore the session *optimistically* on launch: if a token is cached,
+    /// read its claims locally and show the signed-in UI immediately — no
+    /// network round-trip on the launch path. The token is then validated with
+    /// the server in the background (see `validateSession`), which is what used
+    /// to block the UI for several seconds on every cold open.
     private func restoreSession() {
-        guard KeychainService.loadToken() != nil else { return }
-        isLoading = true
-        Task {
-            await fetchMe()
-            isLoading = false
+        guard let token = KeychainService.loadToken() else { return }
+
+        // Instant, offline identity from the cached JWT so `isAuthenticated`
+        // is true right away and ContentView renders without waiting.
+        if let claims = JWTDecoder.decode(token) {
+            currentUser = AuthUser(
+                email: claims.email,
+                name: claims.name,
+                role: claims.role
+            )
+        }
+
+        // Revalidate/refresh against the server without blocking.
+        Task { await validateSession() }
+    }
+
+    /// Background session validation. Runs after the UI is already up.
+    /// - 200: refresh the cached user (claims may be stale) and clear any
+    ///   pending re-auth flag.
+    /// - 401 that a refresh cannot fix: the session is genuinely dead — flag
+    ///   `needsReauth` so the app shows the "log back in for cloud data" banner,
+    ///   but keep the user in the app so local/CloudKit data stays accessible.
+    /// - Transport/network errors: stay optimistically signed in and try again
+    ///   on the next launch or foreground; do not disturb the user.
+    func validateSession() async {
+        guard let token = KeychainService.loadToken() else { return }
+
+        let url = baseURL.appendingPathComponent("me")
+        var request = URLRequest(url: url)
+        request.setValue("Bearer \(token)", forHTTPHeaderField: "Authorization")
+
+        do {
+            let (data, response) = try await URLSession.shared.data(for: request)
+            guard let httpResponse = response as? HTTPURLResponse else { return }
+
+            if httpResponse.statusCode == 200 {
+                currentUser = try JSONDecoder().decode(AuthUser.self, from: data)
+                needsReauth = false
+            } else if httpResponse.statusCode == 401 {
+                let refreshed = await refreshToken()
+                if !refreshed {
+                    // Session is dead (password changed, token revoked, expired
+                    // past the grace window). Keep local data; ask for re-login.
+                    needsReauth = true
+                }
+            }
+        } catch {
+            // Offline or transient server error — stay signed in optimistically.
         }
     }
 
