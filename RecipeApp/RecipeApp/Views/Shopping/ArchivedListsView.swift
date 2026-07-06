@@ -3,6 +3,7 @@ import SwiftUI
 
 struct ArchivedListsView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(\.dismiss) private var dismiss
     // NB: filter only — do NOT add `sort: \GroceryList.archivedAt` here.
     // `@Query(sort:)` on an optional key path (`archivedAt` is `Date?`) crashes
     // SwiftData when the view appears. We sort in memory below instead.
@@ -21,39 +22,51 @@ struct ArchivedListsView: View {
     }
 
     var body: some View {
-        List {
-            if sortedArchivedLists.isEmpty {
-                ContentUnavailableView(
-                    "No Archived Lists",
-                    systemImage: "archivebox",
-                    description: Text("Lists you archive will appear here.")
-                )
-            } else {
-                ForEach(sortedArchivedLists) { list in
-                    NavigationLink {
-                        ArchivedListDetailView(groceryList: list, viewModel: viewModel)
-                    } label: {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(list.name)
-                            HStack(spacing: 12) {
-                                Text("\(list.items?.count ?? 0) items")
-                                if let archived = list.archivedAt {
-                                    Text(archived, style: .date)
+        // Presented as a .sheet, so it owns its own NavigationStack (matching
+        // the sibling menu sheets like TemplateEditorView / MergeListsView).
+        // It is deliberately NOT pushed via `.navigationDestination(isPresented:)`
+        // from the toolbar Menu — that combination wedges SwiftUI navigation and
+        // hangs the UI when the menu dismisses.
+        NavigationStack {
+            List {
+                if sortedArchivedLists.isEmpty {
+                    ContentUnavailableView(
+                        "No Archived Lists",
+                        systemImage: "archivebox",
+                        description: Text("Lists you archive will appear here.")
+                    )
+                } else {
+                    ForEach(sortedArchivedLists) { list in
+                        NavigationLink {
+                            ArchivedListDetailView(groceryList: list, viewModel: viewModel)
+                        } label: {
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(list.name)
+                                HStack(spacing: 12) {
+                                    Text("\(list.items?.count ?? 0) items")
+                                    if let archived = list.archivedAt {
+                                        Text(archived, style: .date)
+                                    }
                                 }
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
                             }
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
+                        }
+                    }
+                    .onDelete { offsets in
+                        for index in offsets {
+                            modelContext.delete(sortedArchivedLists[index])
                         }
                     }
                 }
-                .onDelete { offsets in
-                    for index in offsets {
-                        modelContext.delete(sortedArchivedLists[index])
-                    }
+            }
+            .navigationTitle("Archived Lists")
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { dismiss() }
                 }
             }
         }
-        .navigationTitle("Archived Lists")
     }
 }
 
