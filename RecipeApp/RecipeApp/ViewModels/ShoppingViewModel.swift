@@ -68,6 +68,34 @@ class ShoppingViewModel {
         return list
     }
 
+    /// Appends a template's items to an EXISTING list, skipping any item whose
+    /// name already appears in the list (case-insensitive) so re-seeding an
+    /// in-progress list never creates duplicates. Category/unit/quantity are
+    /// carried over from the template. Returns the number of items added.
+    @discardableResult
+    func addStaples(
+        from template: ShoppingTemplate,
+        to list: GroceryList,
+        context: ModelContext
+    ) -> Int {
+        let existingNames = Set((list.items ?? []).map { $0.name.lowercased() })
+        let sortedItems = (template.items ?? []).sorted { $0.sortOrder < $1.sortOrder }
+        var added = 0
+        for templateItem in sortedItems {
+            if existingNames.contains(templateItem.name.lowercased()) { continue }
+            let item = GroceryItem(
+                name: templateItem.name,
+                quantity: templateItem.quantity,
+                unit: templateItem.unit,
+                category: templateItem.category
+            )
+            item.groceryList = list
+            context.insert(item)
+            added += 1
+        }
+        return added
+    }
+
     /// Archives a grocery list by setting its archivedAt date.
     func archive(_ list: GroceryList) {
         list.archivedAt = Date()
