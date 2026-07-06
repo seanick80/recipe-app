@@ -94,7 +94,7 @@ struct ShoppingListTab: View {
                     viewModel: viewModel
                 )
             }
-            .navigationDestination(isPresented: $showingArchivedLists) {
+            .sheet(isPresented: $showingArchivedLists) {
                 ArchivedListsView(viewModel: viewModel)
             }
         }
