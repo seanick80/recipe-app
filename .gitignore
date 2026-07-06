@@ -64,6 +64,9 @@ backups/
 
 # Env
 .env
+env.root
+env.server
+env.*
 
 # Secrets — NEVER commit anything from here.
 # This directory holds local key material (ASC API .p8, signing .p12,
