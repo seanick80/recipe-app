@@ -3,24 +3,33 @@ import SwiftUI
 
 struct ArchivedListsView: View {
     @Environment(\.modelContext) private var modelContext
+    // NB: filter only — do NOT add `sort: \GroceryList.archivedAt` here.
+    // `@Query(sort:)` on an optional key path (`archivedAt` is `Date?`) crashes
+    // SwiftData when the view appears. We sort in memory below instead.
     @Query(
-        filter: #Predicate<GroceryList> { $0.archivedAt != nil },
-        sort: \GroceryList.archivedAt,
-        order: .reverse
+        filter: #Predicate<GroceryList> { $0.archivedAt != nil }
     ) private var archivedLists: [GroceryList]
 
     var viewModel: ShoppingViewModel
 
+    /// Most-recently-archived first. Sorted in memory to avoid the optional
+    /// key-path `@Query` sort crash.
+    private var sortedArchivedLists: [GroceryList] {
+        archivedLists.sorted {
+            ($0.archivedAt ?? .distantPast) > ($1.archivedAt ?? .distantPast)
+        }
+    }
+
     var body: some View {
         List {
-            if archivedLists.isEmpty {
+            if sortedArchivedLists.isEmpty {
                 ContentUnavailableView(
                     "No Archived Lists",
                     systemImage: "archivebox",
                     description: Text("Lists you archive will appear here.")
                 )
             } else {
-                ForEach(archivedLists) { list in
+                ForEach(sortedArchivedLists) { list in
                     NavigationLink {
                         ArchivedListDetailView(groceryList: list, viewModel: viewModel)
                     } label: {
@@ -39,7 +48,7 @@ struct ArchivedListsView: View {
                 }
                 .onDelete { offsets in
                     for index in offsets {
-                        modelContext.delete(archivedLists[index])
+                        modelContext.delete(sortedArchivedLists[index])
                     }
                 }
             }

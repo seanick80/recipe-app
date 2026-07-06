@@ -55,9 +55,19 @@ struct RecipeDetailView: View {
                     }
 
                     if !recipe.sourceURL.isEmpty {
-                        Text("Source: \(recipe.sourceURL)")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
+                        // The source can be a web URL or a free-text cookbook
+                        // name; only linkify real http(s) URLs (opens in the
+                        // default browser), otherwise show plain text.
+                        if let url = sourceLink(recipe.sourceURL) {
+                            Link(destination: url) {
+                                Text("Source: \(recipe.sourceURL)")
+                                    .font(.caption2)
+                            }
+                        } else {
+                            Text("Source: \(recipe.sourceURL)")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                        }
                     }
                 }
                 .padding(.horizontal)
@@ -114,6 +124,20 @@ struct RecipeDetailView: View {
         .sheet(isPresented: $showingEdit) {
             RecipeEditView(recipe: recipe)
         }
+    }
+
+    /// Returns a tappable URL only if the source string is a real http(s) URL.
+    /// Free-text sources (e.g. a cookbook name) return nil and render as plain text.
+    private func sourceLink(_ source: String) -> URL? {
+        let trimmed = source.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let url = URL(string: trimmed),
+            let scheme = url.scheme?.lowercased(),
+            scheme == "http" || scheme == "https",
+            url.host != nil
+        else {
+            return nil
+        }
+        return url
     }
 
     private func formatQuantityAsFraction(_ value: Double) -> String {
