@@ -49,7 +49,15 @@ struct RecipeAppApp: App {
                             if newPhase == .active {
                                 importService.checkForPendingImports()
                                 if authService.currentUser != nil {
-                                    Task { await syncService.sync() }
+                                    // Re-check the session in the background (a
+                                    // token can expire while backgrounded), then
+                                    // sync only if it's still healthy.
+                                    Task {
+                                        await authService.validateSession()
+                                        if !authService.needsReauth {
+                                            await syncService.sync()
+                                        }
+                                    }
                                 }
                             }
                         }
