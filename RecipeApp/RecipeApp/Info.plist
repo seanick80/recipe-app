@@ -23,5 +23,15 @@
 	<string>972511622379-mak8qoj1corsaria7f2k8ainq715al7u.apps.googleusercontent.com</string>
 	<key>GIDServerClientID</key>
 	<string>972511622379-s2ivecpg4492gg7dbq21c3ev3slqeukp.apps.googleusercontent.com</string>
+	<!-- Derive the app's version from the same build settings the
+	     ShareExtension uses (MARKETING_VERSION / CURRENT_PROJECT_VERSION in
+	     project.yml) so the app and its extension always report the SAME
+	     CFBundleShortVersionString. Without this the app had no version key
+	     and Xcode defaulted it to 1.0, while the extension resolved to 0.2.0,
+	     which App Store Connect rejects at upload. -->
+	<key>CFBundleShortVersionString</key>
+	<string>$(MARKETING_VERSION)</string>
+	<key>CFBundleVersion</key>
+	<string>$(CURRENT_PROJECT_VERSION)</string>
 </dict>
 </plist>
