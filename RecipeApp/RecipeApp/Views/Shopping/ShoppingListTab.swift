@@ -14,7 +14,7 @@ struct ShoppingListTab: View {
     @Query(sort: \ShoppingTemplate.sortOrder) private var templates: [ShoppingTemplate]
 
     @State private var showingTemplateEditor = false
-    @State private var showingStartNewWeek = false
+    @State private var showingStaplesPicker = false
     @State private var showingMergeLists = false
     @State private var showingArchivedLists = false
     @State private var viewModel = ShoppingViewModel()
@@ -35,9 +35,9 @@ struct ShoppingListTab: View {
                 ToolbarItem(placement: .primaryAction) {
                     Menu {
                         Button {
-                            showingStartNewWeek = true
+                            addStaplesTapped()
                         } label: {
-                            Label("Start New Week", systemImage: "arrow.clockwise")
+                            Label("Add Staples", systemImage: "cart.badge.plus")
                         }
                         .disabled(templates.isEmpty)
 
@@ -76,17 +76,13 @@ struct ShoppingListTab: View {
             .sheet(isPresented: $showingTemplateEditor) {
                 TemplateEditorView()
             }
-            .alert("Start New Week", isPresented: $showingStartNewWeek) {
+            .confirmationDialog("Add Staples", isPresented: $showingStaplesPicker, titleVisibility: .visible) {
+                ForEach(templates) { template in
+                    Button(template.name) { addStaples(from: template) }
+                }
                 Button("Cancel", role: .cancel) {}
-                Button("Start") {
-                    startNewWeek()
-                }
             } message: {
-                if activeList != nil {
-                    Text("This will archive your current list and create a new one from your staples template.")
-                } else {
-                    Text("Create a new shopping list from your staples template.")
-                }
+                Text("Add items from a staples template to your list. Items already on the list are skipped.")
             }
             .sheet(isPresented: $showingMergeLists) {
                 MergeListsView(
@@ -105,9 +101,9 @@ struct ShoppingListTab: View {
             Label("No Shopping List", systemImage: "cart")
         } description: {
             if templates.isEmpty {
-                Text("Set up your weekly staples first, then start a new week.")
+                Text("Set up your staples first, then add them to your list.")
             } else {
-                Text("Tap the menu to start a new week from your staples.")
+                Text("Tap the menu to add your staples.")
             }
         } actions: {
             if templates.isEmpty {
@@ -115,18 +111,30 @@ struct ShoppingListTab: View {
                     showingTemplateEditor = true
                 }
             } else {
-                Button("Start New Week") {
-                    startNewWeek()
+                Button("Add Staples") {
+                    addStaplesTapped()
                 }
             }
         }
     }
 
-    private func startNewWeek() {
-        if let current = activeList {
-            viewModel.archive(current)
+    // "Add Staples" entry point. With a single template, apply it directly;
+    // with several, let the user pick which staples to add.
+    private func addStaplesTapped() {
+        if templates.count == 1 {
+            addStaples(from: templates[0])
+        } else if !templates.isEmpty {
+            showingStaplesPicker = true
         }
-        if let template = templates.first {
+    }
+
+    // Adds a template's staples to the current list WITHOUT overwriting it —
+    // items already on the list are skipped (see ShoppingViewModel.addStaples).
+    // If there's no active list yet, create one seeded from the template.
+    private func addStaples(from template: ShoppingTemplate) {
+        if let current = activeList {
+            viewModel.addStaples(from: template, to: current, context: modelContext)
+        } else {
             _ = viewModel.stampList(from: template, name: nil, context: modelContext)
         }
     }
