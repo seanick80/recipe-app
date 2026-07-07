@@ -80,6 +80,7 @@ workflows:
              SharedLogic/ContentDetector.swift \
              SharedLogic/FuzzyMatcher.swift \
              SharedLogic/RecipeSchemaParser.swift \
+             SharedLogic/UnitConverter.swift \
              RecipeApp/RecipeApp/Parsers/
           echo "Copied $(ls RecipeApp/RecipeApp/Parsers/ | wc -l) files to Parsers/"
           ls -la RecipeApp/RecipeApp/Parsers/
@@ -346,6 +347,7 @@ workflows:
              SharedLogic/ContentDetector.swift \
              SharedLogic/FuzzyMatcher.swift \
              SharedLogic/RecipeSchemaParser.swift \
+             SharedLogic/UnitConverter.swift \
              RecipeApp/RecipeApp/Parsers/
           echo "Copied $(ls RecipeApp/RecipeApp/Parsers/ | wc -l) files to Parsers/"
           ls -la RecipeApp/RecipeApp/Parsers/

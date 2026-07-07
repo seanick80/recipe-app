@@ -1,9 +1,19 @@
 import SwiftData
 import SwiftUI
 
+/// Display-only unit mode for the recipe page. `auto` shows ingredients exactly
+/// as stored; `metric`/`imperial` convert for display without mutating the recipe.
+private enum UnitDisplay: String, CaseIterable, Identifiable {
+    case auto = "Auto"
+    case metric = "Metric"
+    case imperial = "Imperial"
+    var id: String { rawValue }
+}
+
 struct RecipeDetailView: View {
     let recipe: Recipe
     @State private var showingEdit = false
+    @State private var unitDisplay: UnitDisplay = .auto
 
     var body: some View {
         ScrollView {
@@ -74,17 +84,32 @@ struct RecipeDetailView: View {
 
                 if let ingredients = recipe.ingredients, !ingredients.isEmpty {
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("Ingredients")
-                            .font(.title2)
-                            .bold()
+                        HStack {
+                            Text("Ingredients")
+                                .font(.title2)
+                                .bold()
+                            Spacer()
+                            Picker("Units", selection: $unitDisplay) {
+                                ForEach(UnitDisplay.allCases) { option in
+                                    Text(option.rawValue).tag(option)
+                                }
+                            }
+                            .pickerStyle(.segmented)
+                            .labelsHidden()
+                            .fixedSize()
+                        }
                         Grid(alignment: .leadingFirstTextBaseline, horizontalSpacing: 6, verticalSpacing: 4) {
                             ForEach(ingredients.sorted { $0.displayOrder < $1.displayOrder }) { ingredient in
                                 GridRow {
                                     if ingredient.quantity > 0 {
-                                        Text(formatQuantityAsFraction(ingredient.quantity))
+                                        let measure = displayMeasure(
+                                            quantity: ingredient.quantity,
+                                            unit: ingredient.unit
+                                        )
+                                        Text(measure.text)
                                             .bold()
                                             .gridColumnAlignment(.trailing)
-                                        Text(ingredient.unit)
+                                        Text(measure.unit)
                                             .bold()
                                             .foregroundStyle(.secondary)
                                             .gridColumnAlignment(.leading)
@@ -138,6 +163,35 @@ struct RecipeDetailView: View {
             return nil
         }
         return url
+    }
+
+    /// Ingredient quantity + unit formatted for the current unit-display mode.
+    /// Conversion is display-only (the stored recipe is never changed). Units
+    /// that aren't convertible measures (e.g. "egg", "clove") fall back to the
+    /// stored value regardless of mode.
+    private func displayMeasure(quantity: Double, unit: String) -> (text: String, unit: String) {
+        switch unitDisplay {
+        case .auto:
+            break
+        case .metric:
+            if let m = UnitConverter.convert(quantity: quantity, unit: unit, to: .metric) {
+                return (formatMetric(m.quantity), m.unit)
+            }
+        case .imperial:
+            if let m = UnitConverter.convert(quantity: quantity, unit: unit, to: .imperial) {
+                return (formatQuantityAsFraction(m.quantity), m.unit)
+            }
+        }
+        return (formatQuantityAsFraction(quantity), unit)
+    }
+
+    /// Compact decimal formatting for metric values, dropping trailing zeros
+    /// (240 → "240", 3.8 → "3.8", 1.5 → "1.5").
+    private func formatMetric(_ value: Double) -> String {
+        if value == value.rounded() {
+            return String(Int(value))
+        }
+        return String(format: "%g", value)
     }
 
     private func formatQuantityAsFraction(_ value: Double) -> String {
