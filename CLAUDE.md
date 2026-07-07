@@ -172,7 +172,7 @@ When adding a field: update `canonical.yaml` first, then propagate to each surfa
 
 ## Testing
 ```bash
-# All tests (Windows) — 300 tests across 15 Swift suites + 78 server tests
+# All tests (Windows) — 326 tests across 16 Swift suites + 78 server tests
 ./scripts/test.sh
 
 # Full build validation (lint + tests + config)
@@ -186,7 +186,8 @@ Pure Swift test suites in `TestFixtures/` (exercising `SharedLogic/` code):
 Recipe (13), Shopping (16), ListParser (59), OCR (20), Detection (13),
 Barcode (11), Pantry (10), GroceryCategorizer (31), ZoneClassifier (12),
 QualityGate (24), DebugLog (10), PrepNoteStripper (14),
-ContentDetector (4), FuzzyMatcher (11), RecipeSchemaParser (52).
+ContentDetector (4), FuzzyMatcher (11), RecipeSchemaParser (52),
+UnitConverter (26).
 
 XCTests in `RecipeAppTests/` run on Codemagic simulator before archive:
 - `RecipeModelTests.swift` — SwiftData model init + toggle
