@@ -17,6 +17,7 @@ struct ShoppingListTab: View {
     @State private var showingStaplesPicker = false
     @State private var showingMergeLists = false
     @State private var showingArchivedLists = false
+    @State private var showingLists = false
     @State private var viewModel = ShoppingViewModel()
 
     private var activeList: GroceryList? { activeLists.first }
@@ -63,6 +64,14 @@ struct ShoppingListTab: View {
                             }
                         }
 
+                        Divider()
+
+                        Button {
+                            showingLists = true
+                        } label: {
+                            Label("View Lists", systemImage: "list.bullet")
+                        }
+
                         Button {
                             showingArchivedLists = true
                         } label: {
@@ -92,6 +101,12 @@ struct ShoppingListTab: View {
             }
             .sheet(isPresented: $showingArchivedLists) {
                 ArchivedListsView(viewModel: viewModel)
+            }
+            // GroceryListView brings its own NavigationStack, so present it as a
+            // sheet rather than a navigationDestination from the Menu (which hangs
+            // the UI — see the archived-lists fix).
+            .sheet(isPresented: $showingLists) {
+                GroceryListView()
             }
         }
     }
