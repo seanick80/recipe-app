@@ -183,9 +183,27 @@ separate bundle IDs `com.seanick80.recipeapp.rn` wired in `app.json`).
 - Android dev host is `10.0.2.2`, not `localhost` (`src/config.ts` branches on
   `Platform.OS`).
 
-**Not verified on-device** — see the two external prerequisites under
-"Build / deploy notes" (Android OAuth client + reachable backend). Phase 2 is
-verified by CI + Metro bundle only.
+**On-device UI smoke test — PASS (Android emulator, `rn-test`).** `expo
+run:android` builds a debug APK with the new native modules (google-signin +
+secure-store) and launches it; Metro serves the bundle (1451 modules, no JS
+errors in logcat). Verified via adb screencaps: LoginScreen renders (NativeWind
+styling correct) → "Continue without signing in" → tab shell (all 4 Ionicons
+tabs) → Recipes guest gate ("Sign in to browse recipes from the server.") →
+tab switching (Scan placeholder). Android OAuth client is now created in the
+Google console (debug keystore SHA-1 `BF:0F:79:…:A3:80`).
+
+**Real Google sign-in + recipe fetch NOT yet exercised** — needs a Google
+account signed into the emulator (the `google_apis` image has no Play Store,
+making that fiddly) + a reachable backend. Do this on a real device or a
+`google_apis_playstore` image. Everything up to the native Google sheet is
+verified.
+
+Emulator gotcha: under headless software rendering (`-gpu
+swiftshader_indirect`) the Pixel Launcher repeatedly ANRs and draws its dialog
+over the app. Our app is unaffected (it stays the resumed activity); to get a
+clean screencap, `am force-stop com.google.android.apps.nexuslauncher` then
+relaunch `…/.MainActivity` directly. First `expo run:android` also downloads
+NDK/build-tools/CMake (~5–6 min); subsequent builds are cached.
 
 ## Next action (Phase 3)
 
