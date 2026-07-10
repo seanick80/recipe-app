@@ -3,6 +3,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { Placeholder } from '../components/Placeholder';
+import { RecipesStack } from './RecipesStack';
 import { TABS, type TabConfig } from './tabs';
 
 const Tab = createBottomTabNavigator();
@@ -25,7 +26,12 @@ function createTabStack(tab: TabConfig) {
   };
 }
 
-const TAB_STACKS = TABS.map((tab) => ({ tab, Component: createTabStack(tab) }));
+// The Recipes tab has real screens (Phase 2); the rest stay placeholders until
+// their phases land.
+const TAB_STACKS = TABS.map((tab) => ({
+  tab,
+  Component: tab.name === 'Recipes' ? RecipesStack : createTabStack(tab),
+}));
 
 export function RootTabs() {
   return (

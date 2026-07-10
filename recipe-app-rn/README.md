@@ -6,11 +6,14 @@ React Native (Expo) re-implementation of the SwiftUI Recipe App. Lives as a
 `docs/REACT_NATIVE_MIGRATION_PLAN.md`). The SwiftUI app in `RecipeApp/` stays
 the shipping app; this project is built in parallel until a deliberate cutover.
 
-## Status: Phase 0 complete (scaffold)
+## Status: Phase 2 complete (auth + read-only Recipes)
 
-The app boots to a 4-tab shell — **Recipes, Shopping, Scan, Lists** (the SwiftUI
-"Pantry" tab is intentionally dropped from the RN app). Every tab is an empty
-placeholder screen inside its own native stack.
+The app has Google sign-in (native SDK → JWT in secure storage, optimistic
+session restore) gating a 4-tab shell — **Recipes, Shopping, Scan, Lists** (the
+SwiftUI "Pantry" tab is intentionally dropped). The **Recipes** tab is a live,
+read-only list + detail backed by the FastAPI server; the other three tabs are
+still placeholders. See `MIGRATION_STATUS.md` for the full phase table, what
+landed in Phase 2, and the on-device verification prerequisites.
 
 ## Stack
 
