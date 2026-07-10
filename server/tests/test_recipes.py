@@ -577,6 +577,89 @@ def test_double_delete_is_idempotent(client, auth_headers):
 
 
 # ---------------------------------------------------------------------------
+# Public (unauthenticated) recipe view — shareable links
+# ---------------------------------------------------------------------------
+
+
+def _publish(client, auth_headers, recipe_id):
+    resp = client.patch(
+        f"/api/v1/recipes/{recipe_id}",
+        json={"is_published": True},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 200
+    assert resp.json()["is_published"] is True
+
+
+def test_public_get_published_recipe_no_auth(client, auth_headers):
+    """A published recipe is viewable without any auth."""
+    resp = client.post(
+        "/api/v1/recipes/",
+        json={"name": "Public Pie", "summary": "Shareable"},
+        headers=auth_headers,
+    )
+    recipe_id = resp.json()["id"]
+    _publish(client, auth_headers, recipe_id)
+
+    response = client.get(f"/api/v1/recipes/{recipe_id}/public")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["name"] == "Public Pie"
+    assert body["is_published"] is True
+    # Must not leak owner identity
+    assert "user_id" not in body
+
+
+def test_public_get_unpublished_recipe_returns_404(client, auth_headers):
+    """An unpublished recipe is hidden from the public endpoint (404)."""
+    resp = client.post(
+        "/api/v1/recipes/",
+        json={"name": "Private Stew"},
+        headers=auth_headers,
+    )
+    recipe_id = resp.json()["id"]
+
+    response = client.get(f"/api/v1/recipes/{recipe_id}/public")
+    assert response.status_code == 404
+
+
+def test_public_get_soft_deleted_published_returns_404(client, auth_headers):
+    """A published-but-deleted recipe is not publicly viewable."""
+    resp = client.post(
+        "/api/v1/recipes/",
+        json={"name": "Gone Public"},
+        headers=auth_headers,
+    )
+    recipe_id = resp.json()["id"]
+    _publish(client, auth_headers, recipe_id)
+    client.delete(f"/api/v1/recipes/{recipe_id}", headers=auth_headers)
+
+    response = client.get(f"/api/v1/recipes/{recipe_id}/public")
+    assert response.status_code == 404
+
+
+def test_public_get_nonexistent_returns_404(client):
+    fake_id = str(uuid.uuid4())
+    response = client.get(f"/api/v1/recipes/{fake_id}/public")
+    assert response.status_code == 404
+
+
+def test_public_get_unpublished_indistinguishable_from_missing(client, auth_headers):
+    """Unpublished and nonexistent both 404 with the same detail (no leak)."""
+    resp = client.post(
+        "/api/v1/recipes/",
+        json={"name": "Secret"},
+        headers=auth_headers,
+    )
+    recipe_id = resp.json()["id"]
+
+    unpublished = client.get(f"/api/v1/recipes/{recipe_id}/public")
+    missing = client.get(f"/api/v1/recipes/{uuid.uuid4()}/public")
+    assert unpublished.status_code == missing.status_code == 404
+    assert unpublished.json()["detail"] == missing.json()["detail"]
+
+
+# ---------------------------------------------------------------------------
 # User-scoping isolation tests
 # ---------------------------------------------------------------------------
 

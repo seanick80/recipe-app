@@ -12,8 +12,13 @@ private enum UnitDisplay: String, CaseIterable, Identifiable {
 
 struct RecipeDetailView: View {
     let recipe: Recipe
+    @Environment(SyncService.self) private var syncService
+    @Environment(\.modelContext) private var modelContext
+    @AppStorage("autoPublishEnabled") private var autoPublish = false
     @State private var showingEdit = false
     @State private var unitDisplay: UnitDisplay = .auto
+    @State private var sharePayload: SharePayload?
+    @State private var showingPublishPrompt = false
 
     var body: some View {
         ScrollView {
@@ -144,11 +149,155 @@ struct RecipeDetailView: View {
         }
         .navigationTitle(recipe.name)
         .toolbar {
-            Button("Edit") { showingEdit = true }
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    handleShareTapped()
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+            }
+            ToolbarItem(placement: .topBarTrailing) {
+                Menu {
+                    Button("Edit") { showingEdit = true }
+                    if recipe.serverId != nil {
+                        Toggle("Published to web", isOn: publishedBinding)
+                    }
+                } label: {
+                    Image(systemName: "ellipsis.circle")
+                }
+            }
+        }
+        .confirmationDialog(
+            "Share recipe",
+            isPresented: $showingPublishPrompt,
+            titleVisibility: .visible
+        ) {
+            Button("Publish & share link") { publishAndShareLink() }
+            Button("Share as text instead") {
+                sharePayload = SharePayload(items: [shareText])
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Publishing makes this recipe viewable by anyone with the link.")
+        }
+        .sheet(item: $sharePayload) { payload in
+            ShareSheet(activityItems: payload.items)
         }
         .sheet(isPresented: $showingEdit) {
             RecipeEditView(recipe: recipe)
         }
+    }
+
+    /// Two-way binding for the per-recipe "Published to web" toggle.
+    private var publishedBinding: Binding<Bool> {
+        Binding(
+            get: { recipe.isPublished },
+            set: { setPublished($0) }
+        )
+    }
+
+    /// Decides what "Share" does based on sync + publish state:
+    /// - not synced (no serverId): only plain text can be shared.
+    /// - published: share the public web link directly.
+    /// - unpublished + auto-publish on: publish, then share the link.
+    /// - unpublished + auto-publish off: ask first.
+    private func handleShareTapped() {
+        guard recipe.serverId != nil else {
+            sharePayload = SharePayload(items: [shareText])
+            return
+        }
+        if recipe.isPublished {
+            shareLink()
+        } else if autoPublish {
+            publishAndShareLink()
+        } else {
+            showingPublishPrompt = true
+        }
+    }
+
+    private func publishAndShareLink() {
+        setPublished(true)
+        shareLink()
+    }
+
+    /// Shares the public web URL, falling back to text if one can't be built.
+    private func shareLink() {
+        if let url = recipeWebURL() {
+            sharePayload = SharePayload(items: [url])
+        } else {
+            sharePayload = SharePayload(items: [shareText])
+        }
+    }
+
+    /// Flips the recipe's published state and kicks a sync so the change reaches
+    /// the server (which gates the public web view on `is_published`).
+    private func setPublished(_ value: Bool) {
+        guard recipe.isPublished != value else { return }
+        recipe.isPublished = value
+        recipe.needsSync = true
+        try? modelContext.save()
+        Task { await syncService.sync() }
+    }
+
+    /// Public web URL for this recipe, e.g.
+    /// `https://recipes.ouryearofwander.com/recipes/{serverId}`. Nil until synced.
+    private func recipeWebURL() -> URL? {
+        guard let serverId = recipe.serverId else { return nil }
+        return ServerConfig.webBaseURL
+            .appendingPathComponent("recipes")
+            .appendingPathComponent(serverId)
+    }
+
+    /// Plain-text rendering of the recipe suitable for sharing via Messages,
+    /// Mail, etc. Uses stored (auto) units — the display-only unit toggle does
+    /// not affect what is shared.
+    private var shareText: String {
+        var lines: [String] = [recipe.name]
+
+        if !recipe.summary.isEmpty {
+            lines.append("")
+            lines.append(recipe.summary)
+        }
+
+        var meta: [String] = []
+        if recipe.prepTimeMinutes > 0 { meta.append("Prep: \(recipe.prepTimeMinutes) min") }
+        if recipe.cookTimeMinutes > 0 { meta.append("Cook: \(recipe.cookTimeMinutes) min") }
+        if recipe.servings > 0 { meta.append("Serves: \(recipe.servings)") }
+        if !meta.isEmpty {
+            lines.append("")
+            lines.append(meta.joined(separator: " · "))
+        }
+
+        if let ingredients = recipe.ingredients, !ingredients.isEmpty {
+            lines.append("")
+            lines.append("Ingredients")
+            for ingredient in ingredients.sorted(by: { $0.displayOrder < $1.displayOrder }) {
+                var parts: [String] = []
+                if ingredient.quantity > 0 {
+                    let measure = formatQuantityAsFraction(ingredient.quantity)
+                    parts.append([measure, ingredient.unit].filter { !$0.isEmpty }.joined(separator: " "))
+                }
+                parts.append(ingredient.name)
+                var line = "- " + parts.filter { !$0.isEmpty }.joined(separator: " ")
+                if !ingredient.notes.isEmpty {
+                    line += " (\(ingredient.notes))"
+                }
+                lines.append(line)
+            }
+        }
+
+        if !recipe.instructions.isEmpty {
+            lines.append("")
+            lines.append("Instructions")
+            lines.append(recipe.instructions)
+        }
+
+        if !recipe.sourceURL.isEmpty {
+            lines.append("")
+            lines.append("Source: \(recipe.sourceURL)")
+        }
+
+        return lines.joined(separator: "\n")
     }
 
     /// Returns a tappable URL only if the source string is a real http(s) URL.
@@ -223,4 +372,24 @@ struct RecipeDetailView: View {
             ? "\(whole)"
             : String(format: "%.1f", value)
     }
+}
+
+/// Wraps the items handed to the system share sheet. Identifiable so it can
+/// drive a `.sheet(item:)` presentation.
+private struct SharePayload: Identifiable {
+    let id = UUID()
+    let items: [Any]
+}
+
+/// Minimal `UIActivityViewController` wrapper so the recipe share flow can
+/// present either a URL or plain text after an async publish/sync step (which
+/// the declarative `ShareLink` can't express).
+private struct ShareSheet: UIViewControllerRepresentable {
+    let activityItems: [Any]
+
+    func makeUIViewController(context: Context) -> UIActivityViewController {
+        UIActivityViewController(activityItems: activityItems, applicationActivities: nil)
+    }
+
+    func updateUIViewController(_ uiViewController: UIActivityViewController, context: Context) {}
 }

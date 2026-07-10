@@ -7,6 +7,7 @@ struct SettingsView: View {
     @Environment(SyncService.self) private var syncService
     @EnvironmentObject private var authService: AuthService
     @AppStorage("improvementReportingEnabled") private var improvementReporting = false
+    @AppStorage("autoPublishEnabled") private var autoPublish = false
     @State private var showingDeletedRecipes = false
     @State private var showingForceSync = false
 
@@ -53,6 +54,18 @@ struct SettingsView: View {
                             dismiss()
                         }
                     }
+                }
+
+                Section {
+                    Toggle("Auto-publish recipes for sharing", isOn: $autoPublish)
+                } footer: {
+                    Text(
+                        "When on, sharing a recipe publishes it to the web "
+                            + "automatically, so anyone with the link can view it "
+                            + "without signing in. When off, you'll be asked before "
+                            + "a recipe is published. Only recipes synced to your "
+                            + "account can be shared as a link."
+                    )
                 }
 
                 Section {

@@ -1,16 +1,23 @@
 import { useNavigate, useParams, Link } from "react-router-dom";
-import { useRecipe, useDeleteRecipe } from "../hooks/useRecipes";
+import { useRecipeForViewer, useDeleteRecipe } from "../hooks/useRecipes";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./RecipeDetailPage.module.css";
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const { data: recipe, isLoading, error } = useRecipe(id!);
-  const { data: user } = useAuth();
+  const { data: user, isLoading: authLoading } = useAuth();
+  // Wait for auth to resolve before fetching, then pick the authed endpoint for
+  // signed-in viewers (owners see unpublished) or the public one for guests.
+  const {
+    data: recipe,
+    isLoading,
+    error,
+  } = useRecipeForViewer(id!, !!user, !authLoading);
   const deleteMutation = useDeleteRecipe();
 
-  if (isLoading) return <div className="loading">Loading recipe...</div>;
+  if (authLoading || isLoading)
+    return <div className="loading">Loading recipe...</div>;
   if (error || !recipe) return <div className="error">Recipe not found.</div>;
 
   const totalTime = recipe.prep_time_minutes + recipe.cook_time_minutes;
