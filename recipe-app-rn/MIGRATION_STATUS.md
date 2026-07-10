@@ -30,9 +30,28 @@ not worth porting).
 | 5 | Camera + Vision spike (vision-camera + ML Kit OCR/barcode) — **high risk** | ⬜ |
 | 6 | Share Extension + polish + cutover eval | ⬜ |
 
-Rough total token estimate for the whole migration: **~20–40M** (Phase 0 was a
-small fraction). Front-load the two risk spikes (Phase 3 sync, Phase 5 camera)
-before the big UI build so a "no-go" is cheap.
+Front-load the two risk spikes (Phase 3 sync, Phase 5 camera) before the big UI
+build so a "no-go" is cheap.
+
+## Cost calibration & discipline
+
+Real anchor (measured via `/cost`): one long, subagent-heavy Opus session that
+shipped ~4 workstreams cost **~$29**. The old "~20–40M token" figure is a poor
+unit (dominated by cheap cache-replay) — track **dollars**. Rough remaining
+projection, wide error bars: Phase 2 ~$15–30, Phase 3 ~$30–60, Phase 4
+~$50–100+, Phase 5 ~$30–60, Phase 6 ~$20–40 → **~$150–300 total**. The local
+Android emulator should pull Phase 3/5 toward the low end.
+
+Two levers proven by `/cost` — do these:
+1. **`/clear` between phases.** ~78% of cost came at >150k context; don't bundle
+   phases into one session. Each phase = a fresh session (re-read this doc first).
+2. **Use the `migration-scout` subagent (Sonnet), not built-in Explore, for
+   search/exploration.** ~95% of cost came from subagent-heavy work; search
+   doesn't need Opus. Defined at repo-root `.claude/agents/migration-scout.md`.
+   Reserve Opus for porting/implementation; batch investigation into few scouts.
+
+Mechanical `SharedLogic` ports (like Phase 1) are cheap and need no subagents;
+cost lives in the iterative spikes (3, 5) and the UI build (4).
 
 ## What Phase 0 delivered
 
