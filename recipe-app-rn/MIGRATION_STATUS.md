@@ -8,7 +8,7 @@ starting a new conversation on this work. Canonical plan:
   commit directly during early phases)
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml` with the SwiftUI app
-- **Last updated:** Phase 4 in progress (Recipe CRUD + Settings slices done)
+- **Last updated:** Phase 4 in progress (Recipe CRUD + Settings + Grocery/Lists done)
 
 ## Where the app came from
 
@@ -26,7 +26,7 @@ not worth porting).
 | 1 | Prove Pile 1: port `GroceryCategorizer` + 31 tests to TS | ✅ Done |
 | 2 | Auth + networking + read-only Recipes tab | ✅ Done |
 | 3 | Local DB + sync spike (expo-sqlite + REST SyncService) — **high risk, do early** | ✅ Done |
-| 4 | Full CRUD UI (all tabs) | 🔄 In progress — Recipe CRUD ✅, Settings ✅; Shopping/Grocery/UnitPicker ⬜ |
+| 4 | Full CRUD UI (all tabs) | 🔄 In progress — Recipe CRUD ✅, Settings ✅, Grocery/Lists ✅; Shopping tab / UnitPicker ⬜ |
 | 5 | Camera + Vision spike (vision-camera + ML Kit OCR/barcode) — **high risk** | ⬜ |
 | 6 | Share Extension + polish + cutover eval | ⬜ |
 
@@ -360,13 +360,47 @@ hard-purged, the re-push PUT may 404 (surfaced as a write-failure); the local
 copy is always preserved. A future pass can use the server restore endpoint /
 re-create path for that edge.
 
+### Slice 3 — Grocery / Lists (local-only) ✅ (2026-07-10)
+
+Decision (2026-07-10): Shopping/Grocery are **local-only** — not server-synced
+(the server only syncs recipes). So these models live only in device SQLite with
+no sync metadata. `npm run ci` green (**124 tests**, 18 new); bundle exports clean.
+
+**What landed:**
+
+- `lib/prepNoteStripper.ts` (+8 tests) — 1:1 port of `SharedLogic/PrepNoteStripper`
+  (strips "chopped", "large", "(1 cup)" etc. from ingredient names). Needed by
+  generate-from-recipes. (Second Pile-1 module ported, after GroceryCategorizer.)
+- `grocery/types.ts` — `ShoppingTemplate`/`TemplateItem`/`GroceryList`/`GroceryItem`
+  (ports of the SwiftUI @Models, no sync metadata) + `GenerateRecipe`.
+- `grocery/groceryLogic.ts` (+10 tests) — the pure core: `CATEGORY_ORDER` +
+  `categorySortIndex` (SwiftUI store-aisle order), `groupByCategory`
+  (unchecked-first then name), `makeGroceryItem` (auto-categorize), `staplesToAdd`
+  (name-dedup), `mergeInto` (name|unit sum + unchecked-wins), and the two-stage
+  `generateFromRecipes` consolidation (strip → categorize → sum-when-units-match →
+  union provenance).
+- `db/schema.ts` + `db/database.ts` — **schema v2** (incremental migration): 4 new
+  tables (`grocery_lists`, `grocery_items`, `shopping_templates`, `template_items`).
+- `grocery/groceryRepo.ts` — `SqliteGroceryRepo` (aggregates; item sets written
+  wholesale in a transaction).
+- `contexts/GroceryContext.tsx` — the local store + all list/item/template/merge/
+  generate operations. No auth gate (grocery works for guests too).
+- `lib/ids.ts` — shared `newLocalId` (extracted from SyncContext; both use it).
+- **Lists tab now real** (`navigation/ListsStack.tsx` + `RootTabs` REAL_STACKS):
+  `GroceryListsScreen` (all lists + create + generate entry), `GroceryListDetailScreen`
+  (category-grouped, tap-to-check, inline add bar, uncheck/remove-checked/clear
+  menu), `GenerateGroceryListScreen` (multi-select recipes → new list).
+
 ### Remaining Phase 4 slices ⬜
 
-- **Shopping tab** — templates / lists / merge / archive (`ShoppingTemplate`
-  model; not yet in server sync — decide local-only vs. sync).
-- **Grocery tab** — grouped / check-off / generate-from-recipes (uses the
-  ported `GroceryCategorizer`).
+- **Shopping tab** — the staples workflow (still a placeholder): single active
+  list, Add Staples / Edit Staples (template editor via `ensureDefaultTemplate` +
+  `setTemplateItems`, already in `GroceryContext`), Merge lists, Archived lists
+  (restore). The context + pure logic (`mergeInto`, `staplesToAdd`) are done —
+  this slice is mostly UI.
+- **List rename** — manual lists are created as "Grocery List"; add rename (needs
+  a small cross-platform text-input modal — `Alert.prompt` is iOS-only).
 - **UnitPicker** — the shared unit menu (recipeUnits + "Other…" free-text);
-  wire into the ingredient rows (currently free-text unit). Carries the
-  ingredient `category` picker too.
+  wire into the recipe + grocery ingredient rows (currently free-text unit).
+  Carries the ingredient `category` picker too.
 - Port remaining Pile 1 `SharedLogic` modules as their consumers come online.

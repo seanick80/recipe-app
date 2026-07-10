@@ -9,7 +9,7 @@
  * `PRAGMA user_version` drives migrations: bump {@link SCHEMA_VERSION} and add a
  * step in `db/database.ts` when the schema changes.
  */
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 /** DDL run once on a fresh database (idempotent — guarded by IF NOT EXISTS). */
 export const CREATE_SQL = `
@@ -52,6 +52,48 @@ CREATE TABLE IF NOT EXISTS ingredients (
 
 CREATE INDEX IF NOT EXISTS idx_ingredients_recipe ON ingredients(recipe_local_id);
 CREATE INDEX IF NOT EXISTS idx_recipes_server_id ON recipes(server_id);
+`;
+
+/** Schema v2 — local-only Shopping + Grocery tables (not server-synced). */
+export const GROCERY_SQL = `
+CREATE TABLE IF NOT EXISTS grocery_lists (
+  id          TEXT PRIMARY KEY NOT NULL,
+  name        TEXT NOT NULL DEFAULT '',
+  created_at  TEXT NOT NULL,
+  archived_at TEXT
+);
+
+CREATE TABLE IF NOT EXISTS grocery_items (
+  id                 TEXT PRIMARY KEY NOT NULL,
+  list_id            TEXT NOT NULL REFERENCES grocery_lists(id) ON DELETE CASCADE,
+  name               TEXT NOT NULL DEFAULT '',
+  quantity           REAL NOT NULL DEFAULT 1,
+  unit               TEXT NOT NULL DEFAULT '',
+  category           TEXT NOT NULL DEFAULT 'Other',
+  is_checked         INTEGER NOT NULL DEFAULT 0,
+  source_recipe_name TEXT NOT NULL DEFAULT '',
+  source_recipe_id   TEXT NOT NULL DEFAULT ''
+);
+
+CREATE TABLE IF NOT EXISTS shopping_templates (
+  id         TEXT PRIMARY KEY NOT NULL,
+  name       TEXT NOT NULL DEFAULT '',
+  sort_order INTEGER NOT NULL DEFAULT 0,
+  created_at TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS template_items (
+  id          TEXT PRIMARY KEY NOT NULL,
+  template_id TEXT NOT NULL REFERENCES shopping_templates(id) ON DELETE CASCADE,
+  name        TEXT NOT NULL DEFAULT '',
+  quantity    REAL NOT NULL DEFAULT 1,
+  unit        TEXT NOT NULL DEFAULT '',
+  category    TEXT NOT NULL DEFAULT 'Other',
+  sort_order  INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE INDEX IF NOT EXISTS idx_grocery_items_list ON grocery_items(list_id);
+CREATE INDEX IF NOT EXISTS idx_template_items_template ON template_items(template_id);
 `;
 
 /** Shape of a `recipes` row as returned by expo-sqlite (before boolean coercion). */

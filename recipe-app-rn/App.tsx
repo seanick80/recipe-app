@@ -6,6 +6,7 @@ import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
+import { GroceryProvider } from './src/contexts/GroceryContext';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { RootTabs } from './src/navigation/RootTabs';
 import { LoginScreen } from './src/screens/LoginScreen';
@@ -42,9 +43,11 @@ function AppContent() {
       ) : null}
       <View className="flex-1">
         <SyncProvider>
-          <NavigationContainer>
-            <RootTabs />
-          </NavigationContainer>
+          <GroceryProvider>
+            <NavigationContainer>
+              <RootTabs />
+            </NavigationContainer>
+          </GroceryProvider>
         </SyncProvider>
       </View>
     </View>

@@ -8,7 +8,7 @@
  */
 import * as SQLite from 'expo-sqlite';
 
-import { CREATE_SQL, SCHEMA_VERSION } from './schema';
+import { CREATE_SQL, GROCERY_SQL, SCHEMA_VERSION } from './schema';
 
 const DB_NAME = 'recipes.db';
 
@@ -30,9 +30,9 @@ async function openAndMigrate(): Promise<SQLite.SQLiteDatabase> {
   const current = row?.user_version ?? 0;
 
   if (current < SCHEMA_VERSION) {
-    await db.execAsync(CREATE_SQL);
-    // No incremental steps yet — v0→v1 is the initial create. Future versions
-    // add `if (current < N) { ...ALTER... }` blocks here before bumping.
+    // Incremental, idempotent steps (all guarded by IF NOT EXISTS).
+    if (current < 1) await db.execAsync(CREATE_SQL); // v1: recipes + ingredients
+    if (current < 2) await db.execAsync(GROCERY_SQL); // v2: shopping + grocery
     await db.execAsync(`PRAGMA user_version = ${SCHEMA_VERSION}`);
   }
 

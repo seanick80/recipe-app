@@ -4,6 +4,7 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { Placeholder } from '../components/Placeholder';
+import { ListsStack } from './ListsStack';
 import { RecipesStack } from './RecipesStack';
 import { SettingsStack } from './SettingsStack';
 import { TABS, type TabConfig } from './tabs';
@@ -28,10 +29,11 @@ function createTabStack(tab: TabConfig) {
   };
 }
 
-// Recipes (Phase 2/4) and Settings (Phase 4) have real screens; the rest stay
-// placeholders until their phases land.
+// Recipes (Phase 2/4), Lists (Phase 4), and Settings (Phase 4) have real
+// screens; Shopping and Scan stay placeholders until their phases land.
 const REAL_STACKS: Record<string, ComponentType> = {
   Recipes: RecipesStack,
+  Lists: ListsStack,
   Settings: SettingsStack,
 };
 

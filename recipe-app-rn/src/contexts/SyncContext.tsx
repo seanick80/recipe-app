@@ -5,6 +5,7 @@ import { createSyncApi } from '../api/recipes';
 import { getDatabase } from '../db/database';
 import { SqliteRecipeRepo } from '../db/sqliteRecipeRepo';
 import { ApiError } from '../lib/apiClient';
+import { newLocalId } from '../lib/ids';
 import { applyDraft, draftToNewLocal, markDeleted } from '../sync/recipeDraft';
 import { SyncService } from '../sync/syncService';
 import type { LocalRecipe, RecipeInput, SyncEnv, SyncResult } from '../sync/types';
@@ -60,17 +61,6 @@ const realEnv: SyncEnv = {
   now: () => new Date(),
   newId: () => newLocalId(),
 };
-
-/** UUID v4 for local ids — uses the platform CSPRNG when present, else Math.random. */
-function newLocalId(): string {
-  const c = (globalThis as { crypto?: { randomUUID?: () => string } }).crypto;
-  if (c?.randomUUID) return c.randomUUID();
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (ch) => {
-    const r = (Math.random() * 16) | 0;
-    const v = ch === 'x' ? r : (r & 0x3) | 0x8;
-    return v.toString(16);
-  });
-}
 
 function activeSorted(recipes: LocalRecipe[]): LocalRecipe[] {
   return recipes
