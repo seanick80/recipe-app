@@ -339,6 +339,63 @@ func testImportedRecipeCodable() {
     checkCodableRoundTrip(recipe, "ImportedRecipe Codable round-trip")
 }
 
+func testHowToSectionInstructions() {
+    // Recipe that groups steps into a named HowToSection. Historically the
+    // section's `name` matched before its `itemListElement`, so every step
+    // inside the section was silently dropped (regression guard).
+    let html = """
+        <html><head>
+        <script type="application/ld+json">
+        {
+          "@context": "https://schema.org",
+          "@type": "Recipe",
+          "name": "Layer Cake",
+          "recipeIngredient": ["flour", "butter"],
+          "recipeInstructions": [
+            {"@type": "HowToStep", "text": "Preheat oven."},
+            {"@type": "HowToStep", "text": "Make the batter."},
+            {"@type": "HowToSection", "name": "For the frosting",
+             "itemListElement": [
+               {"@type": "HowToStep", "text": "Beat butter and sugar."},
+               {"@type": "HowToStep", "text": "Add vanilla."}
+             ]}
+          ]
+        }
+        </script></head><body></body></html>
+        """
+    if case .success(let recipe) = parseRecipeFromHTML(html, sourceURL: "https://example.com/cake") {
+        // 2 top-level steps + section heading + 2 section steps = 5 lines.
+        checkEqual(recipe.instructions.count, 5, "HowToSection: all steps + heading kept")
+        check(recipe.instructions.contains("For the frosting"), "HowToSection: heading kept")
+        check(recipe.instructions.contains("Beat butter and sugar."), "HowToSection: first section step kept")
+        check(recipe.instructions.contains("Add vanilla."), "HowToSection: last section step kept")
+    } else {
+        check(false, "HowToSection parse should succeed")
+    }
+
+    // Section sub-steps expressed with `name` (instead of `text`) must survive.
+    let nameHTML = """
+        <html><head>
+        <script type="application/ld+json">
+        {"@context":"https://schema.org","@type":"Recipe","name":"Stew",
+         "recipeIngredient":["beef"],
+         "recipeInstructions":[
+           {"@type":"HowToSection","name":"Prep",
+            "itemListElement":[
+              {"@type":"HowToStep","name":"Chop the onion."},
+              {"@type":"HowToStep","name":"Cube the beef."}
+            ]}
+         ]}
+        </script></head><body></body></html>
+        """
+    if case .success(let r) = parseRecipeFromHTML(nameHTML, sourceURL: "https://example.com/stew") {
+        check(r.instructions.contains("Chop the onion."), "HowToSection: name-based sub-step kept")
+        check(r.instructions.contains("Cube the beef."), "HowToSection: name-based sub-step kept (2)")
+    } else {
+        check(false, "HowToSection name-based parse should succeed")
+    }
+}
+
 // MARK: - Test Runner
 
 func runRecipeSchemaParserTests() -> Bool {
@@ -354,6 +411,7 @@ func runRecipeSchemaParserTests() -> Bool {
     testDurationParsing()
     testServingsAndImageFormats()
     testImportedRecipeCodable()
+    testHowToSectionInstructions()
 
     return printTestSummary("RecipeSchemaParser Tests")
 }

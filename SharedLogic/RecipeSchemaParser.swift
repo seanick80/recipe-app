@@ -362,24 +362,46 @@ private func extractInstructions(_ value: Any?) -> [String] {
             .filter { !$0.isEmpty }
     }
     if let arr = value as? [[String: Any]] {
-        // HowToStep or HowToSection objects
-        return arr.compactMap { step in
-            if let text = step["text"] as? String {
-                return stripHTMLTags(text).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            if let name = step["name"] as? String {
-                return stripHTMLTags(name).trimmingCharacters(in: .whitespacesAndNewlines)
-            }
-            // HowToSection with itemListElement
-            if let items = step["itemListElement"] as? [[String: Any]] {
-                return items.compactMap { $0["text"] as? String }
-                    .map { stripHTMLTags($0).trimmingCharacters(in: .whitespacesAndNewlines) }
-                    .joined(separator: "\n")
-            }
-            return nil
-        }.filter { !$0.isEmpty }
+        // HowToStep and/or HowToSection objects.
+        return flattenInstructionElements(arr)
     }
     return []
+}
+
+/// Recursively flattens an array of Schema.org `HowToStep` / `HowToSection`
+/// objects into individual instruction lines.
+///
+/// A `HowToSection` carries BOTH a `name` (the group heading, e.g. "For the
+/// sauce") and an `itemListElement` array of the actual steps, so it must be
+/// detected by `itemListElement` *before* falling back to `name`/`text` —
+/// otherwise the heading matches first and every step inside the section is
+/// silently dropped. The section name is emitted as its own heading line and
+/// its nested steps are flattened after it (recursively, so nested sections
+/// are handled too).
+private func flattenInstructionElements(_ elements: [[String: Any]]) -> [String] {
+    var lines: [String] = []
+    for element in elements {
+        if let items = element["itemListElement"] as? [[String: Any]] {
+            if let name = cleanedInstructionText(element["name"]) {
+                lines.append(name)
+            }
+            lines.append(contentsOf: flattenInstructionElements(items))
+            continue
+        }
+        // HowToStep: prefer `text`, fall back to `name`.
+        if let step = cleanedInstructionText(element["text"] ?? element["name"]) {
+            lines.append(step)
+        }
+    }
+    return lines
+}
+
+/// Strips HTML tags and trims a Schema.org string value, returning nil when the
+/// value is missing or empty after cleaning.
+private func cleanedInstructionText(_ value: Any?) -> String? {
+    guard let str = value as? String else { return nil }
+    let cleaned = stripHTMLTags(str).trimmingCharacters(in: .whitespacesAndNewlines)
+    return cleaned.isEmpty ? nil : cleaned
 }
 
 /// Extracts servings count from recipeYield.
