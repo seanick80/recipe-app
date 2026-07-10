@@ -1,7 +1,10 @@
+import { useEffect } from "react";
 import { useNavigate, useParams, Link } from "react-router-dom";
 import { useRecipeForViewer, useDeleteRecipe } from "../hooks/useRecipes";
 import { useAuth } from "../hooks/useAuth";
 import styles from "./RecipeDetailPage.module.css";
+
+const DEFAULT_TITLE = "Recipe App";
 
 export function RecipeDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -15,6 +18,16 @@ export function RecipeDetailPage() {
     error,
   } = useRecipeForViewer(id!, !!user, !authLoading);
   const deleteMutation = useDeleteRecipe();
+
+  // Reflect the recipe name in the browser tab; restore the default on leave.
+  // (The server also injects the title into the initial HTML for shared links.)
+  const recipeName = recipe?.name;
+  useEffect(() => {
+    document.title = recipeName ? `${recipeName} · ${DEFAULT_TITLE}` : DEFAULT_TITLE;
+    return () => {
+      document.title = DEFAULT_TITLE;
+    };
+  }, [recipeName]);
 
   if (authLoading || isLoading)
     return <div className="loading">Loading recipe...</div>;
