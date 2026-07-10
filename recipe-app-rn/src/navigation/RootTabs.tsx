@@ -7,6 +7,7 @@ import { Placeholder } from '../components/Placeholder';
 import { ListsStack } from './ListsStack';
 import { RecipesStack } from './RecipesStack';
 import { SettingsStack } from './SettingsStack';
+import { ShoppingStack } from './ShoppingStack';
 import { TABS, type TabConfig } from './tabs';
 
 const Tab = createBottomTabNavigator();
@@ -29,10 +30,11 @@ function createTabStack(tab: TabConfig) {
   };
 }
 
-// Recipes (Phase 2/4), Lists (Phase 4), and Settings (Phase 4) have real
-// screens; Shopping and Scan stay placeholders until their phases land.
+// Recipes, Shopping, Lists, and Settings have real screens (Phases 2/4); only
+// Scan stays a placeholder until the Phase 5 camera work lands.
 const REAL_STACKS: Record<string, ComponentType> = {
   Recipes: RecipesStack,
+  Shopping: ShoppingStack,
   Lists: ListsStack,
   Settings: SettingsStack,
 };

@@ -8,7 +8,7 @@ starting a new conversation on this work. Canonical plan:
   commit directly during early phases)
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml` with the SwiftUI app
-- **Last updated:** Phase 4 in progress (Recipe CRUD + Settings + Grocery/Lists done)
+- **Last updated:** Phase 4 in progress (Recipe CRUD + Settings + Grocery/Lists + Shopping done)
 
 ## Where the app came from
 
@@ -26,7 +26,7 @@ not worth porting).
 | 1 | Prove Pile 1: port `GroceryCategorizer` + 31 tests to TS | ✅ Done |
 | 2 | Auth + networking + read-only Recipes tab | ✅ Done |
 | 3 | Local DB + sync spike (expo-sqlite + REST SyncService) — **high risk, do early** | ✅ Done |
-| 4 | Full CRUD UI (all tabs) | 🔄 In progress — Recipe CRUD ✅, Settings ✅, Grocery/Lists ✅; Shopping tab / UnitPicker ⬜ |
+| 4 | Full CRUD UI (all tabs) | 🔄 Nearly done — Recipes, Shopping, Lists, Settings all real ✅; UnitPicker + polish ⬜ |
 | 5 | Camera + Vision spike (vision-camera + ML Kit OCR/barcode) — **high risk** | ⬜ |
 | 6 | Share Extension + polish + cutover eval | ⬜ |
 
@@ -391,15 +391,28 @@ no sync metadata. `npm run ci` green (**124 tests**, 18 new); bundle exports cle
   (category-grouped, tap-to-check, inline add bar, uncheck/remove-checked/clear
   menu), `GenerateGroceryListScreen` (multi-select recipes → new list).
 
+### Slice 3b — Shopping (staples) tab ✅ (2026-07-11)
+
+The staples workflow (port of SwiftUI `ShoppingListTab`). All four content tabs
+are now real screens. `npm run ci` green (124 tests); bundle exports clean.
+
+- Extracted `components/GroceryListBody.tsx` (inline add bar + category-grouped
+  checkable rows) — shared by the Lists-tab detail and the Shopping tab, so the
+  item UI isn't duplicated. `GroceryListDetailScreen` slimmed to it + its menu.
+- `screens/ShoppingScreen.tsx` — operates on the first active list: header menu
+  for Add Staples / Edit Staples / Merge active lists / Archived Lists; empty
+  state offers "add staples to a new list" / "new empty list".
+- `screens/TemplateEditorScreen.tsx` — edit the default "Weekly Staples"
+  template (add/remove rows; qty string buffer; Save via `setTemplateItems`).
+- `screens/ArchivedListsScreen.tsx` — archived lists with Restore + long-press
+  delete.
+- `navigation/ShoppingStack.tsx` + `RootTabs` REAL_STACKS (Shopping now real).
+
 ### Remaining Phase 4 slices ⬜
 
-- **Shopping tab** — the staples workflow (still a placeholder): single active
-  list, Add Staples / Edit Staples (template editor via `ensureDefaultTemplate` +
-  `setTemplateItems`, already in `GroceryContext`), Merge lists, Archived lists
-  (restore). The context + pure logic (`mergeInto`, `staplesToAdd`) are done —
-  this slice is mostly UI.
-- **List rename** — manual lists are created as "Grocery List"; add rename (needs
-  a small cross-platform text-input modal — `Alert.prompt` is iOS-only).
+- **List rename** — manual lists are created as "Grocery List"/"Groceries"; add
+  rename (needs a small cross-platform text-input modal — `Alert.prompt` is
+  iOS-only). Multi-select merge in the Lists tab (Shopping tab merges all active).
 - **UnitPicker** — the shared unit menu (recipeUnits + "Other…" free-text);
   wire into the recipe + grocery ingredient rows (currently free-text unit).
   Carries the ingredient `category` picker too.
