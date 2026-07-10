@@ -106,6 +106,30 @@ def restore_recipe(
     return recipe
 
 
+@router.get("/{recipe_id}/public", response_model=RecipeResponse)
+@limiter.limit("120/minute")
+def get_public_recipe(
+    request: Request,
+    recipe_id: UUID,
+    db: Session = Depends(get_db),
+) -> Recipe:
+    """Public, unauthenticated view of a recipe — only if it has been published.
+
+    Used for shareable links (recipes.ouryearofwander.com/recipes/{id}) that a
+    recipient can open without signing in. Unpublished, soft-deleted, and
+    nonexistent recipes are indistinguishable (all 404) so this leaks nothing
+    about recipes the owner has not chosen to make public.
+    """
+    recipe = (
+        _active_recipes(db)
+        .filter(Recipe.id == recipe_id, Recipe.is_published.is_(True))
+        .first()
+    )
+    if not recipe:
+        raise HTTPException(status_code=404, detail="Recipe not found")
+    return recipe
+
+
 @router.get("/{recipe_id}", response_model=RecipeResponse)
 @limiter.limit("120/minute")
 def get_recipe(
