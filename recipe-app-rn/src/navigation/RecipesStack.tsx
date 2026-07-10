@@ -6,7 +6,7 @@ import { RecipeListScreen } from '../screens/RecipeListScreen';
 /** Route params for the Recipes tab's native stack. */
 export type RecipesStackParamList = {
   RecipesHome: undefined;
-  RecipeDetail: { id: string; name: string };
+  RecipeDetail: { localId: string; name: string };
 };
 
 const Stack = createNativeStackNavigator<RecipesStackParamList>();

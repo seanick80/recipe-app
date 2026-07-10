@@ -31,7 +31,8 @@
           "iosUrlScheme": "com.googleusercontent.apps.972511622379-mak8qoj1corsaria7f2k8ainq715al7u"
         }
       ],
-      "expo-secure-store"
+      "expo-secure-store",
+      "expo-sqlite"
     ]
   }
 }

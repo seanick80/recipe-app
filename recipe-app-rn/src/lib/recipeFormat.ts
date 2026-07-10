@@ -14,8 +14,12 @@ export function totalTimeMinutes(
   return recipe.prep_time_minutes + recipe.cook_time_minutes;
 }
 
-/** Ingredients as the detail view shows them — ascending `display_order`, stable. */
-export function sortedIngredients(ingredients: Ingredient[]): Ingredient[] {
+/**
+ * Ingredients as the detail view shows them — ascending `display_order`, stable.
+ * Generic over the id-bearing wire {@link Ingredient} and the id-less local
+ * shape alike (only `display_order` is read).
+ */
+export function sortedIngredients<T extends { display_order: number }>(ingredients: T[]): T[] {
   return ingredients
     .map((ing, index) => ({ ing, index }))
     .sort((a, b) => a.ing.display_order - b.ing.display_order || a.index - b.index)
@@ -32,7 +36,9 @@ export function formatQuantity(quantity: number): string {
  * A single ingredient line: "<qty> <unit> <name> (<notes>)", omitting any empty
  * part — mirrors the SwiftUI detail row (quantity+unit, name, notes in parens).
  */
-export function formatIngredient(ing: Ingredient): string {
+export function formatIngredient(
+  ing: Pick<Ingredient, 'quantity' | 'unit' | 'name' | 'notes'>,
+): string {
   const qty = ing.quantity > 0 ? formatQuantity(ing.quantity) : '';
   const amount = [qty, ing.unit.trim()].filter((s) => s.length > 0).join(' ');
   const base = [amount, ing.name.trim()].filter((s) => s.length > 0).join(' ');
