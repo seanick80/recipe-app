@@ -23,8 +23,8 @@ not worth porting).
 | Phase | What | Status |
 |---|---|---|
 | 0 | Decision + scaffold (Expo/TS/nav/styling, 4 empty tabs, CI) | ✅ Done |
-| 1 | Prove Pile 1: port `GroceryCategorizer` + 31 tests to TS | ⬜ Next |
-| 2 | Auth + networking + read-only Recipes tab | ⬜ |
+| 1 | Prove Pile 1: port `GroceryCategorizer` + 31 tests to TS | ✅ Done |
+| 2 | Auth + networking + read-only Recipes tab | ⬜ Next |
 | 3 | Local DB + sync spike (WatermelonDB/SQLite + REST SyncService) — **high risk, do early** | ⬜ |
 | 4 | Full CRUD UI (all tabs, gluestack components) | ⬜ |
 | 5 | Camera + Vision spike (vision-camera + ML Kit OCR/barcode) — **high risk** | ⬜ |
@@ -87,9 +87,19 @@ See `README.md` for stack table, decisions, and commands.
 - Device-build config (Codemagic RN workflow / `eas.json`) isn't needed until
   ~end of Phase 2 (first real screen worth installing).
 
-## Next action (Phase 1)
+## Phase 1 — done
 
-Port `SharedLogic/GroceryCategorizer` (Swift, ~564 lines) → TypeScript under
-`recipe-app-rn/src/lib/`, and port its 31-test suite to jest. This establishes
-the porting + test-mirroring convention for the remaining ~10 `SharedLogic`
-modules.
+Ported `SharedLogic/GroceryCategorizer` (~564 lines Swift) → TypeScript at
+`recipe-app-rn/src/lib/groceryCategorizer.ts`, with its 31-assertion suite
+mirrored 1:1 to jest (`groceryCategorizer.test.ts`). `npm run ci` green.
+
+**Porting convention established** (apply to the remaining ~10 `SharedLogic`
+modules): one `src/lib/<name>.ts` per Swift module, keep the algorithm and
+data tables structurally identical (same ordering/priorities), export named
+functions/types, and mirror the Swift `Test*` suite 1:1 as
+`src/lib/<name>.test.ts` using jest `describe`/`it.each`.
+
+## Next action (Phase 2)
+
+Auth + networking + a read-only Recipes tab (see the canonical plan). Front-load
+the Phase 3 sync spike soon after — it's the highest-risk piece.
