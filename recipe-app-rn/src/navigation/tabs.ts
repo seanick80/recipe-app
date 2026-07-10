@@ -15,10 +15,12 @@ export type TabConfig = {
 };
 
 /**
- * The Phase 0 tab set: Recipes, Shopping, Scan, Lists.
+ * Tab set: Recipes, Shopping, Scan, Lists, Settings.
  *
  * Deliberately excludes the SwiftUI app's "Pantry" tab — Pantry (on-device
  * food classification) is out of scope for the RN app per the migration plan.
+ * Recipes (Phase 2/4) and Settings (Phase 4) have real screens; Shopping, Scan,
+ * and Lists remain placeholders until their phases land.
  */
 export const TABS: TabConfig[] = [
   {
@@ -48,5 +50,12 @@ export const TABS: TabConfig[] = [
     title: 'Lists',
     subtitle: 'Your grocery lists.',
     icon: 'list-outline',
+  },
+  {
+    name: 'Settings',
+    home: 'SettingsHome',
+    title: 'Settings',
+    subtitle: 'Account and sync.',
+    icon: 'settings-outline',
   },
 ];

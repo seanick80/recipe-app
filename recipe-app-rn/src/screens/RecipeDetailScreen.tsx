@@ -1,5 +1,7 @@
+import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { useCallback, useLayoutEffect } from 'react';
+import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useSync } from '../contexts/SyncContext';
 import { formatIngredient, isHttpUrl, parseTags, sortedIngredients } from '../lib/recipeFormat';
@@ -23,10 +25,51 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  * {@link useSync} — no network fetch — so it works offline and reflects the
  * last sync. Editing lands in Phase 4.
  */
-export function RecipeDetailScreen({ route }: Props) {
+export function RecipeDetailScreen({ route, navigation }: Props) {
   const { localId } = route.params;
-  const { getByLocalId } = useSync();
+  const { getByLocalId, deleteRecipe } = useSync();
   const recipe = getByLocalId(localId);
+
+  const onDelete = useCallback(() => {
+    Alert.alert('Delete recipe?', `“${recipe?.name ?? 'This recipe'}” will be removed.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: async () => {
+          await deleteRecipe(localId);
+          navigation.goBack();
+        },
+      },
+    ]);
+  }, [deleteRecipe, localId, navigation, recipe?.name]);
+
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: recipe
+        ? () => (
+            <View className="flex-row items-center">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Edit recipe"
+                onPress={() => navigation.navigate('RecipeEdit', { localId })}
+                className="mr-4 active:opacity-60"
+              >
+                <Ionicons name="create-outline" size={24} color="#2563eb" />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete recipe"
+                onPress={onDelete}
+                className="active:opacity-60"
+              >
+                <Ionicons name="trash-outline" size={22} color="#dc2626" />
+              </Pressable>
+            </View>
+          )
+        : undefined,
+    });
+  }, [navigation, recipe, localId, onDelete]);
 
   if (!recipe) {
     return (

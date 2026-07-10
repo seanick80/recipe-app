@@ -1,16 +1,17 @@
 import { TABS } from './tabs';
 
-describe('Phase 0 tab configuration', () => {
-  it('has exactly four tabs', () => {
-    expect(TABS).toHaveLength(4);
+describe('tab configuration', () => {
+  it('has exactly five tabs', () => {
+    expect(TABS).toHaveLength(5);
   });
 
-  it('matches the Phase 0 tab set (Recipes, Shopping, Scan, Lists)', () => {
+  it('matches the tab set (Recipes, Shopping, Scan, Lists, Settings)', () => {
     expect(TABS.map((t) => t.name)).toEqual([
       'Recipes',
       'Shopping',
       'Scan',
       'Lists',
+      'Settings',
     ]);
   });
 

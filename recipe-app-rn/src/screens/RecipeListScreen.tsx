@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { ActivityIndicator, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { useCallback, useLayoutEffect } from 'react';
+import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useSync } from '../contexts/SyncContext';
@@ -10,7 +11,15 @@ import type { LocalRecipe } from '../sync/types';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipesHome'>;
 
-function RecipeRow({ recipe, onPress }: { recipe: LocalRecipe; onPress: () => void }) {
+function RecipeRow({
+  recipe,
+  onPress,
+  onLongPress,
+}: {
+  recipe: LocalRecipe;
+  onPress: () => void;
+  onLongPress: () => void;
+}) {
   const meta = [
     totalTimeMinutes(recipe) > 0 ? `${totalTimeMinutes(recipe)} min` : null,
     recipe.cuisine.trim() || null,
@@ -22,6 +31,7 @@ function RecipeRow({ recipe, onPress }: { recipe: LocalRecipe; onPress: () => vo
     <Pressable
       accessibilityRole="button"
       onPress={onPress}
+      onLongPress={onLongPress}
       className="border-b border-gray-100 px-4 py-3 active:bg-gray-50"
     >
       <View className="flex-row items-center">
@@ -55,7 +65,37 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
  */
 export function RecipeListScreen({ navigation }: Props) {
   const { token, isGuest } = useAuth();
-  const { recipes, initializing, syncing, error, hasWriteFailures, syncNow } = useSync();
+  const { recipes, initializing, syncing, error, hasWriteFailures, syncNow, deleteRecipe } = useSync();
+
+  const authed = !!token && !isGuest;
+
+  // Header "+" to create a recipe (authenticated users only).
+  useLayoutEffect(() => {
+    navigation.setOptions({
+      headerRight: authed
+        ? () => (
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="New recipe"
+              onPress={() => navigation.navigate('RecipeEdit', {})}
+              className="active:opacity-60"
+            >
+              <Ionicons name="add" size={28} color="#2563eb" />
+            </Pressable>
+          )
+        : undefined,
+    });
+  }, [navigation, authed]);
+
+  const confirmDelete = useCallback(
+    (recipe: LocalRecipe) => {
+      Alert.alert('Delete recipe?', `“${recipe.name}” will be removed.`, [
+        { text: 'Cancel', style: 'cancel' },
+        { text: 'Delete', style: 'destructive', onPress: () => void deleteRecipe(recipe.localId) },
+      ]);
+    },
+    [deleteRecipe],
+  );
 
   if (isGuest || !token) {
     return (
@@ -97,6 +137,7 @@ export function RecipeListScreen({ navigation }: Props) {
             onPress={() =>
               navigation.navigate('RecipeDetail', { localId: item.localId, name: item.name })
             }
+            onLongPress={() => confirmDelete(item)}
           />
         )}
         refreshControl={<RefreshControl refreshing={syncing} onRefresh={syncNow} />}

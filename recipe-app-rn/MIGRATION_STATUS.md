@@ -8,7 +8,7 @@ starting a new conversation on this work. Canonical plan:
   commit directly during early phases)
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml` with the SwiftUI app
-- **Last updated:** end of Phase 3
+- **Last updated:** Phase 4 in progress (Recipe CRUD + Settings slices done)
 
 ## Where the app came from
 
@@ -26,7 +26,7 @@ not worth porting).
 | 1 | Prove Pile 1: port `GroceryCategorizer` + 31 tests to TS | ✅ Done |
 | 2 | Auth + networking + read-only Recipes tab | ✅ Done |
 | 3 | Local DB + sync spike (expo-sqlite + REST SyncService) — **high risk, do early** | ✅ Done |
-| 4 | Full CRUD UI (all tabs, gluestack components) | ⬜ Next |
+| 4 | Full CRUD UI (all tabs) | 🔄 In progress — Recipe CRUD ✅, Settings ✅; Shopping/Grocery/UnitPicker ⬜ |
 | 5 | Camera + Vision spike (vision-camera + ML Kit OCR/barcode) — **high risk** | ⬜ |
 | 6 | Share Extension + polish + cutover eval | ⬜ |
 
@@ -68,11 +68,13 @@ See `README.md` for stack table, decisions, and commands.
 
 ## Deviations from the plan (deliberate)
 
-- **gluestack-ui still deferred (now to Phase 4).** Its CLI is still a v5 alpha,
-  interactive and unverifiable headless. Phase 2 screens are built with
-  NativeWind-styled RN primitives (`View`/`Text`/`Pressable`/`FlatList`), which
-  is enough for a read-only list+detail. Generate gluestack components via its
-  CLI on macOS when the full CRUD UI (Phase 4) lands.
+- **gluestack-ui dropped for Phase 4 (decision 2026-07-10).** Its CLI is a v5
+  alpha, interactive and unverifiable headless (macOS-only). Rather than block
+  Phase 4 on a Mac, the CRUD UI continues on NativeWind-styled RN primitives
+  (`View`/`Text`/`Pressable`/`FlatList`/`TextInput`/`Switch`) — buildable AND
+  verifiable on this box (typecheck/lint/jest + `expo export` + emulator).
+  gluestack can still be adopted later as a pure styling pass if desired; it is
+  not a data-layer dependency.
 - **`expo-sqlite` instead of WatermelonDB** (plan said "WatermelonDB/SQLite").
   Same reasoning as SecureStore: expo-sqlite is a first-party Expo module whose
   config plugin is auto-handled by prebuild (no extra native wiring), it bundles
@@ -280,12 +282,91 @@ full push/pull/conflict/delete logic is covered by the headless unit tests
 instead. Verify true two-device sync on a real device or `_playstore` image
 when convenient.
 
-## Next action (Phase 4)
+## Phase 4 — in progress
 
-Full CRUD UI on gluestack-ui (generate its components via the CLI on macOS — see
-the deferral note). The offline-first store + `SyncService` from Phase 3 are the
-data layer the CRUD screens write through: a create/edit sets `needsSync = true`
-and a swipe-delete sets `locallyDeleted = true` + `pendingRemoteDelete = true`
-on the local record; the next `sync()` (already wired for foreground +
-pull-to-refresh) pushes them. Port remaining Pile 1 `SharedLogic` modules as
-their consumers come online.
+Full CRUD UI on NativeWind primitives (gluestack dropped — see deviation).
+Built in slices; the offline-first store + `SyncService` from Phase 3 are the
+data layer every write goes through.
+
+### Slice 1 — Recipe CRUD ✅ (2026-07-10)
+
+Create / edit / delete recipes, writing through the Phase 3 store. `npm run ci`
+green (**106 tests**, 8 new); Android bundle exported clean.
+
+**What landed** (all under `src/`):
+
+- `sync/recipeDraft.ts` (+`.test.ts`, 8 tests) — pure, React-free form helpers:
+  `emptyDraft`/`localToDraft`/`cleanDraft`/`validateDraft`/`isDraftValid`,
+  `draftToNewLocal` (create → `needsSync=true`, `serverId=null`),
+  `applyDraft` (edit → merge content, `needsSync=true`, preserve identity +
+  `createdAt` + `lastSyncedAt`), `markDeleted` (soft-delete +
+  `pendingRemoteDelete=true`). The editable payload IS `RecipeInput`, so a draft
+  round-trips to the API with no re-mapping. `cleanDraft` renumbers ingredient
+  `display_order` by row position and drops blank-named rows (matches SwiftUI).
+- `contexts/SyncContext.tsx` — added `createRecipe`/`updateRecipe`/`deleteRecipe`:
+  persist → refresh the list immediately → kick a background `syncNow()` to push
+  (no-op for guests/offline; the record keeps its flags and retries next sync).
+- `screens/RecipeEditScreen.tsx` — the create/edit form (port of SwiftUI
+  `RecipeEditView`): name/summary/instructions, free-text cuisine/course/
+  difficulty, comma-separated tags, source_url, ±steppers for prep/cook
+  (0–480, step 5) + servings (1–50), and an ingredient editor (add/remove/
+  move-up-down; qty kept as a string buffer so decimals type correctly, parsed
+  on save). Header Save is disabled until name is non-empty.
+- `screens/RecipeListScreen.tsx` — header "+" (create, authed only);
+  long-press a row → confirm → delete (no gesture-handler dep, so long-press
+  rather than swipe).
+- `screens/RecipeDetailScreen.tsx` — header Edit + Delete.
+- `navigation/RecipesStack.tsx` — `RecipeEdit` route (`localId?` — present=edit,
+  absent=create), presented modally.
+
+**Deviations from the SwiftUI original** (both minor, documented inline):
+- **Added a Favorite toggle in the edit form.** iOS has *no* way to set
+  `is_favorite` from its UI (read-only star only, per the port scout); the RN
+  form exposes it via the normal draft → `needsSync` → PUT path.
+- **Ingredient `category` is preserved on edit** (iOS silently reset it to
+  "Other" because its edit form dropped category on load). Category still isn't
+  user-editable (no picker yet — folded into the deferred UnitPicker work).
+
+**Not driven on-device this slice.** Create/edit/delete UI sits behind the auth
+gate, and this emulator has no real Google sign-in (no Play Store on the
+`google_apis` image) — same blocker as Phases 2–3. Coverage is CI (repo writes +
+form logic) + `expo export` + the Phase 3 on-device DB proof. Drive the CRUD
+flow end-to-end on a real device / `_playstore` image + reachable backend.
+
+### Slice 2 — Settings ✅ (2026-07-10)
+
+Surfaces the Phase 3 sync engine that nothing displayed until now, plus account.
+`npm run ci` green (106 tests); Android bundle exported clean; **on-device smoke
+PASSED** (emulator, guest path — Settings tab renders, no crash).
+
+**What landed:**
+
+- `contexts/SyncContext.tsx` — exposed `lastSyncedAt`, `deletedRecipes`
+  (Recently Deleted), `restoreRecipe(localId)`, and `forceFullSync()`; a shared
+  `applyResult` folds any sync's outcome into state and stamps `lastSyncedAt`;
+  `refresh` now populates both the active + deleted lists.
+- `screens/SettingsScreen.tsx` — Account (name/email/role + Sign out, or a guest
+  sign-in prompt), Sync (last-synced time, Sync Now, Force Full Sync, error /
+  write-failure / last-result summary), and Recently Deleted with per-row
+  Restore. Guests see only the account prompt.
+- `navigation/SettingsStack.tsx` + `RootTabs.tsx` — **Settings is now a 5th tab**
+  (Recipes/Shopping/Scan/Lists/Settings). `RootTabs` maps real stacks via a
+  `REAL_STACKS` lookup (Recipes, Settings); the rest stay placeholders.
+- `tabs.ts` (+ updated `tabs.test.ts`, now asserts 5 tabs).
+
+**Restore caveat (documented inline):** restoring re-queues the recipe with
+`needsSync=true`. If its server-side deletion already synced and the row was
+hard-purged, the re-push PUT may 404 (surfaced as a write-failure); the local
+copy is always preserved. A future pass can use the server restore endpoint /
+re-create path for that edge.
+
+### Remaining Phase 4 slices ⬜
+
+- **Shopping tab** — templates / lists / merge / archive (`ShoppingTemplate`
+  model; not yet in server sync — decide local-only vs. sync).
+- **Grocery tab** — grouped / check-off / generate-from-recipes (uses the
+  ported `GroceryCategorizer`).
+- **UnitPicker** — the shared unit menu (recipeUnits + "Other…" free-text);
+  wire into the ingredient rows (currently free-text unit). Carries the
+  ingredient `category` picker too.
+- Port remaining Pile 1 `SharedLogic` modules as their consumers come online.

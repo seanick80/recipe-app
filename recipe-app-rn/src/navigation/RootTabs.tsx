@@ -1,9 +1,11 @@
+import type { ComponentType } from 'react';
 import { Ionicons } from '@expo/vector-icons';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { Placeholder } from '../components/Placeholder';
 import { RecipesStack } from './RecipesStack';
+import { SettingsStack } from './SettingsStack';
 import { TABS, type TabConfig } from './tabs';
 
 const Tab = createBottomTabNavigator();
@@ -26,11 +28,16 @@ function createTabStack(tab: TabConfig) {
   };
 }
 
-// The Recipes tab has real screens (Phase 2); the rest stay placeholders until
-// their phases land.
+// Recipes (Phase 2/4) and Settings (Phase 4) have real screens; the rest stay
+// placeholders until their phases land.
+const REAL_STACKS: Record<string, ComponentType> = {
+  Recipes: RecipesStack,
+  Settings: SettingsStack,
+};
+
 const TAB_STACKS = TABS.map((tab) => ({
   tab,
-  Component: tab.name === 'Recipes' ? RecipesStack : createTabStack(tab),
+  Component: REAL_STACKS[tab.name] ?? createTabStack(tab),
 }));
 
 export function RootTabs() {

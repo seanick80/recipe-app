@@ -5,8 +5,9 @@ import { createSyncApi } from '../api/recipes';
 import { getDatabase } from '../db/database';
 import { SqliteRecipeRepo } from '../db/sqliteRecipeRepo';
 import { ApiError } from '../lib/apiClient';
+import { applyDraft, draftToNewLocal, markDeleted } from '../sync/recipeDraft';
 import { SyncService } from '../sync/syncService';
-import type { LocalRecipe, SyncEnv, SyncResult } from '../sync/types';
+import type { LocalRecipe, RecipeInput, SyncEnv, SyncResult } from '../sync/types';
 import { useAuth } from './AuthContext';
 
 /**
@@ -37,6 +38,20 @@ type SyncContextValue = {
   syncNow: () => Promise<void>;
   /** Look up a single recipe from the in-memory store by local id. */
   getByLocalId: (localId: string) => LocalRecipe | undefined;
+  /** Create a new local recipe from a form draft; returns its local id. */
+  createRecipe: (draft: RecipeInput) => Promise<string>;
+  /** Overwrite an existing recipe's content from a form draft. */
+  updateRecipe: (localId: string, draft: RecipeInput) => Promise<void>;
+  /** Soft-delete a recipe (queued for a server DELETE on the next sync). */
+  deleteRecipe: (localId: string) => Promise<void>;
+  /** ISO timestamp of the last successful sync this session, or null. */
+  lastSyncedAt: string | null;
+  /** Soft-deleted recipes ("Recently Deleted"), most-recently-deleted first. */
+  deletedRecipes: LocalRecipe[];
+  /** Un-delete a recipe from Recently Deleted (re-queues it for upload). */
+  restoreRecipe: (localId: string) => Promise<void>;
+  /** Clear every record's watermark and re-download everything from the server. */
+  forceFullSync: () => Promise<void>;
 };
 
 const SyncContext = createContext<SyncContextValue | undefined>(undefined);
@@ -63,6 +78,12 @@ function activeSorted(recipes: LocalRecipe[]): LocalRecipe[] {
     .sort((a, b) => Date.parse(b.updatedAt) - Date.parse(a.updatedAt));
 }
 
+function deletedSorted(recipes: LocalRecipe[]): LocalRecipe[] {
+  return recipes
+    .filter((r) => r.locallyDeleted)
+    .sort((a, b) => Date.parse(b.deletedAt ?? '') - Date.parse(a.deletedAt ?? ''));
+}
+
 /** Map a sync throw onto a user-facing, non-fatal message. */
 function messageFor(e: unknown): string {
   if (e instanceof ApiError && e.kind === 'unauthorized') {
@@ -75,35 +96,53 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
   const { token, isGuest } = useAuth();
 
   const [recipes, setRecipes] = useState<LocalRecipe[]>([]);
+  const [deletedRecipes, setDeletedRecipes] = useState<LocalRecipe[]>([]);
   const [initializing, setInitializing] = useState(true);
   const [syncing, setSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasWriteFailures, setHasWriteFailures] = useState(false);
   const [lastResult, setLastResult] = useState<SyncResult | null>(null);
+  const [lastSyncedAt, setLastSyncedAt] = useState<string | null>(null);
 
   const repoRef = useRef<SqliteRecipeRepo | null>(null);
   const serviceRef = useRef<SyncService | null>(null);
   const inFlight = useRef(false);
 
-  /** Run one sync, fold the outcome into state. Guards against overlap. */
-  const runSync = useCallback(async () => {
-    const service = serviceRef.current;
+  /** Re-read the local store into both the active + Recently-Deleted lists. */
+  const refresh = useCallback(async () => {
     const repo = repoRef.current;
-    if (!service || !repo || inFlight.current) return;
-    inFlight.current = true;
-    try {
-      const result = await service.sync();
+    if (!repo) return;
+    const all = await repo.getAll();
+    setRecipes(activeSorted(all));
+    setDeletedRecipes(deletedSorted(all));
+  }, []);
+
+  /** Fold a completed sync's outcome into state (shared by runSync/forceFullSync). */
+  const applyResult = useCallback(
+    async (result: SyncResult) => {
       setLastResult(result);
       setHasWriteFailures(result.writeFailures > 0);
       setError(null);
-      setRecipes(activeSorted(await repo.getAll()));
+      setLastSyncedAt(realEnv.now().toISOString());
+      await refresh();
+    },
+    [refresh],
+  );
+
+  /** Run one sync, fold the outcome into state. Guards against overlap. */
+  const runSync = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service || inFlight.current) return;
+    inFlight.current = true;
+    try {
+      await applyResult(await service.sync());
     } catch (e) {
       setError(messageFor(e));
       // keep whatever local recipes we already have
     } finally {
       inFlight.current = false;
     }
-  }, []);
+  }, [applyResult]);
 
   // (Re)initialize the store + service whenever the token changes. All setState
   // happens after an await, never synchronously during effect commit.
@@ -114,9 +153,8 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
         repoRef.current = new SqliteRecipeRepo(await getDatabase());
       }
       const repo = repoRef.current;
-      const initial = activeSorted(await repo.getAll());
+      await refresh();
       if (cancelled) return;
-      setRecipes(initial);
       setInitializing(false);
 
       if (token) {
@@ -132,7 +170,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [token, runSync]);
+  }, [token, runSync, refresh]);
 
   // Sync when the app returns to the foreground (if signed in).
   useEffect(() => {
@@ -158,6 +196,86 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     [recipes],
   );
 
+  // Local writes: persist → refresh the list immediately → kick a background
+  // sync to push (a no-op for guests / when offline; the record keeps
+  // needsSync/pendingRemoteDelete and retries next sync).
+  const createRecipe = useCallback(
+    async (draft: RecipeInput) => {
+      const repo = repoRef.current;
+      if (!repo) throw new Error('Store not ready');
+      const local = draftToNewLocal(draft, realEnv);
+      await repo.insert(local);
+      await refresh();
+      void syncNow();
+      return local.localId;
+    },
+    [refresh, syncNow],
+  );
+
+  const updateRecipe = useCallback(
+    async (localId: string, draft: RecipeInput) => {
+      const repo = repoRef.current;
+      if (!repo) throw new Error('Store not ready');
+      const existing = await repo.getByLocalId(localId);
+      if (!existing) throw new Error('Recipe not found');
+      await repo.update(applyDraft(existing, draft, realEnv.now().toISOString()));
+      await refresh();
+      void syncNow();
+    },
+    [refresh, syncNow],
+  );
+
+  const deleteRecipe = useCallback(
+    async (localId: string) => {
+      const repo = repoRef.current;
+      if (!repo) throw new Error('Store not ready');
+      const existing = await repo.getByLocalId(localId);
+      if (!existing) return;
+      await repo.update(markDeleted(existing, realEnv.now().toISOString()));
+      await refresh();
+      void syncNow();
+    },
+    [refresh, syncNow],
+  );
+
+  const restoreRecipe = useCallback(
+    async (localId: string) => {
+      const repo = repoRef.current;
+      if (!repo) throw new Error('Store not ready');
+      const existing = await repo.getByLocalId(localId);
+      if (!existing) return;
+      // Un-delete and re-queue for upload. If the delete was already pushed to
+      // the server, the next sync re-pushes it (a PUT may 404 if the server row
+      // was hard-purged — the local copy is preserved regardless).
+      await repo.update({
+        ...existing,
+        locallyDeleted: false,
+        pendingRemoteDelete: false,
+        deletedAt: null,
+        needsSync: true,
+        updatedAt: realEnv.now().toISOString(),
+      });
+      await refresh();
+      void syncNow();
+    },
+    [refresh, syncNow],
+  );
+
+  const forceFullSync = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service || inFlight.current) return;
+    inFlight.current = true;
+    setSyncing(true);
+    try {
+      await applyResult(await service.forceFullSync());
+    } catch (e) {
+      setError(messageFor(e));
+    } finally {
+      inFlight.current = false;
+      setSyncing(false);
+    }
+  }, [applyResult]);
+
   const value: SyncContextValue = {
     recipes: isGuest ? [] : recipes,
     initializing,
@@ -167,6 +285,13 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     lastResult,
     syncNow,
     getByLocalId,
+    createRecipe,
+    updateRecipe,
+    deleteRecipe,
+    lastSyncedAt,
+    deletedRecipes: isGuest ? [] : deletedRecipes,
+    restoreRecipe,
+    forceFullSync,
   };
 
   return <SyncContext.Provider value={value}>{children}</SyncContext.Provider>;
