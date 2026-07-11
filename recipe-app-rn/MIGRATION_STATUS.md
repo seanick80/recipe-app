@@ -8,7 +8,7 @@ starting a new conversation on this work. Canonical plan:
   commit directly during early phases)
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml` with the SwiftUI app
-- **Last updated:** Phase 4 in progress (Recipe CRUD + Settings + Grocery/Lists + Shopping done)
+- **Last updated:** Phase 5 started (vision parser ports; native camera spike is device-blocked)
 
 ## Where the app came from
 
@@ -27,7 +27,7 @@ not worth porting).
 | 2 | Auth + networking + read-only Recipes tab | ✅ Done |
 | 3 | Local DB + sync spike (expo-sqlite + REST SyncService) — **high risk, do early** | ✅ Done |
 | 4 | Full CRUD UI (all tabs) | 🔄 Nearly done — Recipes, Shopping, Lists, Settings all real ✅; UnitPicker + polish ⬜ |
-| 5 | Camera + Vision spike (vision-camera + ML Kit OCR/barcode) — **high risk** | ⬜ |
+| 5 | Camera + Vision spike (vision-camera + ML Kit OCR/barcode) — **high risk** | 🔄 Started — vision parsers porting; native camera device-blocked |
 | 6 | Share Extension + polish + cutover eval | ⬜ |
 
 Front-load the two risk spikes (Phase 3 sync, Phase 5 camera) before the big UI
@@ -417,3 +417,64 @@ are now real screens. `npm run ci` green (124 tests); bundle exports clean.
   wire into the recipe + grocery ingredient rows (currently free-text unit).
   Carries the ingredient `category` picker too.
 - Port remaining Pile 1 `SharedLogic` modules as their consumers come online.
+
+## Phase 5 — started (camera + vision spike)
+
+High-risk spike: `react-native-vision-camera` + ML Kit for barcode + OCR, wired
+to ported framework-free parsers. **The native camera half is device-blocked** —
+the KVM Android emulator's virtual camera can't present a real barcode/text
+target and there's no iOS simulator, so on-device camera verification needs a
+**physical Android device** (or a Mac). The parser half is fully portable +
+headless-testable, so that's what's landed first.
+
+**All 14 `SharedLogic` modules import only Foundation** (scout-confirmed — zero
+UIKit/Vision/AVFoundation), so every parser ports cleanly.
+
+### Ported so far ✅ (2026-07-11)
+- `lib/barcodeProductMapper.ts` (+10 tests) — Open Food Facts JSON → product
+  (`parseOpenFoodFactsJSON`, `mapOFFCategory`, `formatProductDisplay`).
+- `lib/contentDetector.ts` (+4 tests) — `detectContentType` (recipe vs shopping).
+- `lib/fuzzyMatcher.ts` (+9 tests) — `editDistance`, `suggestCorrection`,
+  `groceryVocabulary` (post-OCR handwriting correction).
+
+### Remaining parser ports ⬜ (leaf-first; do next, still headless)
+- `QualityGate` — `OCRLine`/`NormalizedBox` (the Vision→pure boundary),
+  `assessImageQuality`, `separateHandwritten`, `sectionFromHeader` +
+  `RecipeSection`, `looksLikeNumberedInstruction`/`looksLikeIngredientStart`.
+  **This is what the real recipe pipeline routes on**, not ZoneClassifier.
+- `ListLineParser` — `parseShoppingListText`/`parseListLine` (qty+unit+name
+  grammar; fused tokens, fractions). Core of the shopping-list OCR deliverable.
+- `OCRParser` — `parseRecipeText`/`parseIngredientLine` (depends on
+  `ListLineParser.parseListLine`). Core of the recipe OCR deliverable.
+- `ZoneClassifier`, `DetectionClassifier` — port for parity/tests only; see below.
+
+### Scout findings that change the port (don't port 1:1 blindly)
+- **`BarcodeProductMapper` is unused in the SwiftUI app** — `BarcodeViewModel`
+  duplicates the OFF parsing inline. In RN, wire the barcode lookup to the ported
+  module (cleaner, its original intent). RN does its own `fetch()` to
+  `world.openfoodfacts.org/api/v2/product/{barcode}.json` → `parseOpenFoodFactsJSON`.
+- **`ZoneClassifier` is NOT in the real recipe pipeline** — `ScanProcessor` uses
+  `QualityGate.sectionFromHeader` + heuristics (an earlier geometric-zone approach
+  was abandoned: dense screenshots fused into one block). The plan lists
+  ZoneClassifier for Phase 5, but mirror `QualityGate` header-routing for parity.
+- **`DetectionClassifier`** was Pantry/CoreML-only → Pantry is dropped; no RN
+  consumer. Port only if reused.
+
+### Native spike plan (needs a device)
+- **Barcode (do first — simplest):** vision-camera v4 built-in
+  `useCodeScanner`/`CodeScanner` (no frame-processor plugin; ML Kit on Android) →
+  on decode, `fetch` OFF → `parseOpenFoodFactsJSON` → add to a grocery list.
+- **OCR:** match the SwiftUI UX — capture a **still**, then run ML Kit text
+  recognition on it (e.g. `@react-native-ml-kit/text-recognition`), NOT a live
+  frame processor (avoids Worklets/Reanimated complexity). Feed recognized lines
+  → `QualityGate` (quality/handwritten/section) → `ListLineParser`/`OCRParser` +
+  `fuzzyMatcher` + `groceryCategorizer` + `contentDetector` + `prepNoteStripper`.
+- vision-camera needs a config plugin in `app.json` + a **dev-client rebuild**
+  (`expo prebuild`/`run:android`) — same native-config workflow as the Google
+  sign-in / secure-store plugins added in Phase 2. Camera permission strings too.
+
+### Suggested next session
+Fresh `/clear`. Finish the parser ports (QualityGate → ListLineParser →
+OCRParser, all headless + tested), then the barcode native spike on a physical
+Android device, then OCR. Decide ZoneClassifier-vs-QualityGate routing during
+the OCR wire-up.
