@@ -9,7 +9,10 @@
     "scheme": "recipeapp",
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.seanick80.recipeapp.rn"
+      "bundleIdentifier": "com.seanick80.recipeapp.rn",
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "android": {
       "package": "com.seanick80.recipeapp.rn",

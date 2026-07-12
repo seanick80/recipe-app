@@ -441,11 +441,29 @@ workflows:
           echo "Using workspace=$WORKSPACE scheme=$SCHEME"
           xcode-project build-ipa --workspace "$WORKSPACE" --scheme "$SCHEME"
       - name: Publish to TestFlight
+        # The IPA upload is the part that matters; internal testers get the
+        # build as soon as it processes (export compliance is auto-answered via
+        # ITSAppUsesNonExemptEncryption=false in app.json). The `--testflight`
+        # beta-review submission at the end only matters for EXTERNAL testers
+        # and can fail if the app's beta test info / review contact isn't set in
+        # App Store Connect — treat that as non-fatal so it doesn't fail the
+        # build (mirrors the SwiftUI workflow's train-conflict guard).
         script: |
           set -euo pipefail
-          app-store-connect publish \
+          OUTPUT=$(app-store-connect publish \
             --path 'recipe-app-rn/ios/build/ios/ipa/*.ipa' \
-            --testflight
+            --testflight 2>&1) && echo "$OUTPUT" || {
+            RC=$?
+            echo "$OUTPUT"
+            if echo "$OUTPUT" | grep -qiE "test information is required|missing required Beta App|external testing|Another build in the same train"; then
+              echo "WARNING: external beta-review submission incomplete — non-fatal."
+              echo "The IPA uploaded; internal testers receive it after processing."
+              echo "To enable external testing, fill in Test Info + Beta App Review"
+              echo "contact for the .rn app in App Store Connect."
+            else
+              exit $RC
+            fi
+          }
     artifacts:
       - recipe-app-rn/ios/build/ios/ipa/*.ipa
     publishing:
