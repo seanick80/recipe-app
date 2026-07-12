@@ -8,7 +8,7 @@ starting a new conversation on this work. Canonical plan:
   commit directly during early phases)
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml` with the SwiftUI app
-- **Last updated:** Phase 5 started (vision parser ports; native camera spike is device-blocked)
+- **Last updated:** RN iOS → TestFlight pipeline proven on Codemagic (2026-07-12); Phase 5 in progress (vision parser ports; native camera spike is device-blocked)
 
 ## Where the app came from
 
@@ -114,25 +114,32 @@ See `README.md` for stack table, decisions, and commands.
   It survives on a relaunch; just retry the launch a few times before
   screencapping. Same class as the Phase 2 Pixel Launcher ANR instability.
 
-## Build / deploy notes (for when there's something to install)
+## Build / deploy notes
 
-- **No expo.dev account required.** Build via **Codemagic** (recommended —
-  reuses existing Apple Distribution cert/profile + App Store Connect key, and
-  builds Android too): `npm install → expo prebuild → xcode build-ipa →
-  publish TestFlight`. Or build locally on a Mac. EAS Build (cloud) is optional
-  and is the only path that needs an Expo account.
-- Use a **separate bundle ID** during parallel dev (e.g.
-  `com.seanick80.recipeapp.rn`) so it installs alongside the SwiftUI app.
-- Device-build config (Codemagic RN workflow / `eas.json`) isn't wired up yet.
-  Phase 2 is the first screen worth installing, but on-device verification is
-  blocked on two external prerequisites (below) — do these before Phase 4:
-  1. **Android Google OAuth client**: native Google sign-in on Android needs an
-     Android OAuth client registered in the Google console with the debug (and
-     later release) keystore SHA-1. We only have the iOS + web client IDs today.
-     Without it, `signIn()` will fail on Android (iOS works with the existing
-     iOS client ID + reversed-scheme URL, already configured in `app.json`).
-  2. A reachable backend: dev points at `10.0.2.2:8000` on Android / `localhost`
-     on iOS (`src/config.ts`), prod at the Cloud Run URL.
+**Both RN workflows are wired into the repo's `codemagic.yaml`** (no expo.dev
+account / EAS needed — reuses the existing Apple Distribution cert + ASC key).
+
+- **`rn-ios-workflow`** — ✅ **proven working (2026-07-12)**. `mac_mini_m2`,
+  **manual-trigger only** (start from the Codemagic dashboard; select the
+  `react-native` branch). Flow: `npm ci → expo prebuild → pod install →
+  build-ipa → app-store-connect publish --testflight`. Installs side-by-side
+  with the SwiftUI app under bundle `com.seanick80.recipeapp.rn`.
+  Apple-side setup done: `.rn` App ID registered, App Store provisioning profile
+  uploaded to Codemagic as `ios_rn_distribution_profile`, ASC app record created
+  (SKU `com.seanick80.recipeapp.rn.sku`). Signing reuses `ios_distribution_cert`.
+- **`rn-android-workflow`** — wired but **dormant**: `linux_x2`, auto-triggers on
+  `master` pushes touching `recipe-app-rn/`, publishes a debug-signed release APK
+  artifact for sideloading. Won't fire until `react-native` merges to `master`.
+  TODO before a real Android release: (a) generate an upload keystore + wire it
+  into `signingConfigs.release`; (b) register an **Android Google OAuth client**
+  in the Google console with that keystore's SHA-1 — until then `signIn()` fails
+  on Android and only "Continue without signing in" works. iOS sign-in already
+  works with the existing iOS client ID + reversed-scheme URL.
+- Both workflows are `when.changeset`-scoped, so SwiftUI and RN never trigger
+  each other's builds. See `codemagic.yaml` for the full definitions.
+- Backend: dev points at `10.0.2.2:8000` on Android / `localhost` on iOS
+  (`src/config.ts`); release builds (`__DEV__=false`) auto-target the Cloud Run
+  URL, so TestFlight/APK builds need no backend config.
 
 ## Phase 1 — done
 

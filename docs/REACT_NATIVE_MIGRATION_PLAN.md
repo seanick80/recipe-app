@@ -186,6 +186,60 @@ _(Former Phase 6 — Food classifier / Pantry — removed: Pantry is out of scop
 - i18n, empty states, error handling, deep-linking parity.
 - Deliverable: parity reached; decide dual-ship vs cutover.
 
+#### Share import — platform design (decided)
+
+The two platforms diverge completely; the recipe-extraction *brain*
+(`RecipeSchemaParser`, already ported to TS) is shared, but the share *plumbing*
+is native and per-platform.
+
+**iOS — reuse the existing Swift extension.** The SwiftUI app's
+`RecipeApp/ShareExtension/ShareViewController.swift` is host-agnostic at its
+boundary: it captures the shared URL, fetches HTML, parses the recipe, and
+**writes a JSON "pending import" file into a shared App Group container**
+(`group.com.seanick80.recipeapp`) — it does *not* touch SwiftData/CloudKit. That
+"extension writes JSON → host app reads it" contract is exactly what RN can
+consume, so we reuse the Swift code rather than reimplement it. Required work:
+  1. **Shared App Group** — the RN app target *and* the extension must both join
+     one group (reuse `group.com.seanick80.recipeapp` or mint
+     `group.com.seanick80.recipeapp.rn`). Add the App Group entitlement to the RN
+     app via an Expo config plugin (prebuild regenerates entitlements) and
+     register the group capability on the App IDs.
+  2. **Extension target** — added via a config plugin (e.g.
+     `expo-share-extension`) or a hand-written native target + prebuild plugin;
+     the existing `ShareViewController.swift` drops in. Needs its **own** bundle
+     ID `com.seanick80.recipeapp.rn.share-extension` + its own App Store
+     provisioning profile (same ceremony as the main app — a third App ID/profile).
+  3. **JS reader** — `expo-file-system` can't see App Group container paths, so a
+     tiny native module returns the container path (or the pending payloads);
+     JS reads the JSON on foreground and runs it through the normal import →
+     SQLite → sync flow.
+
+  Tradeoff (decided: **reuse the Swift parse**): the extension parses in Swift
+  while the main app parses in TS, so extraction logic lives in two places and
+  can drift. Accepted because it's iOS-only, the Swift code already works, and
+  the parser rarely changes. Mitigation: cross-reference comments in both
+  `ShareViewController.swift` and the TS `RecipeSchemaParser` port so an edit to
+  one flags its twin. (Alternative was a *thin* extension that writes only the
+  URL and lets the TS parser do the work on app open — single source of truth,
+  but a rewrite and slightly slower UX; not chosen.)
+
+**Android — no extension, just an intent filter.** Android has no extension
+concept; the main app declares it accepts shared content via an `ACTION_SEND`
+intent filter and becomes a share-sheet target that launches the normal app. No
+separate process, bundle ID, or provisioning. Mostly declarative in `app.json`:
+
+    "android": {
+      "intentFilters": [{
+        "action": "SEND",
+        "data": [{ "mimeType": "text/plain" }],
+        "category": ["DEFAULT"]
+      }]
+    }
+
+plus JS (via `expo-linking` / an intent module) to read the incoming URL/text
+and route it into the same import path — using the ported TS parser directly.
+This is the cheap half of Phase 6.
+
 ## Effort summary
 
 | Pile | Lines (Swift) | Effort | Risk |
