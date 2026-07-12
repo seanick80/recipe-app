@@ -298,6 +298,162 @@ workflows:
           - $RECIPIENT_EMAIL
 
   # -----------------------------------------------------------------------
+  # RN Android — comparison APK (auto, Linux)
+  # -----------------------------------------------------------------------
+  # Builds the React Native rewrite (recipe-app-rn/) as an installable
+  # Android APK so it can sit side-by-side with the SwiftUI app for A/B
+  # comparison (distinct package `com.seanick80.recipeapp.rn`). Runs on a
+  # Linux instance — cheaper/faster minutes than macOS — and is scoped via
+  # `when.changeset` to `recipe-app-rn/`, so SwiftUI-only pushes never
+  # trigger it (and this workflow never triggers the iOS SwiftUI build).
+  rn-android-workflow:
+    name: RN Android (comparison APK)
+    max_build_duration: 45
+    instance_type: linux_x2
+    environment:
+      groups:
+        - recipe_app_notifications
+      node: 20.18.0
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+          source: true
+      cancel_previous_builds: true
+    when:
+      changeset:
+        includes:
+          - 'recipe-app-rn/'
+          - 'codemagic.yaml'
+    scripts:
+      - name: Install dependencies
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn
+          npm ci
+      - name: Prebuild Android native project
+        # ios/ and android/ are gitignored (see recipe-app-rn/.gitignore) —
+        # expo regenerates them from app.json on every build. --clean wipes
+        # any stale native dir first.
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn
+          npx expo prebuild --platform android --clean
+      - name: Build release APK
+        # A release build has __DEV__=false, so config.ts points API_BASE_URL
+        # at the deployed Cloud Run server automatically — no env var needed.
+        #
+        # NOTE: expo prebuild regenerates android/ with the default *debug*
+        # keystore for the `release` buildType. A debug-signed release APK
+        # installs fine on a real device for A/B comparison, but CANNOT be
+        # uploaded to Google Play.
+        # TODO (before any Play release): generate an upload keystore, store it
+        # as a Codemagic secure file / env group, and wire it into
+        # signingConfigs.release. Native Google sign-in on Android also needs an
+        # Android OAuth client registered in the Google console with this
+        # keystore's SHA-1 (see recipe-app-rn/MIGRATION_STATUS.md) — until then
+        # use "Continue without signing in".
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn/android
+          ./gradlew assembleRelease
+    artifacts:
+      - recipe-app-rn/android/app/build/outputs/**/*.apk
+    publishing:
+      email:
+        recipients:
+          - $RECIPIENT_EMAIL
+
+  # -----------------------------------------------------------------------
+  # RN iOS — TestFlight (manual trigger only)
+  # -----------------------------------------------------------------------
+  # Builds the RN rewrite as an IPA and publishes it to TestFlight under the
+  # separate bundle ID `com.seanick80.recipeapp.rn`, so it installs alongside
+  # the SwiftUI app. Deliberately has NO `triggering:` block → it runs ONLY
+  # when started by hand from the Codemagic dashboard. This keeps scarce
+  # free-tier macOS minutes for the shipping SwiftUI app; start an RN iOS
+  # build manually when you want a fresh TestFlight build to compare.
+  #
+  # BLOCKED until three one-time Apple-console tasks are done (see TODO in the
+  # environment block below). The distribution cert + ASC API key are reused.
+  rn-ios-workflow:
+    name: RN iOS (TestFlight — manual)
+    max_build_duration: 60
+    instance_type: mac_mini_m2
+    integrations:
+      app_store_connect: recipe-app-appstore-key
+    environment:
+      groups:
+        - recipe_app_notifications
+      node: 20.18.0
+      xcode: latest
+      cocoapods: default
+      # TODO (Apple console — one-time, blocks this workflow):
+      #   1. Register App ID `com.seanick80.recipeapp.rn` in the Developer
+      #      portal (Certificates, IDs & Profiles → Identifiers).
+      #   2. Create an App Store provisioning profile bound to it, e.g.
+      #        scripts/generate-distribution-profile.sh --bundle-id com.seanick80.recipeapp.rn
+      #      then upload it to Codemagic and name it `ios_rn_distribution_profile`.
+      #   3. Create the app record in App Store Connect for the `.rn` bundle ID.
+      # The existing ios_distribution_cert + recipe-app-appstore-key are reusable.
+      ios_signing:
+        provisioning_profiles:
+          - ios_rn_distribution_profile
+        certificates:
+          - ios_distribution_cert
+    scripts:
+      - name: Install dependencies
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn
+          npm ci
+      - name: Prebuild iOS native project
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn
+          npx expo prebuild --platform ios --clean
+      - name: Install CocoaPods
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn/ios
+          pod install
+      - name: Bump CFBundleVersion for TestFlight upload
+        # Same rationale as the SwiftUI workflow: stamp a monotonically
+        # increasing build number so TestFlight accepts the upload. Runs in
+        # ios/ where the generated .xcodeproj lives.
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn/ios
+          agvtool new-version -all "$((BUILD_NUMBER + 100))"
+      - name: Apply provisioning profiles to Xcode project
+        script: |
+          xcode-project use-profiles
+      - name: Build IPA
+        # Expo derives the workspace/scheme name from app.json's `name`;
+        # discover it rather than hardcoding so a slug rename can't break CI.
+        script: |
+          set -euo pipefail
+          cd recipe-app-rn/ios
+          WORKSPACE=$(ls -d *.xcworkspace | head -1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "Using workspace=$WORKSPACE scheme=$SCHEME"
+          xcode-project build-ipa --workspace "$WORKSPACE" --scheme "$SCHEME"
+      - name: Publish to TestFlight
+        script: |
+          set -euo pipefail
+          app-store-connect publish \
+            --path 'recipe-app-rn/ios/build/ios/ipa/*.ipa' \
+            --testflight
+    artifacts:
+      - recipe-app-rn/ios/build/ios/ipa/*.ipa
+    publishing:
+      email:
+        recipients:
+          - $RECIPIENT_EMAIL
+
+  # -----------------------------------------------------------------------
   # ML Model Conversion — manual workflow
   # -----------------------------------------------------------------------
   # Converts upstream ML models to CoreML format. Run manually from the
