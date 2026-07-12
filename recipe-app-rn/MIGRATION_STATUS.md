@@ -8,7 +8,7 @@ starting a new conversation on this work. Canonical plan:
   commit directly during early phases)
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml` with the SwiftUI app
-- **Last updated:** RN iOS → TestFlight pipeline proven on Codemagic (2026-07-12); Phase 5 in progress (vision parser ports; native camera spike is device-blocked)
+- **Last updated:** RN iOS → TestFlight pipeline fully working + robust (2026-07-13; modular-headers + export-compliance + non-fatal-publish fixes landed). Next: finish Phase 5 headless parser ports, then adopt gluestack (planned eval). Native camera spike deferred to its own device session. See "Suggested next session".
 
 ## Where the app came from
 
@@ -75,6 +75,21 @@ See `README.md` for stack table, decisions, and commands.
   verifiable on this box (typecheck/lint/jest + `expo export` + emulator).
   gluestack can still be adopted later as a pure styling pass if desired; it is
   not a data-layer dependency.
+  **UPDATE (2026-07-13): the original blocker is gone.** It was "can't verify
+  without a Mac"; on-device verification now exists (TestFlight installs + the
+  Codemagic mac build both work). gluestack is a **planned deliverable** — the
+  port doubles as a gluestack evaluation for a separate work project, so adopt
+  it deliberately, not just "if desired". Readiness: architecturally yes —
+  NativeWind (its styling engine) is already installed/configured, the data
+  layer is decoupled, and screens are componentized for an incremental
+  screen-by-screen swap (`View`/`Text`/`Pressable`/`TextInput`/`Switch` →
+  gluestack `Box`/`Text`/`Button`/`Input`/`Switch`). **The one remaining risk to
+  de-risk first is version compat**: gluestack-ui alpha vs this bleeding-edge
+  stack (React 19.2 / RN 0.86 / Expo 57 / NativeWind 4.2). Do a **compat spike**
+  (install + convert ONE screen, e.g. `RecipeEditScreen` → verify via
+  `expo export` / Codemagic build / on-device) before the full pass. Also note
+  headless component render tests still don't wire up (RNTL v14 + React 19.2), so
+  gluestack components are verified visually on-device, not by unit tests.
 - **`expo-sqlite` instead of WatermelonDB** (plan said "WatermelonDB/SQLite").
   Same reasoning as SecureStore: expo-sqlite is a first-party Expo module whose
   config plugin is auto-handled by prebuild (no extra native wiring), it bundles
@@ -127,6 +142,22 @@ account / EAS needed — reuses the existing Apple Distribution cert + ASC key).
   Apple-side setup done: `.rn` App ID registered, App Store provisioning profile
   uploaded to Codemagic as `ios_rn_distribution_profile`, ASC app record created
   (SKU `com.seanick80.recipeapp.rn.sku`). Signing reuses `ios_distribution_cert`.
+  Two build-time fixes were needed and are now permanent (2026-07-13):
+    - **Modular headers** — `plugins/withModularHeaders.js` (registered in
+      `app.json`) injects `use_modular_headers!` into the generated Podfile;
+      without it `pod install` fails because GoogleSignIn→AppCheckCore depends on
+      non-modular pods (GoogleUtilities, RecaptchaInterop) that can't integrate
+      as static libraries. Chosen over `useFrameworks:"static"` (riskier with
+      Hermes + reanimated).
+    - **Export compliance** — `ios.infoPlist.ITSAppUsesNonExemptEncryption=false`
+      in `app.json` auto-clears `MISSING_EXPORT_COMPLIANCE` so internal testers
+      get each build without manual per-build answering (app uses only standard
+      HTTPS/TLS → exempt).
+    - **Publish step** tolerates external beta-review gaps (non-fatal) — the IPA
+      upload is what matters; internal testing needs no beta review. Fill in Test
+      Info + Beta App Review contact in ASC only if enabling *external* testers.
+  Install path for a comparison build: TestFlight → add yourself as an *internal*
+  tester → install. No external review needed.
 - **`rn-android-workflow`** — wired but **dormant**: `linux_x2`, auto-triggers on
   `master` pushes touching `recipe-app-rn/`, publishes a debug-signed release APK
   artifact for sideloading. Won't fire until `react-native` merges to `master`.
@@ -481,7 +512,21 @@ UIKit/Vision/AVFoundation), so every parser ports cleanly.
   sign-in / secure-store plugins added in Phase 2. Camera permission strings too.
 
 ### Suggested next session
-Fresh `/clear`. Finish the parser ports (QualityGate → ListLineParser →
-OCRParser, all headless + tested), then the barcode native spike on a physical
-Android device, then OCR. Decide ZoneClassifier-vs-QualityGate routing during
-the OCR wire-up.
+**Decided ordering (2026-07-13): parser ports → gluestack; native camera spike
+deferred.** Rationale: the user's priority is evaluating gluestack (for a
+separate work project), and the native camera spike is device-gated + iterative
+(not a clean single-session deliverable).
+
+1. **Fresh `/clear`. Parser ports** — QualityGate → ListLineParser → OCRParser,
+   all headless + Jest-tested (OCRParser depends on ListLineParser). This
+   completes the *portable* half of Phase 5. Decide ZoneClassifier-vs-QualityGate
+   routing during the eventual OCR wire-up (mirror `QualityGate.sectionFromHeader`
+   per the scout finding above; ZoneClassifier is NOT in the real pipeline).
+2. **Fresh `/clear`. gluestack** — compat spike first (one screen), then adopt as
+   a styling pass if clean. See the gluestack UPDATE note in "Deviations from the
+   plan" above for readiness + the version-compat risk.
+
+**Deferred (own device-gated session):** native camera spike — barcode first
+(vision-camera `useCodeScanner` → OFF lookup), then OCR (still capture → ML Kit
+text recognition → QualityGate → parsers). Now unblocked by on-device TestFlight
+installs (previously needed a physical device; the iPhone qualifies).
