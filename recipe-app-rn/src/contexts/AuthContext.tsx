@@ -2,6 +2,7 @@ import React, { createContext, useCallback, useContext, useEffect, useMemo, useS
 
 import { exchangeGoogleToken, fetchMe, refreshToken } from '../api/auth';
 import { ApiError } from '../lib/apiClient';
+import { debugLog } from '../lib/debugLog';
 import { signInWithGoogle, signOutGoogle } from '../lib/googleSignIn';
 import { decodeJwt } from '../lib/jwt';
 import { deleteToken, getToken, setToken } from '../lib/secureStore';
@@ -97,6 +98,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setNeedsReauth(false);
     setIsGuest(false);
     setStatus('authenticated');
+    debugLog.log('auth.signIn', 'Signed in', { email: resp.email });
   }, []);
 
   const signOut = useCallback(async () => {
@@ -107,6 +109,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     setNeedsReauth(false);
     setIsGuest(false);
     setStatus('unauthenticated');
+    debugLog.log('auth.signOut', 'Signed out');
   }, []);
 
   const continueAsGuest = useCallback(() => {

@@ -1,4 +1,5 @@
 import { API_BASE_URL, USER_AGENT } from '../config';
+import { debugLog } from './debugLog';
 
 export type ApiErrorKind =
   | 'unauthorized'
@@ -80,6 +81,7 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         await sleep(2 ** attempt * 1000);
         continue;
       }
+      debugLog.log('api.error', `${method} ${path} failed`, { kind: 'network', error: String(e) });
       throw lastError;
     }
 
@@ -92,9 +94,16 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
       }
     }
 
-    if (response.status === 401) throw new ApiError('unauthorized', 401, 'Unauthorized');
-    if (response.status === 403) throw new ApiError('forbidden', 403, 'Forbidden');
-    if (response.status === 404) throw new ApiError('notFound', 404, 'Not found');
+    if (response.status === 401 || response.status === 403 || response.status === 404) {
+      const [kind, message]: [ApiErrorKind, string] =
+        response.status === 401
+          ? ['unauthorized', 'Unauthorized']
+          : response.status === 403
+            ? ['forbidden', 'Forbidden']
+            : ['notFound', 'Not found'];
+      debugLog.log('api.error', `${method} ${path} failed`, { kind, status: String(response.status) });
+      throw new ApiError(kind, response.status, message);
+    }
 
     if (isRetryableStatus(response.status)) {
       lastError = new ApiError('server', response.status, `Server error ${response.status}`);
@@ -102,9 +111,11 @@ export async function apiRequest<T>(path: string, options: RequestOptions = {}):
         await sleep(2 ** attempt * 1000);
         continue;
       }
+      debugLog.log('api.error', `${method} ${path} failed`, { kind: 'server', status: String(response.status) });
       throw lastError;
     }
 
+    debugLog.log('api.error', `${method} ${path} failed`, { kind: 'server', status: String(response.status) });
     throw new ApiError('server', response.status, `Request failed (${response.status})`);
   }
 

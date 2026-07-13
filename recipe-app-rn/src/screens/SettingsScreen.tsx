@@ -1,8 +1,19 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import * as Application from 'expo-application';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useSync } from '../contexts/SyncContext';
+import type { SettingsStackParamList } from '../navigation/SettingsStack';
+
+/** `Version 1.0.0 (build 102)` — build number is the CI-stamped CFBundleVersion. */
+function appVersionLabel(): string {
+  const version = Application.nativeApplicationVersion ?? '—';
+  const build = Application.nativeBuildVersion ?? '—';
+  return `Version ${version} (build ${build})`;
+}
 
 /** Local-time display of the last-synced ISO timestamp (rule: view formats UTC → local). */
 function formatSynced(iso: string | null): string {
@@ -61,6 +72,7 @@ function Row({
  * sync sections.
  */
 export function SettingsScreen() {
+  const navigation = useNavigation<NativeStackNavigationProp<SettingsStackParamList>>();
   const { user, isGuest, signIn, signOut } = useAuth();
   const {
     syncing,
@@ -153,6 +165,11 @@ export function SettingsScreen() {
           )}
         </Section>
       ) : null}
+
+      <Section title="About">
+        <Row label="Version" value={appVersionLabel()} />
+        <Row label="App logs" icon="document-text-outline" onPress={() => navigation.navigate('Logs')} />
+      </Section>
     </ScrollView>
   );
 }

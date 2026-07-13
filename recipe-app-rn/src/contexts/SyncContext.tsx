@@ -5,6 +5,7 @@ import { createSyncApi } from '../api/recipes';
 import { getDatabase } from '../db/database';
 import { SqliteRecipeRepo } from '../db/sqliteRecipeRepo';
 import { ApiError } from '../lib/apiClient';
+import { debugLog } from '../lib/debugLog';
 import { newLocalId } from '../lib/ids';
 import { applyDraft, draftToNewLocal, markDeleted } from '../sync/recipeDraft';
 import { SyncService } from '../sync/syncService';
@@ -124,10 +125,20 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     const service = serviceRef.current;
     if (!service || inFlight.current) return;
     inFlight.current = true;
+    debugLog.log('sync.run', 'Sync started');
     try {
-      await applyResult(await service.sync());
+      const result = await service.sync();
+      await applyResult(result);
+      debugLog.log('sync.run', 'Sync succeeded', {
+        pulledNew: String(result.pulledNew),
+        pulledUpdated: String(result.pulledUpdated),
+        pushed: String(result.pushed),
+        conflicts: String(result.conflictsResolved),
+        writeFailures: String(result.writeFailures),
+      });
     } catch (e) {
       setError(messageFor(e));
+      debugLog.log('sync.run', 'Sync failed', { error: String(e) });
       // keep whatever local recipes we already have
     } finally {
       inFlight.current = false;
@@ -256,10 +267,13 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     if (!service || inFlight.current) return;
     inFlight.current = true;
     setSyncing(true);
+    debugLog.log('sync.forceFull', 'Force full sync started');
     try {
       await applyResult(await service.forceFullSync());
+      debugLog.log('sync.forceFull', 'Force full sync succeeded');
     } catch (e) {
       setError(messageFor(e));
+      debugLog.log('sync.forceFull', 'Force full sync failed', { error: String(e) });
     } finally {
       inFlight.current = false;
       setSyncing(false);
