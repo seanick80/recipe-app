@@ -108,8 +108,11 @@ See `README.md` for stack table, decisions, and commands.
   rendered and worked, no crash.** So the react-dom-in-native worry is a hygiene/bloat
   issue, not runtime breakage. Also confirmed: a 1:1 token-preserving swap gives NO
   visual change — gluestack is a system to design against, not a free restyle.
-  **Deferred:** a dedicated UI/design-iteration milestone (post feature-complete) to
-  actually exploit gluestack's tokens/components — no design work until parity is done.
+  **Deferred (post feature-complete UI/design-iteration milestone):** (a) **extract all
+  colors / borders / spacing / radii / typography into a shared design-token library /
+  theme** (NativeWind/Tailwind tokens) so the app can be reskinned by swapping tokens
+  instead of hunting hardcoded values; (b) actually exploit gluestack's tokens/components.
+  No design work until parity is done.
 - **`expo-sqlite` instead of WatermelonDB** (plan said "WatermelonDB/SQLite").
   Same reasoning as SecureStore: expo-sqlite is a first-party Expo module whose
   config plugin is auto-handled by prebuild (no extra native wiring), it bundles
