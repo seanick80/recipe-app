@@ -149,6 +149,23 @@ See `README.md` for stack table, decisions, and commands.
   It survives on a relaunch; just retry the launch a few times before
   screencapping. Same class as the Phase 2 Pixel Launcher ANR instability.
 
+## On-device testing punch-list (2026-07-14, TestFlight)
+
+Gaps found while testing the RN build on-device. These are **migration parity
+gaps / small features, NOT bugs** (RN app is mid-migration) — batch-fix and do a
+single mac build rather than one build per item.
+
+- ⬜ **App version / About display** — no way to see version+build in-app (made
+  confirming "am I on the latest TestFlight build" hard). Add app version + build
+  number to Settings via `expo-constants`. Small.
+- ⬜ **App logs viewer** — SwiftUI `DebugLog` was NOT ported (no `src/lib/debugLog.ts`)
+  and there's no logs UI. Needs a log store + viewer screen. Medium.
+- ❓ **Recipe source link "not showing"** — NOT a code gap: `RecipeDetailScreen.tsx`
+  already renders a tappable Source link when `source_url` is a valid http URL. Almost
+  certainly just empty `source_url` on the device's recipes (real recipes are on the
+  Swift/CloudKit side, not synced here). CONFIRM by setting a URL on a recipe; only a
+  real bug if it still doesn't render.
+
 ## Build / deploy notes
 
 **Both RN workflows are wired into the repo's `codemagic.yaml`** (no expo.dev
