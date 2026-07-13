@@ -90,6 +90,20 @@ See `README.md` for stack table, decisions, and commands.
   `expo export` / Codemagic build / on-device) before the full pass. Also note
   headless component render tests still don't wire up (RNTL v14 + React 19.2), so
   gluestack components are verified visually on-device, not by unit tests.
+  **SPIKE RESULT (2026-07-14): compat = works only with severe caveats; NOT
+  production-viable on this stack.** NativeWind v4/Tailwind v3 forces the ALPHA
+  gluestack line (`@gluestack-ui/core@4.0.0-alpha.0`); React-19 peer-dep papered
+  over with `.npmrc` legacy-peer-deps; install pruned react-native-worklets +
+  jest-preset (re-pinned); needed 22 hand-installed react-aria/stately subpackages
+  + `react-dom`; pulls the react-aria WEB stack + react-dom into the native bundle
+  (on-device runtime unverified). All gates green (tsc/lint/jest 204/`expo export`)
+  and `npm ci` clean. RecipeEditScreen converted as a sample. Merged to
+  `react-native` at the user's request (originally an isolated `gluestack-spike`
+  branch) so it's buildable via the RN iOS workflow. **Full findings + reproducible
+  setup runbook + Android minSdk tables: `docs/GLUESTACK_SETUP_HINTS.md`.** Clean
+  path if pursued for real: NativeWind v5 / Tailwind v4 + `@gluestack-ui/core@5.x`
+  stable — not this alpha. (Note: this stack's Android floor is minSdk 24 / Android
+  7.0 — gluestack cannot coexist with old-device targets; see the hints doc.)
 - **`expo-sqlite` instead of WatermelonDB** (plan said "WatermelonDB/SQLite").
   Same reasoning as SecureStore: expo-sqlite is a first-party Expo module whose
   config plugin is auto-handled by prebuild (no extra native wiring), it bundles
