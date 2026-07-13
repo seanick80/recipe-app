@@ -108,9 +108,12 @@ stable line, most of these should not apply — verify.
    `@react-aria/utils` → `react-aria` → a top-level `require('react-dom')`.
    *Fix to make it BUILD:* `npm i react-dom@<your-react-version>`.
    *Caveat you cannot fix this way:* shipping react-aria's **web** hooks + react-dom
-   inside a Hermes/native app is architecturally wrong. It bundles, but on-device
-   runtime behavior is suspect — **test on a real device early**, don't trust a green
-   `expo export`.
+   inside a Hermes/native app is architecturally wrong. It bundles, and — tested on a
+   real device (TestFlight, iOS) — **it does render and run without crashing** (a
+   converted form screen with Input/Textarea/Switch/Button worked). So the risk here
+   is dependency *hygiene* and bloat, NOT runtime breakage. Still **test on a real
+   device early** rather than trusting a green `expo export` — but don't assume it
+   will crash; on this stack it didn't.
 
 5. **Alpha component source doesn't typecheck against NativeWind 4.2.x.**
    *Symptom:* `tsc` errors in the vendored `button`/`input` component source
@@ -128,9 +131,20 @@ stable line, most of these should not apply — verify.
   (`text-foreground`, `border-border`) driven by provider CSS vars. Pleasant to write.
 - **Packaging & deps: the weak point.** On the alpha line it's fragile: peer-dep
   papering-over, pruned deps, under-declared transitive deps, react-dom-in-native.
+- **Runtime: it works.** On-device (TestFlight/iOS) the converted screen rendered and
+  functioned with no crash — the react-dom-in-native concern did not manifest as
+  breakage. The reason to avoid the alpha line is **dependency hygiene + long-term
+  maintenance** (alpha packages, peer-dep hacks, vendored code you must patch), not
+  "it'll crash."
+- **gluestack is not a free restyle.** A 1:1 swap from RN primitives to gluestack
+  components using the same NativeWind tokens produces **no visual change**. gluestack
+  buys you a component system + semantic design tokens to *deliberately* design
+  against — budget a real design pass to see value; don't expect the migration alone
+  to improve the UI.
 - **Verdict:** gluestack-ui is worth using **on its stable line (NativeWind v5 /
   Tailwind v4)**. Do NOT adopt the NativeWind-v4 alpha line for anything you intend
-  to ship — the "it installed and the bundle built" state hides real runtime risk.
+  to ship — not because it fails at runtime (it didn't), but because the alpha
+  dependency footprint is a maintenance liability.
 - **De-risk order for a new project:** (1) pin NativeWind v5 / Tailwind v4 up front;
   (2) get `@gluestack-ui/core@5.x` via the CLI; (3) wire the provider + convert ONE
   screen; (4) **build to a real device immediately** and confirm it renders/doesn't

@@ -104,6 +104,12 @@ See `README.md` for stack table, decisions, and commands.
   path if pursued for real: NativeWind v5 / Tailwind v4 + `@gluestack-ui/core@5.x`
   stable — not this alpha. (Note: this stack's Android floor is minSdk 24 / Android
   7.0 — gluestack cannot coexist with old-device targets; see the hints doc.)
+  **ON-DEVICE (2026-07-14): the gluestack build ran on TestFlight/iOS — RecipeEditScreen
+  rendered and worked, no crash.** So the react-dom-in-native worry is a hygiene/bloat
+  issue, not runtime breakage. Also confirmed: a 1:1 token-preserving swap gives NO
+  visual change — gluestack is a system to design against, not a free restyle.
+  **Deferred:** a dedicated UI/design-iteration milestone (post feature-complete) to
+  actually exploit gluestack's tokens/components — no design work until parity is done.
 - **`expo-sqlite` instead of WatermelonDB** (plan said "WatermelonDB/SQLite").
   Same reasoning as SecureStore: expo-sqlite is a first-party Expo module whose
   config plugin is auto-handled by prebuild (no extra native wiring), it bundles
