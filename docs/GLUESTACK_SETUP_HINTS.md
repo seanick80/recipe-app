@@ -1,18 +1,56 @@
-# gluestack-ui setup hints (for a fresh Expo/RN project)
+# gluestack-ui — hands-on field notes & Android reality check
 
-Field notes from adopting **gluestack-ui** in an Expo React Native app, written so
-another engineer can reproduce a known-good setup and skip the potholes we hit.
-Derived from a real compat spike (see `gluestack-spike` branch + the
-`REACT_NATIVE_MIGRATION_PLAN.md` Phase-notes). Not specific to this repo.
+Companion to the **"UI (Styling & Components)"** analysis (Confluence, HMA space —
+recommends gluestack-ui v3). That doc makes the design-system-token case well; this
+one adds the two things it flagged as open:
+1. **hands-on verification** — "worth a sanity-check with engineers who have hands-on
+   experience" — these notes come from actually installing gluestack, building it, and
+   running it on a physical iOS device (TestFlight); and
+2. a **hard Android-version reality check** the analysis doesn't cover;
+plus a reproducible, non-interactive setup runbook.
+
+Source of these notes: a real compat spike in an Expo/RN app on **React 19.2 / RN 0.86
+/ Expo 57 / NativeWind 4.2** — converted a screen, built it, ran it on-device.
+
+## ⚠️ Read first: the old-device blocker
+
+If the Hermes app must support **old Android hardware** (e.g. the 2011-era Android 4.x
+devices raised for South American farm workers), **gluestack-ui cannot meet that — and
+neither can any modern React Native.** gluestack forces modern NativeWind → modern RN
+→ **minSdkVersion 24 (Android 7.0, 2016)**. There is *no* version combination that
+gives you gluestack AND sub-2016 devices. If old-device support is a real, hard
+requirement, **settle that before the UI-library choice** — it can rule out React
+Native entirely (→ native Android). Full tables in the Android section below.
+
+## Version naming — decoder (this trips everyone up)
+
+"v2 / v3 / core@4 / core@5" are **three different numbering axes**, not one:
+- **Product version** — the marketing name (gluestack-ui "v2", now **"v3"** — what the
+  HMA analysis and gluestack.io headline).
+- **`@gluestack-ui/core` package version** — `4.x` or `5.x`, what actually lands in
+  `package.json`. It tracks the **NativeWind/Tailwind generation**, NOT maturity.
+- **NativeWind/Tailwind pairing** — v4/Tailwind-3 vs v5/Tailwind-4, which decides which
+  `core` major the CLI pulls.
+
+A higher `core` number is **not** "more stable." Our spike (NativeWind 4.2) pulled
+`@gluestack-ui/core@4.0.0-alpha.0` — explicitly **alpha**. **Before committing, confirm
+on npm exactly which `@gluestack-ui/core` package version "v3" resolves to and whether
+that version is alpha or stable** — public messaging is inconsistent and moving, so
+don't infer it from the product-version label.
 
 ## TL;DR
 
 - gluestack-ui's install path **branches on your NativeWind/Tailwind major version**,
-  and that choice decides whether you get the **stable** line or an **alpha** line.
-  Get this right first — it's the single biggest lever.
-  - **NativeWind v5 / Tailwind v4 → `@gluestack-ui/core@5.x` (STABLE).** ✅ Use this.
-  - **NativeWind v4 / Tailwind v3 → `@gluestack-ui/core@4.0.0-alpha` (ALPHA).** ⚠️ Avoid
-    for production — this is the path that produced all the pain below.
+  and that choice decides which `@gluestack-ui/core` major you get. Get it right first.
+  - **NativeWind v4 / Tailwind v3 → `@gluestack-ui/core@4.0.0-alpha`** — CONFIRMED
+    **alpha** (the package literally carries `-alpha.0`). This is the path that
+    produced all the pain below. ⚠️
+  - **NativeWind v5 / Tailwind v4 → `@gluestack-ui/core@5.x`** — newer line targeting
+    the newer styling engine. **Stability UNVERIFIED** — see the naming note below;
+    do not assume it's production-stable without checking.
+- **Version numbers are compatibility generations, not maturity** — see the "Version
+  naming — decoder" section above. Confirm your target `@gluestack-ui/core` version's
+  alpha/stable status on npm at setup time; don't infer it from the product version.
 - The CLI itself is now **CI-friendly** (non-interactive flags exist) — the old
   "interactive/unverifiable" reputation is outdated.
 - Budget time for **peer-dependency friction on React 19** and, on the alpha line,
@@ -20,14 +58,16 @@ Derived from a real compat spike (see `gluestack-spike` branch + the
 
 ## Compatibility matrix (choose your line deliberately)
 
-| Your styling stack | gluestack line the CLI picks | Stability | Recommendation |
+| Your styling stack | `@gluestack-ui/core` the CLI picks | Stability | Notes |
 |---|---|---|---|
-| NativeWind **v5** + Tailwind **v4** | `@gluestack-ui/core@5.x` | Stable | ✅ Target this from day one |
-| NativeWind **v4** + Tailwind **v3** | `@gluestack-ui/core@4.0.0-alpha` (`main-v4-alpha` branch) | Alpha | ⚠️ Expect the workarounds below |
+| NativeWind **v4** + Tailwind **v3** | `@gluestack-ui/core@4.0.0-alpha` (`main-v4-alpha` branch) | **Alpha (confirmed)** | What this project hit; expect the workarounds below |
+| NativeWind **v5** + Tailwind **v4** | `@gluestack-ui/core@5.x` | **Unverified** — messaging is contradictory (billed as both alpha and stable); confirm on npm | Likely the better long-term line, but check its status first |
 
-If you're starting fresh, **scaffold on NativeWind v5 / Tailwind v4** so you land on
-the stable gluestack line. Don't inherit an older NativeWind just because a template
-shipped it.
+The `core` major just follows your NativeWind/Tailwind major — it is not a
+maturity ranking. If you start fresh, NativeWind v5 / Tailwind v4 is likely the
+better long-term line, **but confirm `@gluestack-ui/core@5.x`'s release status before
+betting on it** rather than trusting this table. The one thing that's certain: the
+`4.x` line you land on with NativeWind v4 is explicitly alpha.
 
 ## Reproducible setup (non-interactive)
 
