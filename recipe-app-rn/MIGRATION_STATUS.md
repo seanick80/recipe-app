@@ -132,8 +132,8 @@ See `README.md` for stack table, decisions, and commands.
   shared, repo-independent toolchain at `/home/nicha/src/android/`
   (`README.md` there). Quick start: `source /home/nicha/src/android/env.sh`
   then `start-emulator.sh` → `adb`/`expo run:android`. Cold boots in ~20s;
-  drive/verify via `adb` + `adb exec-out screencap`. Reusable for the HERMES
-  RN project too. (Non-UI work still verifies fastest via
+  drive/verify via `adb` + `adb exec-out screencap`. Reusable for other
+  RN projects too. (Non-UI work still verifies fastest via
   typecheck/lint/jest + `expo export`.)
 - `babel-preset-expo` had to be added explicitly as a devDep (referenced by
   `babel.config.js`, not auto-installed).
@@ -185,7 +185,7 @@ account / EAS needed — reuses the existing Apple Distribution cert + ASC key).
       without it `pod install` fails because GoogleSignIn→AppCheckCore depends on
       non-modular pods (GoogleUtilities, RecaptchaInterop) that can't integrate
       as static libraries. Chosen over `useFrameworks:"static"` (riskier with
-      Hermes + reanimated).
+      reanimated + React Native's JS engine).
     - **Export compliance** — `ios.infoPlist.ITSAppUsesNonExemptEncryption=false`
       in `app.json` auto-clears `MISSING_EXPORT_COMPLIANCE` so internal testers
       get each build without manual per-build answering (app uses only standard

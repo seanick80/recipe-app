@@ -1,22 +1,19 @@
 # gluestack-ui — hands-on field notes & Android reality check
 
-Companion to the **"UI (Styling & Components)"** analysis (Confluence, HMA space —
-recommends gluestack-ui v3). That doc makes the design-system-token case well; this
-one adds the two things it flagged as open:
-1. **hands-on verification** — "worth a sanity-check with engineers who have hands-on
-   experience" — these notes come from actually installing gluestack, building it, and
-   running it on a physical iOS device (TestFlight); and
-2. a **hard Android-version reality check** the analysis doesn't cover;
-plus a reproducible, non-interactive setup runbook.
+Field notes from a real compat spike: installing **gluestack-ui** in an Expo/RN app,
+building it, and running it on a physical iOS device. Written so another engineer can
+reproduce a known-good setup, skip the potholes, and understand the version-naming and
+Android-version constraints before committing to gluestack.
 
-Source of these notes: a real compat spike in an Expo/RN app on **React 19.2 / RN 0.86
-/ Expo 57 / NativeWind 4.2** — converted a screen, built it, ran it on-device.
+Source stack for these notes: **React 19.2 / RN 0.86 / Expo 57 / NativeWind 4.2** —
+converted a screen, built it, ran it on-device (TestFlight). Two things this adds
+beyond a typical writeup: **hands-on verification** (it was actually built and run, not
+just read about) and a **hard Android-version reality check**.
 
 ## ⚠️ Read first: the old-device blocker
 
-If the Hermes app must support **old Android hardware** (e.g. the 2011-era Android 4.x
-devices raised for South American farm workers), **gluestack-ui cannot meet that — and
-neither can any modern React Native.** gluestack forces modern NativeWind → modern RN
+If your app must support **old Android hardware** (e.g. 2011-era Android 4.x devices),
+**gluestack-ui cannot meet that — and neither can any modern React Native.** gluestack forces modern NativeWind → modern RN
 → **minSdkVersion 24 (Android 7.0, 2016)**. There is *no* version combination that
 gives you gluestack AND sub-2016 devices. If old-device support is a real, hard
 requirement, **settle that before the UI-library choice** — it can rule out React
@@ -25,8 +22,8 @@ Native entirely (→ native Android). Full tables in the Android section below.
 ## Version naming — decoder (this trips everyone up)
 
 "v2 / v3 / core@4 / core@5" are **three different numbering axes**, not one:
-- **Product version** — the marketing name (gluestack-ui "v2", now **"v3"** — what the
-  HMA analysis and gluestack.io headline).
+- **Product version** — the marketing name (gluestack-ui "v2", now **"v3"** on
+  gluestack.io).
 - **`@gluestack-ui/core` package version** — `4.x` or `5.x`, what actually lands in
   `package.json`. It tracks the **NativeWind/Tailwind generation**, NOT maturity.
 - **NativeWind/Tailwind pairing** — v4/Tailwind-3 vs v5/Tailwind-4, which decides which
@@ -148,7 +145,7 @@ stable line, most of these should not apply — verify.
    `@react-aria/utils` → `react-aria` → a top-level `require('react-dom')`.
    *Fix to make it BUILD:* `npm i react-dom@<your-react-version>`.
    *Caveat you cannot fix this way:* shipping react-aria's **web** hooks + react-dom
-   inside a Hermes/native app is architecturally wrong. It bundles, and — tested on a
+   inside a native React Native app is architecturally wrong. It bundles, and — tested on a
    real device (TestFlight, iOS) — **it does render and run without crashing** (a
    converted form screen with Input/Textarea/Switch/Button worked). So the risk here
    is dependency *hygiene* and bloat, NOT runtime breakage. Still **test on a real

@@ -12,8 +12,8 @@
  *    The Swift pod `AppCheckCore` depends upon `GoogleUtilities` and
  *    `RecaptchaInterop`, which do not define modules."
  * Enabling modular headers globally makes those pods generate module maps.
- * Preferred over `useFrameworks: "static"`, which is riskier alongside Hermes
- * + react-native-reanimated.
+ * Preferred over `useFrameworks: "static"`, which is riskier alongside
+ * react-native-reanimated + the RN JS engine.
  */
 const { withDangerousMod } = require('expo/config-plugins');
 const fs = require('fs');
