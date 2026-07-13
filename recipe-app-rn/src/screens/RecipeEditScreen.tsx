@@ -1,15 +1,16 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import {
-  Pressable,
-  ScrollView,
-  Switch,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
 
+import { Box } from '../../components/ui/box';
+import { Button, ButtonText } from '../../components/ui/button';
+import { HStack } from '../../components/ui/hstack';
+import { Input, InputField } from '../../components/ui/input';
+import { Pressable } from '../../components/ui/pressable';
+import { ScrollView } from '../../components/ui/scroll-view';
+import { Switch } from '../../components/ui/switch';
+import { Text } from '../../components/ui/text';
+import { Textarea, TextareaInput } from '../../components/ui/textarea';
 import { useSync } from '../contexts/SyncContext';
 import type { RecipesStackParamList } from '../navigation/RecipesStack';
 import { emptyDraft, isDraftValid, localToDraft } from '../sync/recipeDraft';
@@ -84,19 +85,31 @@ function Field({
   keyboardType?: 'default' | 'url' | 'decimal-pad';
 }) {
   return (
-    <View className="mb-4">
-      <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">{label}</Text>
-      <TextInput
-        value={value}
-        onChangeText={onChangeText}
-        placeholder={placeholder}
-        placeholderTextColor="#9ca3af"
-        multiline={multiline}
-        className="rounded-lg border border-gray-200 bg-white px-3 py-2 text-base text-gray-900"
-        style={multiline ? { minHeight: 80, textAlignVertical: 'top' } : undefined}
-        {...rest}
-      />
-    </View>
+    <Box className="mb-4">
+      <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</Text>
+      {multiline ? (
+        <Textarea className="min-h-[80px]">
+          <TextareaInput
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor="#9ca3af"
+            {...rest}
+          />
+        </Textarea>
+      ) : (
+        <Input className="h-11">
+          <InputField
+            value={value}
+            onChangeText={onChangeText}
+            placeholder={placeholder}
+            placeholderTextColor="#9ca3af"
+            className="text-base"
+            {...rest}
+          />
+        </Input>
+      )}
+    </Box>
   );
 }
 
@@ -117,29 +130,33 @@ function Stepper({
 }) {
   const set = (n: number) => onChange(Math.max(min, Math.min(max, n)));
   return (
-    <View className="mb-4 flex-row items-center justify-between">
-      <Text className="text-base text-gray-800">
-        {label}: <Text className="font-semibold">{value}</Text>
+    <HStack className="mb-4 items-center justify-between">
+      <Text className="text-base text-foreground">
+        {label}: <Text className="font-semibold text-foreground">{value}</Text>
       </Text>
-      <View className="flex-row items-center">
-        <Pressable
+      <HStack className="items-center gap-2">
+        <Button
+          size="icon"
+          variant="outline"
+          className="rounded-full"
           accessibilityRole="button"
           accessibilityLabel={`Decrease ${label}`}
           onPress={() => set(value - step)}
-          className="h-9 w-9 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200"
         >
           <Ionicons name="remove" size={20} color="#111827" />
-        </Pressable>
-        <Pressable
+        </Button>
+        <Button
+          size="icon"
+          variant="outline"
+          className="rounded-full"
           accessibilityRole="button"
           accessibilityLabel={`Increase ${label}`}
           onPress={() => set(value + step)}
-          className="ml-2 h-9 w-9 items-center justify-center rounded-full bg-gray-100 active:bg-gray-200"
         >
           <Ionicons name="add" size={20} color="#111827" />
-        </Pressable>
-      </View>
-    </View>
+        </Button>
+      </HStack>
+    </HStack>
   );
 }
 
@@ -149,6 +166,11 @@ function Stepper({
  * offline-first store via {@link useSync} (sets `needsSync`, kicks a background
  * sync). Cuisine/course/difficulty are free-text like the SwiftUI form; the
  * dedicated UnitPicker is deferred (unit is a free-text field for now).
+ *
+ * UI note: this screen is the gluestack-ui look-and-feel sample. Layout uses
+ * gluestack primitives (Box/HStack), form controls use Input/Textarea/Switch/
+ * Button, and colors use the semantic tokens (foreground/muted-foreground/
+ * border/background) driven by GluestackUIProvider.
  */
 export function RecipeEditScreen({ route, navigation }: Props) {
   const { localId } = route.params;
@@ -213,17 +235,17 @@ export function RecipeEditScreen({ route, navigation }: Props) {
     navigation.setOptions({
       title: localId ? 'Edit Recipe' : 'New Recipe',
       headerRight: () => (
-        <Pressable accessibilityRole="button" disabled={!canSave} onPress={onSave}>
-          <Text className={canSave ? 'text-base font-semibold text-blue-600' : 'text-base text-gray-300'}>
+        <Button variant="link" size="sm" accessibilityRole="button" disabled={!canSave} onPress={onSave}>
+          <ButtonText className={canSave ? 'text-base font-semibold text-primary' : 'text-base text-muted-foreground'}>
             Save
-          </Text>
-        </Pressable>
+          </ButtonText>
+        </Button>
       ),
     });
   }, [navigation, canSave, onSave, localId]);
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+    <ScrollView className="flex-1 bg-background" contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
       <Field label="Name" value={form.name} onChangeText={(t) => patch({ name: t })} placeholder="Recipe name" />
       <Field
         label="Summary"
@@ -251,49 +273,54 @@ export function RecipeEditScreen({ route, navigation }: Props) {
       <Stepper label="Cook (min)" value={form.cook_time_minutes} onChange={(n) => patch({ cook_time_minutes: n })} step={TIME_STEP} min={0} max={TIME_MAX} />
       <Stepper label="Servings" value={form.servings} onChange={(n) => patch({ servings: n })} step={1} min={1} max={50} />
 
-      <View className="mb-2 mt-2 flex-row items-center justify-between">
-        <Text className="text-xs font-semibold uppercase tracking-wide text-gray-400">Ingredients</Text>
-        <Pressable accessibilityRole="button" onPress={addIngredient} className="flex-row items-center active:opacity-60">
+      <HStack className="mb-2 mt-2 items-center justify-between">
+        <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ingredients</Text>
+        <Button variant="link" size="sm" accessibilityRole="button" onPress={addIngredient} className="gap-1">
           <Ionicons name="add-circle-outline" size={20} color="#2563eb" />
-          <Text className="ml-1 text-sm font-semibold text-blue-600">Add</Text>
-        </Pressable>
-      </View>
+          <ButtonText className="text-sm font-semibold text-primary">Add</ButtonText>
+        </Button>
+      </HStack>
 
       {form.ingredients.map((row, index) => (
-        <View key={index} className="mb-3 rounded-lg border border-gray-200 bg-white p-3">
-          <View className="flex-row">
-            <TextInput
-              value={row.quantityText}
-              onChangeText={(t) => setIngredient(index, { quantityText: t })}
-              placeholder="Qty"
+        <Box key={index} className="mb-3 rounded-lg border border-border bg-background p-3">
+          <HStack className="gap-2">
+            <Input className="h-9 w-16">
+              <InputField
+                value={row.quantityText}
+                onChangeText={(t) => setIngredient(index, { quantityText: t })}
+                placeholder="Qty"
+                placeholderTextColor="#9ca3af"
+                keyboardType="decimal-pad"
+              />
+            </Input>
+            <Input className="h-9 w-20">
+              <InputField
+                value={row.unit}
+                onChangeText={(t) => setIngredient(index, { unit: t })}
+                placeholder="unit"
+                placeholderTextColor="#9ca3af"
+                autoCapitalize="none"
+              />
+            </Input>
+            <Input className="h-9 flex-1">
+              <InputField
+                value={row.name}
+                onChangeText={(t) => setIngredient(index, { name: t })}
+                placeholder="ingredient"
+                placeholderTextColor="#9ca3af"
+              />
+            </Input>
+          </HStack>
+          <Input className="mt-2 h-9">
+            <InputField
+              value={row.notes}
+              onChangeText={(t) => setIngredient(index, { notes: t })}
+              placeholder="notes (optional)"
               placeholderTextColor="#9ca3af"
-              keyboardType="decimal-pad"
-              className="mr-2 w-16 rounded border border-gray-200 px-2 py-1.5 text-base text-gray-900"
+              className="text-sm"
             />
-            <TextInput
-              value={row.unit}
-              onChangeText={(t) => setIngredient(index, { unit: t })}
-              placeholder="unit"
-              placeholderTextColor="#9ca3af"
-              autoCapitalize="none"
-              className="mr-2 w-20 rounded border border-gray-200 px-2 py-1.5 text-base text-gray-900"
-            />
-            <TextInput
-              value={row.name}
-              onChangeText={(t) => setIngredient(index, { name: t })}
-              placeholder="ingredient"
-              placeholderTextColor="#9ca3af"
-              className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-base text-gray-900"
-            />
-          </View>
-          <TextInput
-            value={row.notes}
-            onChangeText={(t) => setIngredient(index, { notes: t })}
-            placeholder="notes (optional)"
-            placeholderTextColor="#9ca3af"
-            className="mt-2 rounded border border-gray-200 px-2 py-1.5 text-sm text-gray-700"
-          />
-          <View className="mt-2 flex-row justify-end">
+          </Input>
+          <HStack className="mt-2 justify-end">
             <Pressable accessibilityRole="button" accessibilityLabel="Move up" onPress={() => moveIngredient(index, -1)} className="mr-3 active:opacity-50">
               <Ionicons name="arrow-up" size={18} color="#6b7280" />
             </Pressable>
@@ -303,11 +330,11 @@ export function RecipeEditScreen({ route, navigation }: Props) {
             <Pressable accessibilityRole="button" accessibilityLabel="Remove ingredient" onPress={() => removeIngredient(index)} className="active:opacity-50">
               <Ionicons name="trash-outline" size={18} color="#dc2626" />
             </Pressable>
-          </View>
-        </View>
+          </HStack>
+        </Box>
       ))}
 
-      <View className="mt-2">
+      <Box className="mt-2">
         <Field
           label="Instructions"
           value={form.instructions}
@@ -315,12 +342,12 @@ export function RecipeEditScreen({ route, navigation }: Props) {
           placeholder="Step-by-step instructions"
           multiline
         />
-      </View>
+      </Box>
 
-      <View className="mb-8 mt-1 flex-row items-center justify-between">
-        <Text className="text-base text-gray-800">Favorite</Text>
+      <HStack className="mb-8 mt-1 items-center justify-between">
+        <Text className="text-base text-foreground">Favorite</Text>
         <Switch value={form.is_favorite} onValueChange={(v) => patch({ is_favorite: v })} />
-      </View>
+      </HStack>
     </ScrollView>
   );
 }

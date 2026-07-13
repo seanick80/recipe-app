@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
+import { GluestackUIProvider } from './components/ui/gluestack-ui-provider';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { GroceryProvider } from './src/contexts/GroceryContext';
 import { SyncProvider } from './src/contexts/SyncContext';
@@ -57,10 +58,12 @@ function AppContent() {
 export default function App() {
   return (
     <SafeAreaProvider>
-      <AuthProvider>
-        <AppContent />
-        <StatusBar style="auto" />
-      </AuthProvider>
+      <GluestackUIProvider mode="light">
+        <AuthProvider>
+          <AppContent />
+          <StatusBar style="auto" />
+        </AuthProvider>
+      </GluestackUIProvider>
     </SafeAreaProvider>
   );
 }
