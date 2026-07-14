@@ -390,17 +390,20 @@ workflows:
       node: 20.18.0
       xcode: latest
       cocoapods: default
-      # TODO (Apple console — one-time, blocks this workflow):
-      #   1. Register App ID `com.seanick80.recipeapp.rn` in the Developer
-      #      portal (Certificates, IDs & Profiles → Identifiers).
-      #   2. Create an App Store provisioning profile bound to it, e.g.
-      #        scripts/generate-distribution-profile.sh --bundle-id com.seanick80.recipeapp.rn
-      #      then upload it to Codemagic and name it `ios_rn_distribution_profile`.
-      #   3. Create the app record in App Store Connect for the `.rn` bundle ID.
-      # The existing ios_distribution_cert + recipe-app-appstore-key are reusable.
+      # Signing: two targets, two profiles (both done in the Apple console):
+      #   - ios_rn_distribution_profile           → app  com.seanick80.recipeapp.rn
+      #   - ios_rn_share_extension_distribution_profile
+      #                                           → ext  com.seanick80.recipeapp.rn.share-extension
+      # Both App IDs carry the App Group `group.com.seanick80.recipeapp.rn`
+      # (expo-share-intent passes the shared URL app<->extension via that group).
+      # NOTE: adding the App Group capability invalidated the app's prior profile —
+      # ios_rn_distribution_profile must be regenerated WITH the App Group entitlement
+      # and re-uploaded (same name). The existing ios_distribution_cert +
+      # recipe-app-appstore-key are reusable for both targets.
       ios_signing:
         provisioning_profiles:
           - ios_rn_distribution_profile
+          - ios_rn_share_extension_distribution_profile
         certificates:
           - ios_distribution_cert
     scripts:

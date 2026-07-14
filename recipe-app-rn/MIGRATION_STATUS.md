@@ -185,17 +185,15 @@ Ranked gaps for a "feature-complete" push (verified against source):
      stack; supersedes the earlier "reuse Swift extension" plan — one library gives
      BOTH platforms' share extensions and routes into the ported TS parser, so no
      hand-written Swift/native module needed). `ShareImportHandler` + `navigationRef`.
-   - 🔒 **iOS share extension — code-ready, SIGNING-GATED.** The plugin generates an
-     iOS Share Extension target at prebuild → the RN iOS Codemagic build will FAIL at
-     signing until these one-time steps are done:
-       1. Register App ID **`com.seanick80.recipeapp.rn.share-extension`** (Apple portal).
-       2. Register App Group **`group.com.seanick80.recipeapp.rn`** capability on BOTH
-          the main `.rn` App ID and the extension App ID.
-       3. Create an App Store provisioning profile for the extension bundle id, upload
-          to Codemagic (e.g. `ios_rn_share_extension_profile`), and add it to
-          `rn-ios-workflow`'s `ios_signing.provisioning_profiles` in `codemagic.yaml`.
-     **Until then, do NOT trigger an RN iOS build (it will fail at signing).** Android
-     is unaffected. (This mirrors the SwiftUI app's existing `ios_share_extension_profile`.)
+   - ✅ **iOS share extension — signing set up (2026-07-14).** App ID
+     `com.seanick80.recipeapp.rn.share-extension` registered; App Group
+     `group.com.seanick80.recipeapp.rn` on BOTH the app + extension App IDs; both
+     profiles (`ios_rn_distribution_profile` + `ios_rn_share_extension_distribution_profile`)
+     wired into `rn-ios-workflow`'s `ios_signing.provisioning_profiles`.
+     Both profiles regenerated WITH the App Group entitlement and re-uploaded
+     (2026-07-14) — the App-Group capability had invalidated the app's prior profile.
+     The RN iOS build now carries the share extension and is unblocked.
+     Remaining: on-device verification (share a URL from Safari → app imports).
 3. **Grocery/Shopping/Template sync** — ✅ **DONE (RN, Phase B).** The RN client
    now syncs grocery lists, items, and shopping templates to the existing
    `/api/v1/grocery` REST API, mirroring the recipe-sync pattern
