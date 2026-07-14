@@ -6,6 +6,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { Placeholder } from '../components/Placeholder';
 import { ListsStack } from './ListsStack';
 import { RecipesStack } from './RecipesStack';
+import { ScanStack } from './ScanStack';
 import { SettingsStack } from './SettingsStack';
 import { ShoppingStack } from './ShoppingStack';
 import { TABS, type TabConfig } from './tabs';
@@ -30,11 +31,12 @@ function createTabStack(tab: TabConfig) {
   };
 }
 
-// Recipes, Shopping, Lists, and Settings have real screens (Phases 2/4); only
-// Scan stays a placeholder until the Phase 5 camera work lands.
+// Every tab now has real screens. Scan (Phase 5) currently hosts the barcode
+// scanner; a photo/OCR mode is added to ScanStack in a later phase.
 const REAL_STACKS: Record<string, ComponentType> = {
   Recipes: RecipesStack,
   Shopping: ShoppingStack,
+  Scan: ScanStack,
   Lists: ListsStack,
   Settings: SettingsStack,
 };

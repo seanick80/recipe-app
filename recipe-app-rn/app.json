@@ -37,6 +37,12 @@
       "expo-secure-store",
       "expo-sqlite",
       [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow Recipe App to use the camera to scan product barcodes."
+        }
+      ],
+      [
         "expo-share-intent",
         {
           "androidIntentFilters": ["text/*"],
