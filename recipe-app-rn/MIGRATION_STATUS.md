@@ -178,9 +178,24 @@ Ranked gaps for a "feature-complete" push (verified against source):
 1. **Camera/Scan (barcode + OCR)** — biggest visible gap. Parsers ported to TS
    (`df6bc13`) but NO camera UI; the Scan tab is a placeholder (`RootTabs.tsx`).
    Device/mac-gated (Phase 5 native).
-2. **Share-to-import** — Phase 6, not started. Design decided (reuse the Swift
-   extension via App Group on iOS; ACTION_SEND intent filter on Android — see
-   `docs/REACT_NATIVE_MIGRATION_PLAN.md`).
+2. **Share-to-import** — 🔄 **mostly done.**
+   - ✅ **In-app URL import** (paste a URL → fetch → `RecipeSchemaParser` (ported TS)
+     → `ImportReviewScreen` → save). `lib/recipeImport.ts`, `RecipeListScreen` entry.
+   - ✅ **Android share-sheet** — `expo-share-intent@8.0.1` (compatible with this
+     stack; supersedes the earlier "reuse Swift extension" plan — one library gives
+     BOTH platforms' share extensions and routes into the ported TS parser, so no
+     hand-written Swift/native module needed). `ShareImportHandler` + `navigationRef`.
+   - 🔒 **iOS share extension — code-ready, SIGNING-GATED.** The plugin generates an
+     iOS Share Extension target at prebuild → the RN iOS Codemagic build will FAIL at
+     signing until these one-time steps are done:
+       1. Register App ID **`com.seanick80.recipeapp.rn.share-extension`** (Apple portal).
+       2. Register App Group **`group.com.seanick80.recipeapp.rn`** capability on BOTH
+          the main `.rn` App ID and the extension App ID.
+       3. Create an App Store provisioning profile for the extension bundle id, upload
+          to Codemagic (e.g. `ios_rn_share_extension_profile`), and add it to
+          `rn-ios-workflow`'s `ios_signing.provisioning_profiles` in `codemagic.yaml`.
+     **Until then, do NOT trigger an RN iOS build (it will fail at signing).** Android
+     is unaffected. (This mirrors the SwiftUI app's existing `ios_share_extension_profile`.)
 3. **Grocery/Shopping/Template sync** — ✅ **DONE (RN, Phase B).** The RN client
    now syncs grocery lists, items, and shopping templates to the existing
    `/api/v1/grocery` REST API, mirroring the recipe-sync pattern

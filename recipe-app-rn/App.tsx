@@ -2,15 +2,18 @@ import './global.css';
 
 import { NavigationContainer, type NavigationState } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
+import { ShareIntentProvider } from 'expo-share-intent';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 
 import { GluestackUIProvider } from './components/ui/gluestack-ui-provider';
+import { ShareImportHandler } from './src/components/ShareImportHandler';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { GroceryProvider } from './src/contexts/GroceryContext';
 import { SyncProvider } from './src/contexts/SyncContext';
 import { debugLog } from './src/lib/debugLog';
 import { initDebugLogPersistence } from './src/lib/debugLogInit';
+import { navigationRef } from './src/navigation/navigationRef';
 import { RootTabs } from './src/navigation/RootTabs';
 import { LoginScreen } from './src/screens/LoginScreen';
 
@@ -65,9 +68,12 @@ function AppContent() {
       <View className="flex-1">
         <GroceryProvider>
           <SyncProvider>
-            <NavigationContainer onStateChange={logRouteChange}>
+            <NavigationContainer ref={navigationRef} onStateChange={logRouteChange}>
               <RootTabs />
             </NavigationContainer>
+            {/* Route Android/iOS shares into the import review flow. Mounted
+                here so the navigation ref is live; works for guests too. */}
+            <ShareImportHandler />
           </SyncProvider>
         </GroceryProvider>
       </View>
@@ -77,13 +83,15 @@ function AppContent() {
 
 export default function App() {
   return (
-    <SafeAreaProvider>
-      <GluestackUIProvider mode="light">
-        <AuthProvider>
-          <AppContent />
-          <StatusBar style="auto" />
-        </AuthProvider>
-      </GluestackUIProvider>
-    </SafeAreaProvider>
+    <ShareIntentProvider>
+      <SafeAreaProvider>
+        <GluestackUIProvider mode="light">
+          <AuthProvider>
+            <AppContent />
+            <StatusBar style="auto" />
+          </AuthProvider>
+        </GluestackUIProvider>
+      </SafeAreaProvider>
+    </ShareIntentProvider>
   );
 }
