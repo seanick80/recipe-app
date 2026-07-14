@@ -1,15 +1,41 @@
 /**
- * expo-sqlite–backed store for the local-only Shopping + Grocery domain
- * (Phase 4 slice 3). Lists and templates are read as aggregates (with their
- * items) and their item sets are written wholesale (delete-all + re-insert)
- * inside a transaction — lists are small and the UI always hands back the full
- * item array, so this is simpler than per-row diffing.
+ * expo-sqlite–backed store for the Shopping + Grocery domain.
+ *
+ * Lists and templates are read as aggregates (with their items) and written
+ * atomically inside a transaction: the parent row + a wholesale item replace
+ * (delete-all + re-insert) — lists are small and the UI/sync layer always hand
+ * back the full item array, so this is simpler than per-row diffing (the same
+ * strategy the recipe store uses for ingredients).
+ *
+ * Each row carries the grocery-sync metadata added in schema v3 (server_id +
+ * needs_sync + last_synced_at + soft-delete flags on the aggregate roots;
+ * server_id on grocery items so the sync layer can target the per-item API).
+ * `getAll*` return EVERYTHING including locally-deleted records — the sync
+ * algorithm needs them; the UI filters.
  */
 import type { SQLiteDatabase } from 'expo-sqlite';
 
-import type { GroceryItem, GroceryList, ShoppingTemplate, TemplateItem } from './types';
+import type {
+  GroceryItem,
+  GroceryList,
+  GroceryRepository,
+  ShoppingTemplate,
+  TemplateItem,
+} from './types';
 
-type ListRow = { id: string; name: string; created_at: string; archived_at: string | null };
+type ListRow = {
+  id: string;
+  name: string;
+  created_at: string;
+  updated_at: string | null;
+  archived_at: string | null;
+  server_id: string | null;
+  needs_sync: number;
+  last_synced_at: string | null;
+  locally_deleted: number;
+  pending_remote_delete: number;
+  deleted_at: string | null;
+};
 type ItemRow = {
   id: string;
   list_id: string;
@@ -20,8 +46,21 @@ type ItemRow = {
   is_checked: number;
   source_recipe_name: string;
   source_recipe_id: string;
+  server_id: string | null;
 };
-type TemplateRow = { id: string; name: string; sort_order: number; created_at: string };
+type TemplateRow = {
+  id: string;
+  name: string;
+  sort_order: number;
+  created_at: string;
+  updated_at: string | null;
+  server_id: string | null;
+  needs_sync: number;
+  last_synced_at: string | null;
+  locally_deleted: number;
+  pending_remote_delete: number;
+  deleted_at: string | null;
+};
 type TemplateItemRow = {
   id: string;
   template_id: string;
@@ -32,26 +71,14 @@ type TemplateItemRow = {
   sort_order: number;
 };
 
-export interface GroceryRepository {
-  getAllLists(): Promise<GroceryList[]>;
-  insertList(list: GroceryList): Promise<void>;
-  updateListMeta(id: string, name: string, archivedAt: string | null): Promise<void>;
-  replaceListItems(listId: string, items: GroceryItem[]): Promise<void>;
-  deleteList(id: string): Promise<void>;
-
-  getAllTemplates(): Promise<ShoppingTemplate[]>;
-  insertTemplate(template: ShoppingTemplate): Promise<void>;
-  updateTemplateMeta(id: string, name: string): Promise<void>;
-  replaceTemplateItems(templateId: string, items: TemplateItem[]): Promise<void>;
-  deleteTemplate(id: string): Promise<void>;
-}
-
 export class SqliteGroceryRepo implements GroceryRepository {
   constructor(private readonly db: SQLiteDatabase) {}
 
+  // --- grocery lists ---
+
   async getAllLists(): Promise<GroceryList[]> {
     const lists = await this.db.getAllAsync<ListRow>(
-      'SELECT id, name, created_at, archived_at FROM grocery_lists ORDER BY created_at DESC',
+      'SELECT * FROM grocery_lists ORDER BY created_at DESC',
     );
     const itemRows = await this.db.getAllAsync<ItemRow>('SELECT * FROM grocery_items');
     const byList = new Map<string, GroceryItem[]>();
@@ -66,6 +93,7 @@ export class SqliteGroceryRepo implements GroceryRepository {
         isChecked: r.is_checked === 1,
         sourceRecipeName: r.source_recipe_name,
         sourceRecipeId: r.source_recipe_id,
+        serverId: r.server_id,
       });
       byList.set(r.list_id, list);
     }
@@ -73,33 +101,43 @@ export class SqliteGroceryRepo implements GroceryRepository {
       id: l.id,
       name: l.name,
       createdAt: l.created_at,
+      updatedAt: l.updated_at ?? l.created_at,
       archivedAt: l.archived_at,
       items: byList.get(l.id) ?? [],
+      serverId: l.server_id,
+      needsSync: l.needs_sync === 1,
+      lastSyncedAt: l.last_synced_at,
+      locallyDeleted: l.locally_deleted === 1,
+      pendingRemoteDelete: l.pending_remote_delete === 1,
+      deletedAt: l.deleted_at,
     }));
   }
 
   async insertList(list: GroceryList): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.db.runAsync(
-        'INSERT INTO grocery_lists (id, name, created_at, archived_at) VALUES (?, ?, ?, ?)',
-        [list.id, list.name, list.createdAt, list.archivedAt],
+        `INSERT INTO grocery_lists
+           (id, name, created_at, updated_at, archived_at, server_id, needs_sync,
+            last_synced_at, locally_deleted, pending_remote_delete, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        listParams(list),
       );
       await this.insertItems(list.id, list.items);
     });
   }
 
-  async updateListMeta(id: string, name: string, archivedAt: string | null): Promise<void> {
-    await this.db.runAsync('UPDATE grocery_lists SET name = ?, archived_at = ? WHERE id = ?', [
-      name,
-      archivedAt,
-      id,
-    ]);
-  }
-
-  async replaceListItems(listId: string, items: GroceryItem[]): Promise<void> {
+  async updateList(list: GroceryList): Promise<void> {
     await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('DELETE FROM grocery_items WHERE list_id = ?', [listId]);
-      await this.insertItems(listId, items);
+      await this.db.runAsync(
+        `UPDATE grocery_lists SET
+           name = ?, created_at = ?, updated_at = ?, archived_at = ?, server_id = ?,
+           needs_sync = ?, last_synced_at = ?, locally_deleted = ?,
+           pending_remote_delete = ?, deleted_at = ?
+         WHERE id = ?`,
+        [...listParams(list).slice(1), list.id],
+      );
+      await this.db.runAsync('DELETE FROM grocery_items WHERE list_id = ?', [list.id]);
+      await this.insertItems(list.id, list.items);
     });
   }
 
@@ -107,8 +145,9 @@ export class SqliteGroceryRepo implements GroceryRepository {
     for (const i of items) {
       await this.db.runAsync(
         `INSERT INTO grocery_items
-           (id, list_id, name, quantity, unit, category, is_checked, source_recipe_name, source_recipe_id)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+           (id, list_id, name, quantity, unit, category, is_checked,
+            source_recipe_name, source_recipe_id, server_id)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
         [
           i.id,
           listId,
@@ -119,20 +158,26 @@ export class SqliteGroceryRepo implements GroceryRepository {
           i.isChecked ? 1 : 0,
           i.sourceRecipeName,
           i.sourceRecipeId,
+          i.serverId ?? null,
         ],
       );
     }
   }
 
-  async deleteList(id: string): Promise<void> {
+  async removeList(id: string): Promise<void> {
+    // grocery_items cascade via the FK (foreign_keys pragma is enabled on open).
     await this.db.runAsync('DELETE FROM grocery_lists WHERE id = ?', [id]);
   }
 
+  // --- shopping templates ---
+
   async getAllTemplates(): Promise<ShoppingTemplate[]> {
     const templates = await this.db.getAllAsync<TemplateRow>(
-      'SELECT id, name, sort_order, created_at FROM shopping_templates ORDER BY sort_order ASC',
+      'SELECT * FROM shopping_templates ORDER BY sort_order ASC',
     );
-    const itemRows = await this.db.getAllAsync<TemplateItemRow>('SELECT * FROM template_items ORDER BY sort_order ASC');
+    const itemRows = await this.db.getAllAsync<TemplateItemRow>(
+      'SELECT * FROM template_items ORDER BY sort_order ASC',
+    );
     const byTemplate = new Map<string, TemplateItem[]>();
     for (const r of itemRows) {
       const list = byTemplate.get(r.template_id) ?? [];
@@ -151,28 +196,42 @@ export class SqliteGroceryRepo implements GroceryRepository {
       name: t.name,
       sortOrder: t.sort_order,
       createdAt: t.created_at,
+      updatedAt: t.updated_at ?? t.created_at,
       items: byTemplate.get(t.id) ?? [],
+      serverId: t.server_id,
+      needsSync: t.needs_sync === 1,
+      lastSyncedAt: t.last_synced_at,
+      locallyDeleted: t.locally_deleted === 1,
+      pendingRemoteDelete: t.pending_remote_delete === 1,
+      deletedAt: t.deleted_at,
     }));
   }
 
   async insertTemplate(template: ShoppingTemplate): Promise<void> {
     await this.db.withTransactionAsync(async () => {
       await this.db.runAsync(
-        'INSERT INTO shopping_templates (id, name, sort_order, created_at) VALUES (?, ?, ?, ?)',
-        [template.id, template.name, template.sortOrder, template.createdAt],
+        `INSERT INTO shopping_templates
+           (id, name, sort_order, created_at, updated_at, server_id, needs_sync,
+            last_synced_at, locally_deleted, pending_remote_delete, deleted_at)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+        templateParams(template),
       );
       await this.insertTemplateItems(template.id, template.items);
     });
   }
 
-  async updateTemplateMeta(id: string, name: string): Promise<void> {
-    await this.db.runAsync('UPDATE shopping_templates SET name = ? WHERE id = ?', [name, id]);
-  }
-
-  async replaceTemplateItems(templateId: string, items: TemplateItem[]): Promise<void> {
+  async updateTemplate(template: ShoppingTemplate): Promise<void> {
     await this.db.withTransactionAsync(async () => {
-      await this.db.runAsync('DELETE FROM template_items WHERE template_id = ?', [templateId]);
-      await this.insertTemplateItems(templateId, items);
+      await this.db.runAsync(
+        `UPDATE shopping_templates SET
+           name = ?, sort_order = ?, created_at = ?, updated_at = ?, server_id = ?,
+           needs_sync = ?, last_synced_at = ?, locally_deleted = ?,
+           pending_remote_delete = ?, deleted_at = ?
+         WHERE id = ?`,
+        [...templateParams(template).slice(1), template.id],
+      );
+      await this.db.runAsync('DELETE FROM template_items WHERE template_id = ?', [template.id]);
+      await this.insertTemplateItems(template.id, template.items);
     });
   }
 
@@ -186,7 +245,41 @@ export class SqliteGroceryRepo implements GroceryRepository {
     }
   }
 
-  async deleteTemplate(id: string): Promise<void> {
+  async removeTemplate(id: string): Promise<void> {
     await this.db.runAsync('DELETE FROM shopping_templates WHERE id = ?', [id]);
   }
+}
+
+/** Positional bind values for a grocery_lists INSERT (id first). */
+function listParams(l: GroceryList): (string | number | null)[] {
+  return [
+    l.id,
+    l.name,
+    l.createdAt,
+    l.updatedAt,
+    l.archivedAt,
+    l.serverId,
+    l.needsSync ? 1 : 0,
+    l.lastSyncedAt,
+    l.locallyDeleted ? 1 : 0,
+    l.pendingRemoteDelete ? 1 : 0,
+    l.deletedAt,
+  ];
+}
+
+/** Positional bind values for a shopping_templates INSERT (id first). */
+function templateParams(t: ShoppingTemplate): (string | number | null)[] {
+  return [
+    t.id,
+    t.name,
+    t.sortOrder,
+    t.createdAt,
+    t.updatedAt,
+    t.serverId,
+    t.needsSync ? 1 : 0,
+    t.lastSyncedAt,
+    t.locallyDeleted ? 1 : 0,
+    t.pendingRemoteDelete ? 1 : 0,
+    t.deletedAt,
+  ];
 }

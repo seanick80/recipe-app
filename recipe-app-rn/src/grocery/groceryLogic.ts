@@ -131,7 +131,9 @@ export function mergeInto(
         existing.quantity += item.quantity;
         if (!item.isChecked) existing.isChecked = false;
       } else {
-        const clone = { ...item, id: newId() };
+        // A new item in the target list — a fresh local record, so it must not
+        // inherit the source item's server id (it will be created server-side).
+        const clone = { ...item, id: newId(), serverId: null };
         result.push(clone);
         byKey.set(k, clone);
       }

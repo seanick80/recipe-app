@@ -63,13 +63,13 @@ function AppContent() {
         </View>
       ) : null}
       <View className="flex-1">
-        <SyncProvider>
-          <GroceryProvider>
+        <GroceryProvider>
+          <SyncProvider>
             <NavigationContainer onStateChange={logRouteChange}>
               <RootTabs />
             </NavigationContainer>
-          </GroceryProvider>
-        </SyncProvider>
+          </SyncProvider>
+        </GroceryProvider>
       </View>
     </View>
   );

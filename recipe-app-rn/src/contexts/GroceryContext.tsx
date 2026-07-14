@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 
+import { createGrocerySyncApi } from '../api/grocery';
 import { getDatabase } from '../db/database';
 import {
   generateFromRecipes,
@@ -7,25 +8,54 @@ import {
   mergeInto,
   staplesToAdd,
 } from '../grocery/groceryLogic';
+import { GrocerySyncService } from '../grocery/grocerySyncService';
 import { SqliteGroceryRepo } from '../grocery/groceryRepo';
 import type {
   GenerateRecipe,
   GroceryItem,
   GroceryList,
+  GrocerySyncEnv,
+  GrocerySyncMeta,
   ShoppingTemplate,
   TemplateItem,
 } from '../grocery/types';
+import { debugLog } from '../lib/debugLog';
 import { newLocalId } from '../lib/ids';
+import { useAuth } from './AuthContext';
 
 const DEFAULT_TEMPLATE_NAME = 'Weekly Staples';
 const nowIso = (): string => new Date().toISOString();
 
+const realEnv: GrocerySyncEnv = {
+  now: () => new Date(),
+  newId: () => newLocalId(),
+};
+
+/** Sync metadata for a brand-new local record — unsynced and dirty (needs push). */
+function newRecordMeta(iso: string): GrocerySyncMeta {
+  return {
+    serverId: null,
+    updatedAt: iso,
+    needsSync: true,
+    lastSyncedAt: null,
+    locallyDeleted: false,
+    pendingRemoteDelete: false,
+    deletedAt: null,
+  };
+}
+
 /**
- * Owns the local-only Shopping + Grocery store (Phase 4 slice 3). No auth
- * gating and no server sync — grocery lives entirely on-device, so guests use
- * it too. All the reconciliation rules live in the pure `groceryLogic` module;
- * this context wires them to the SQLite repo and React state. State is only set
- * after an `await` inside effects (React 19 `set-state-in-effect` rule).
+ * Owns the offline-first Shopping + Grocery store and drives
+ * {@link GrocerySyncService}. Grocery lives on-device (SQLite) and stays fully
+ * usable for guests (no auth gate on the local reads/writes); when signed in the
+ * server is reconciled in the background on the same triggers as recipes — on
+ * auth, on foreground / pull-to-refresh (via SyncContext's `syncNow`, which calls
+ * {@link GroceryContextValue.syncGrocery}), and after every local mutation.
+ *
+ * Every mutation sets `needsSync` + bumps `updatedAt` (mirroring the recipe
+ * store) so the next sync pushes it; for a guest the record simply keeps its
+ * dirty flags and syncs once they sign in. State is only set after an `await`
+ * inside effects (React 19 `set-state-in-effect` rule).
  */
 type GroceryContextValue = {
   initializing: boolean;
@@ -60,34 +90,89 @@ type GroceryContextValue = {
   ensureDefaultTemplate: () => Promise<ShoppingTemplate>;
   renameTemplate: (id: string, name: string) => Promise<void>;
   setTemplateItems: (templateId: string, items: TemplateItem[]) => Promise<void>;
+
+  /** Reconcile grocery with the server (no-op for guests). Called by SyncContext. */
+  syncGrocery: () => Promise<void>;
+  /** Clear watermarks + re-download everything (no-op for guests). */
+  forceSyncGrocery: () => Promise<void>;
 };
 
 const GroceryContext = createContext<GroceryContextValue | undefined>(undefined);
 
 export function GroceryProvider({ children }: { children: React.ReactNode }) {
+  const { token } = useAuth();
+
   const [lists, setLists] = useState<GroceryList[]>([]);
   const [templates, setTemplates] = useState<ShoppingTemplate[]>([]);
   const [initializing, setInitializing] = useState(true);
   const repoRef = useRef<SqliteGroceryRepo | null>(null);
+  const serviceRef = useRef<GrocerySyncService | null>(null);
+  const inFlight = useRef(false);
 
+  // Locally-deleted records are hidden from the UI (they linger for the sync
+  // layer to push a DELETE / age out over the 30-day purge window).
   const refresh = useCallback(async () => {
     const repo = repoRef.current;
     if (!repo) return;
-    setLists(await repo.getAllLists());
-    setTemplates(await repo.getAllTemplates());
+    const allLists = await repo.getAllLists();
+    const allTemplates = await repo.getAllTemplates();
+    setLists(allLists.filter((l) => !l.locallyDeleted));
+    setTemplates(allTemplates.filter((t) => !t.locallyDeleted));
   }, []);
 
+  const syncGrocery = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service || inFlight.current) return;
+    inFlight.current = true;
+    try {
+      await service.sync();
+      await refresh();
+    } catch (e) {
+      debugLog.log('grocery.sync', 'Grocery sync failed', { error: String(e) });
+    } finally {
+      inFlight.current = false;
+    }
+  }, [refresh]);
+
+  const forceSyncGrocery = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service || inFlight.current) return;
+    inFlight.current = true;
+    try {
+      await service.forceFullSync();
+      await refresh();
+    } catch (e) {
+      debugLog.log('grocery.sync', 'Force grocery sync failed', { error: String(e) });
+    } finally {
+      inFlight.current = false;
+    }
+  }, [refresh]);
+
+  // (Re)initialize the store + service whenever the token changes. Local data
+  // loads for everyone (guests included); the sync service is only built when
+  // authenticated, and an initial reconcile runs on sign-in.
   useEffect(() => {
     let cancelled = false;
     (async () => {
       if (!repoRef.current) repoRef.current = new SqliteGroceryRepo(await getDatabase());
       await refresh();
-      if (!cancelled) setInitializing(false);
+      if (cancelled) return;
+      setInitializing(false);
+      if (token) {
+        serviceRef.current = new GrocerySyncService({
+          repo: repoRef.current,
+          api: createGrocerySyncApi(token),
+          env: realEnv,
+        });
+        await syncGrocery();
+      } else {
+        serviceRef.current = null;
+      }
     })();
     return () => {
       cancelled = true;
     };
-  }, [refresh]);
+  }, [token, refresh, syncGrocery]);
 
   const requireRepo = () => {
     const repo = repoRef.current;
@@ -96,45 +181,70 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   };
 
   const findList = useCallback((id: string) => lists.find((l) => l.id === id), [lists]);
+  const findTemplate = useCallback((id: string) => templates.find((t) => t.id === id), [templates]);
 
   // --- lists ---
   const createList = useCallback(
     async (name: string) => {
       const repo = requireRepo();
       const id = newLocalId();
-      await repo.insertList({ id, name: name.trim() || 'Grocery List', createdAt: nowIso(), archivedAt: null, items: [] });
+      const iso = nowIso();
+      await repo.insertList({
+        id,
+        name: name.trim() || 'Grocery List',
+        createdAt: iso,
+        archivedAt: null,
+        items: [],
+        ...newRecordMeta(iso),
+      });
       await refresh();
+      void syncGrocery();
       return id;
     },
-    [refresh],
+    [refresh, syncGrocery],
+  );
+
+  /** Persist a list's meta/sync change (marks dirty + bumps updatedAt). */
+  const persistList = useCallback(
+    async (list: GroceryList, changes: Partial<GroceryList>) => {
+      await requireRepo().updateList({ ...list, ...changes, updatedAt: nowIso(), needsSync: true });
+      await refresh();
+      void syncGrocery();
+    },
+    [refresh, syncGrocery],
   );
 
   const renameList = useCallback(
     async (id: string, name: string) => {
       const list = findList(id);
       if (!list) return;
-      await requireRepo().updateListMeta(id, name.trim() || list.name, list.archivedAt);
-      await refresh();
+      await persistList(list, { name: name.trim() || list.name });
     },
-    [findList, refresh],
+    [findList, persistList],
   );
 
   const deleteList = useCallback(
     async (id: string) => {
-      await requireRepo().deleteList(id);
-      await refresh();
+      const list = findList(id);
+      if (!list) return;
+      // Soft-delete (mirrors recipe delete): hidden from the UI + queued for a
+      // server DELETE. Never-synced/guest lists just age out via the purge.
+      await persistList(list, {
+        locallyDeleted: true,
+        pendingRemoteDelete: true,
+        deletedAt: nowIso(),
+      });
     },
-    [refresh],
+    [findList, persistList],
   );
 
   const setArchived = useCallback(
     async (id: string, archived: boolean) => {
       const list = findList(id);
       if (!list) return;
-      await requireRepo().updateListMeta(id, list.name, archived ? nowIso() : null);
-      await refresh();
+      await persistList(list, { archivedAt: archived ? nowIso() : null });
     },
-    [findList, refresh],
+    [findList, persistList],
   );
 
   const mergeLists = useCallback(
@@ -147,20 +257,27 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         .map(findList)
         .filter((l): l is GroceryList => !!l);
       const merged = mergeInto(target.items, sources.map((s) => s.items), newLocalId);
-      await repo.replaceListItems(targetId, merged);
-      for (const s of sources) await repo.updateListMeta(s.id, s.name, nowIso()); // archive sources
+      const iso = nowIso();
+      await repo.updateList({ ...target, items: merged, updatedAt: iso, needsSync: true });
+      for (const s of sources) {
+        await repo.updateList({ ...s, archivedAt: iso, updatedAt: iso, needsSync: true });
+      }
       await refresh();
+      void syncGrocery();
     },
-    [findList, refresh],
+    [findList, refresh, syncGrocery],
   );
 
-  // --- items (mutate the list's array, persist wholesale) ---
+  // --- items (mutate the list's array, persist the list wholesale) ---
   const persistItems = useCallback(
     async (listId: string, items: GroceryItem[]) => {
-      await requireRepo().replaceListItems(listId, items);
+      const list = findList(listId);
+      if (!list) return;
+      await requireRepo().updateList({ ...list, items, updatedAt: nowIso(), needsSync: true });
       await refresh();
+      void syncGrocery();
     },
-    [refresh],
+    [findList, refresh, syncGrocery],
   );
 
   const addItem = useCallback(
@@ -243,63 +360,82 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   const generate = useCallback(
     async (recipes: GenerateRecipe[], target: { listId: string } | { newListName: string }) => {
       const repo = requireRepo();
-      let listId: string;
-      let existing: GroceryItem[];
+      const iso = nowIso();
       if ('listId' in target) {
-        listId = target.listId;
-        existing = findList(listId)?.items ?? [];
-      } else {
-        listId = newLocalId();
-        await repo.insertList({
-          id: listId,
-          name: target.newListName.trim() || 'Grocery List',
-          createdAt: nowIso(),
-          archivedAt: null,
-          items: [],
-        });
-        existing = [];
+        const list = findList(target.listId);
+        if (!list) return target.listId;
+        const merged = generateFromRecipes(recipes, list.items, newLocalId);
+        await repo.updateList({ ...list, items: merged, updatedAt: iso, needsSync: true });
+        await refresh();
+        void syncGrocery();
+        return target.listId;
       }
-      const merged = generateFromRecipes(recipes, existing, newLocalId);
-      await repo.replaceListItems(listId, merged);
+      const id = newLocalId();
+      const merged = generateFromRecipes(recipes, [], newLocalId);
+      await repo.insertList({
+        id,
+        name: target.newListName.trim() || 'Grocery List',
+        createdAt: iso,
+        archivedAt: null,
+        items: merged,
+        ...newRecordMeta(iso),
+      });
       await refresh();
-      return listId;
+      void syncGrocery();
+      return id;
     },
-    [findList, refresh],
+    [findList, refresh, syncGrocery],
   );
 
   // --- templates ---
   const ensureDefaultTemplate = useCallback(async () => {
     const existing = templates.find((t) => t.name === DEFAULT_TEMPLATE_NAME) ?? templates[0];
     if (existing) return existing;
+    const iso = nowIso();
     const template: ShoppingTemplate = {
       id: newLocalId(),
       name: DEFAULT_TEMPLATE_NAME,
       sortOrder: 0,
-      createdAt: nowIso(),
+      createdAt: iso,
       items: [],
+      ...newRecordMeta(iso),
     };
     await requireRepo().insertTemplate(template);
     await refresh();
+    void syncGrocery();
     return template;
-  }, [templates, refresh]);
+  }, [templates, refresh, syncGrocery]);
 
   const renameTemplate = useCallback(
     async (id: string, name: string) => {
-      await requireRepo().updateTemplateMeta(id, name.trim() || DEFAULT_TEMPLATE_NAME);
+      const template = findTemplate(id);
+      if (!template) return;
+      await requireRepo().updateTemplate({
+        ...template,
+        name: name.trim() || DEFAULT_TEMPLATE_NAME,
+        updatedAt: nowIso(),
+        needsSync: true,
+      });
       await refresh();
+      void syncGrocery();
     },
-    [refresh],
+    [findTemplate, refresh, syncGrocery],
   );
 
   const setTemplateItems = useCallback(
     async (templateId: string, items: TemplateItem[]) => {
-      await requireRepo().replaceTemplateItems(
-        templateId,
-        items.map((it, index) => ({ ...it, sortOrder: index })),
-      );
+      const template = findTemplate(templateId);
+      if (!template) return;
+      await requireRepo().updateTemplate({
+        ...template,
+        items: items.map((it, index) => ({ ...it, sortOrder: index })),
+        updatedAt: nowIso(),
+        needsSync: true,
+      });
       await refresh();
+      void syncGrocery();
     },
-    [refresh],
+    [findTemplate, refresh, syncGrocery],
   );
 
   const value = useMemo<GroceryContextValue>(
@@ -327,6 +463,8 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       ensureDefaultTemplate,
       renameTemplate,
       setTemplateItems,
+      syncGrocery,
+      forceSyncGrocery,
     }),
     [
       initializing,
@@ -350,6 +488,8 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       ensureDefaultTemplate,
       renameTemplate,
       setTemplateItems,
+      syncGrocery,
+      forceSyncGrocery,
     ],
   );
 

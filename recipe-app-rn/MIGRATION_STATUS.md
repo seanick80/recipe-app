@@ -181,16 +181,19 @@ Ranked gaps for a "feature-complete" push (verified against source):
 2. **Share-to-import** — Phase 6, not started. Design decided (reuse the Swift
    extension via App Group on iOS; ACTION_SEND intent filter on Android — see
    `docs/REACT_NATIVE_MIGRATION_PLAN.md`).
-3. **Grocery/Shopping/Template sync** — local-only on BOTH clients today (SwiftUI
-   via CloudKit device-sync; RN via bare expo-sqlite, zero network sync).
-   **IMPORTANT correction:** the server is NOT missing this — `server/routers/grocery.py`
-   (+ `server/models/grocery.py`) is a complete, already-mounted REST API at
-   `/api/v1/grocery` (lists/items/templates) that **neither client calls** (vestigial
-   from an earlier design). So RN sync = verify/align that existing API + wire
-   `SqliteGroceryRepo` through it (following the recipe-sync pattern), NOT build a
-   backend. Caveat: `canonical.yaml` excludes these models' API surfaces from
-   `test_schema_sync.py`, so the API shape isn't guaranteed to match client models —
-   align first.
+3. **Grocery/Shopping/Template sync** — ✅ **DONE (RN, Phase B).** The RN client
+   now syncs grocery lists, items, and shopping templates to the existing
+   `/api/v1/grocery` REST API, mirroring the recipe-sync pattern
+   (`src/grocery/grocerySyncService.ts`, `src/api/grocery.ts`; sync metadata on
+   all 4 grocery tables at schema v3; 19 new sync tests). Guest usage stays
+   local-only; one `syncNow`/Force-Sync action reconciles recipes + grocery.
+   Design notes: grocery LISTS reconcile PER-ITEM against the item API (create /
+   PATCH / toggle / DELETE, keyed on each local item's stored server id — item
+   responses carry no `list_id`); TEMPLATES round-trip as an aggregate (POST /
+   PUT-full-replace / DELETE); server-wins-wholesale on conflict (no conflict
+   copy for lists/templates); the server has no list-RENAME endpoint, so a
+   list rename after creation does not propagate (documented gap). SwiftUI still
+   syncs grocery via CloudKit device-sync only.
 4. **UI polish** — Unit picker + ingredient-category picker (both free-text now),
    list **rename**, multi-select **merge** in the Lists tab.
 5. **Android Google OAuth client** — RN-only gap (not Swift parity); blocks real
@@ -470,11 +473,21 @@ hard-purged, the re-push PUT may 404 (surfaced as a write-failure); the local
 copy is always preserved. A future pass can use the server restore endpoint /
 re-create path for that edge.
 
-### Slice 3 — Grocery / Lists (local-only) ✅ (2026-07-10)
+### Slice 3 — Grocery / Lists ✅ (2026-07-10; server-synced 2026-07-14)
 
-Decision (2026-07-10): Shopping/Grocery are **local-only** — not server-synced
-(the server only syncs recipes). So these models live only in device SQLite with
-no sync metadata. `npm run ci` green (**124 tests**, 18 new); bundle exports clean.
+Decision (2026-07-10): Shopping/Grocery shipped **local-only** — device SQLite,
+no sync metadata. **SUPERSEDED (2026-07-14, Phase B): now server-synced.** The
+four grocery tables gained the recipe-store sync metadata (schema v3 migration:
+`server_id` + `needs_sync` + `last_synced_at` + `locally_deleted` +
+`pending_remote_delete` + `deleted_at`, plus an `updated_at` watermark on the two
+aggregate roots — existing local rows preserved via `ADD COLUMN`).
+`GrocerySyncService` (`src/grocery/grocerySyncService.ts`) reconciles lists +
+templates against `/api/v1/grocery` exactly like the recipe `SyncService`
+(watermark = server `updated_at`, soft-delete via `pendingRemoteDelete`, 30-day
+purge), adapted to the per-item list API. Wired through `GroceryContext` (every
+mutation sets `needs_sync` + bumps `updatedAt`; guests stay local-only) and folded
+into `SyncContext.syncNow`/`forceFullSync` so one action syncs both stores.
+`npm test` green (**231 tests**, 19 new grocery-sync tests); bundle exports clean.
 
 **What landed:**
 

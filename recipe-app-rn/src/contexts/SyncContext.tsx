@@ -11,6 +11,7 @@ import { applyDraft, draftToNewLocal, markDeleted } from '../sync/recipeDraft';
 import { SyncService } from '../sync/syncService';
 import type { LocalRecipe, RecipeInput, SyncEnv, SyncResult } from '../sync/types';
 import { useAuth } from './AuthContext';
+import { useGrocery } from './GroceryContext';
 
 /**
  * Owns the offline-first recipe store and drives {@link SyncService}. Recipes
@@ -85,6 +86,10 @@ function messageFor(e: unknown): string {
 
 export function SyncProvider({ children }: { children: React.ReactNode }) {
   const { token, isGuest } = useAuth();
+  // Grocery is a sibling store; one sync action reconciles recipes + grocery.
+  // (GroceryProvider is mounted above SyncProvider.) syncGrocery/forceSyncGrocery
+  // never throw and are no-ops for guests, so they don't affect recipe banners.
+  const { syncGrocery, forceSyncGrocery } = useGrocery();
 
   const [recipes, setRecipes] = useState<LocalRecipe[]>([]);
   const [deletedRecipes, setDeletedRecipes] = useState<LocalRecipe[]>([]);
@@ -129,6 +134,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     try {
       const result = await service.sync();
       await applyResult(result);
+      await syncGrocery();
       debugLog.log('sync.run', 'Sync succeeded', {
         pulledNew: String(result.pulledNew),
         pulledUpdated: String(result.pulledUpdated),
@@ -143,7 +149,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     } finally {
       inFlight.current = false;
     }
-  }, [applyResult]);
+  }, [applyResult, syncGrocery]);
 
   // (Re)initialize the store + service whenever the token changes. All setState
   // happens after an await, never synchronously during effect commit.
@@ -270,6 +276,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
     debugLog.log('sync.forceFull', 'Force full sync started');
     try {
       await applyResult(await service.forceFullSync());
+      await forceSyncGrocery();
       debugLog.log('sync.forceFull', 'Force full sync succeeded');
     } catch (e) {
       setError(messageFor(e));
@@ -278,7 +285,7 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       inFlight.current = false;
       setSyncing(false);
     }
-  }, [applyResult]);
+  }, [applyResult, forceSyncGrocery]);
 
   const value: SyncContextValue = {
     recipes: isGuest ? [] : recipes,
