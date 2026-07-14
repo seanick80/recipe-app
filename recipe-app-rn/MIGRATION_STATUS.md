@@ -175,9 +175,13 @@ single mac build rather than one build per item.
 
 Ranked gaps for a "feature-complete" push (verified against source):
 
-1. **Camera/Scan (barcode + OCR)** — biggest visible gap. Parsers ported to TS
-   (`df6bc13`) but NO camera UI; the Scan tab is a placeholder (`RootTabs.tsx`).
-   Device/mac-gated (Phase 5 native).
+1. **Camera/Scan (barcode + OCR)** — ✅ **DONE.** Real Scan tab (`ScanStack`).
+   Barcode: expo-camera `CameraView` → OFF lookup (`lib/barcodeLookup.ts`) → grocery
+   add. OCR: expo-camera still → `@react-native-ml-kit/text-recognition@2.0.0`
+   (compat-spike passed) → `ocrAdapter` (px→normalized + Vision y-flip) → `ocrPipeline`
+   (qualityGate → contentDetector → ocrParser/listLineParser) → recipe ImportReview or
+   grocery add. Real camera preview / decode / OCR accuracy are device-gated (verify on
+   a build).
 2. **Share-to-import** — 🔄 **mostly done.**
    - ✅ **In-app URL import** (paste a URL → fetch → `RecipeSchemaParser` (ported TS)
      → `ImportReviewScreen` → save). `lib/recipeImport.ts`, `RecipeListScreen` entry.
@@ -207,10 +211,28 @@ Ranked gaps for a "feature-complete" push (verified against source):
    copy for lists/templates); the server has no list-RENAME endpoint, so a
    list rename after creation does not propagate (documented gap). SwiftUI still
    syncs grocery via CloudKit device-sync only.
-4. **UI polish** — Unit picker + ingredient-category picker (both free-text now),
-   list **rename**, multi-select **merge** in the Lists tab.
-5. **Android Google OAuth client** — RN-only gap (not Swift parity); blocks real
-   Android sign-in.
+4. **UI polish** — ✅ **DONE.** Unit picker (`lib/units.ts` + `UnitPicker`/`PickerField`,
+   "Other…" fallback) on recipe/grocery/template unit fields; ingredient category picker
+   on recipe rows; grocery list **rename** (`renameList`); multi-select **merge** in the
+   Lists tab. (Caveat: list-name rename sets needs_sync but the server has no list-rename
+   endpoint, so the NAME change doesn't propagate cross-device — see gap #3 note.)
+5. **Android Google OAuth client** — RN-only gap (not Swift parity); blocks Android
+   sign-in. **No code change needed** — `googleSignIn.ts` already passes `webClientId`
+   (Google matches the Android OAuth client by package + keystore SHA-1, not by an id in
+   code). This is **console + keystore work only:**
+   1. Register an **Android OAuth client** in the Google Cloud console (same project as
+      the iOS/web clients, `972511622379`): package `com.seanick80.recipeapp.rn` + the
+      signing keystore's **SHA-1**.
+   2. Get the SHA-1: debug keystore →
+      `keytool -list -v -keystore ~/.android/debug.keystore -alias androiddebugkey -storepass android -keypass android`;
+      release/upload keystore → same with your keystore/alias.
+   3. **Coupling with the Android keystore (important):** the `rn-android-workflow`
+      builds a *debug-signed* release APK, and CI debug keystores are **ephemeral →
+      their SHA-1 changes per build → Google sign-in breaks**. For stable Android
+      sign-in, generate a **persistent upload keystore**, wire it into
+      `signingConfigs.release`, and register THAT keystore's SHA-1 (this is the same
+      "generate an upload keystore" TODO already noted for the Android workflow). Until
+      then, "Continue without signing in" works on Android.
 
 Not gaps: **Pantry** (intentionally dropped); i18n / widgets / push (SwiftUI lacks
 them too). RN is ahead in spots (sync-status UI, Favorite toggle, persistent logs).
