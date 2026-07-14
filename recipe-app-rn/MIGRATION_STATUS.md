@@ -158,16 +158,48 @@ Gaps found while testing the RN build on-device. These are **migration parity
 gaps / small features, NOT bugs** (RN app is mid-migration) — batch-fix and do a
 single mac build rather than one build per item.
 
-- ⬜ **App version / About display** — no way to see version+build in-app (made
-  confirming "am I on the latest TestFlight build" hard). Add app version + build
-  number to Settings via `expo-constants`. Small.
-- ⬜ **App logs viewer** — SwiftUI `DebugLog` was NOT ported (no `src/lib/debugLog.ts`)
-  and there's no logs UI. Needs a log store + viewer screen. Medium.
+- ✅ **App version / About display** (commit `bb6f871`) — Settings "About" shows
+  `Version <x> (build <n>)` via `expo-application`.
+- ✅ **App logs viewer** (commits `bb6f871` → `8ce4b63`) — `DebugLog` ported to
+  `lib/debugLog.ts`; `LogsScreen` reachable from Settings; wired into sync/auth/API +
+  nav breadcrumbs. Now **persistent + crash-surviving**: `lib/logStore.ts` writes each
+  entry synchronously to an isolated `logs.db` (expo-sqlite), hydrates on launch, and a
+  global error handler records `app.fatal`. So a crash's breadcrumb trail survives.
 - ❓ **Recipe source link "not showing"** — NOT a code gap: `RecipeDetailScreen.tsx`
   already renders a tappable Source link when `source_url` is a valid http URL. Almost
   certainly just empty `source_url` on the device's recipes (real recipes are on the
   Swift/CloudKit side, not synced here). CONFIRM by setting a URL on a recipe; only a
   real bug if it still doesn't render.
+
+## Feature-parity gap vs the SwiftUI app (audit 2026-07-14)
+
+Ranked gaps for a "feature-complete" push (verified against source):
+
+1. **Camera/Scan (barcode + OCR)** — biggest visible gap. Parsers ported to TS
+   (`df6bc13`) but NO camera UI; the Scan tab is a placeholder (`RootTabs.tsx`).
+   Device/mac-gated (Phase 5 native).
+2. **Share-to-import** — Phase 6, not started. Design decided (reuse the Swift
+   extension via App Group on iOS; ACTION_SEND intent filter on Android — see
+   `docs/REACT_NATIVE_MIGRATION_PLAN.md`).
+3. **Grocery/Shopping/Template sync** — local-only on BOTH clients today (SwiftUI
+   via CloudKit device-sync; RN via bare expo-sqlite, zero network sync).
+   **IMPORTANT correction:** the server is NOT missing this — `server/routers/grocery.py`
+   (+ `server/models/grocery.py`) is a complete, already-mounted REST API at
+   `/api/v1/grocery` (lists/items/templates) that **neither client calls** (vestigial
+   from an earlier design). So RN sync = verify/align that existing API + wire
+   `SqliteGroceryRepo` through it (following the recipe-sync pattern), NOT build a
+   backend. Caveat: `canonical.yaml` excludes these models' API surfaces from
+   `test_schema_sync.py`, so the API shape isn't guaranteed to match client models —
+   align first.
+4. **UI polish** — Unit picker + ingredient-category picker (both free-text now),
+   list **rename**, multi-select **merge** in the Lists tab.
+5. **Android Google OAuth client** — RN-only gap (not Swift parity); blocks real
+   Android sign-in.
+
+Not gaps: **Pantry** (intentionally dropped); i18n / widgets / push (SwiftUI lacks
+them too). RN is ahead in spots (sync-status UI, Favorite toggle, persistent logs).
+CloudKit is not a path for RN — Apple-only, defeats cross-platform; the server is the
+single source of truth for both clients.
 
 ## Build / deploy notes
 
