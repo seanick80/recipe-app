@@ -1,7 +1,8 @@
 from datetime import datetime, timezone
+from typing import Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
 from auth import get_current_user
@@ -22,25 +23,50 @@ from schemas.grocery import (
     GroceryListResponse,
     ShoppingTemplateCreate,
     ShoppingTemplateResponse,
+    SyncListItem,
 )
 
 router = APIRouter(prefix="/api/v1/grocery", tags=["grocery"])
 
 
+def _now() -> datetime:
+    return datetime.now(timezone.utc)
+
+
 # --- Grocery Lists ---
 
 
-@router.get("/lists", response_model=list[GroceryListResponse])
+@router.get("/lists")
 @limiter.limit("120/minute")
 def list_grocery_lists(
     request: Request,
+    fields: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-) -> list[GroceryList]:
-    return (
+) -> list:
+    """List grocery lists. Use ?fields=id,updated_at for lightweight sync."""
+    if fields:
+        requested = {f.strip() for f in fields.split(",")}
+        if requested == {"id", "updated_at"}:
+            rows = (
+                db.query(GroceryList.id, GroceryList.updated_at)
+                .order_by(GroceryList.updated_at.desc())
+                .all()
+            )
+            return [
+                SyncListItem(id=row.id, updated_at=row.updated_at).model_dump(
+                    mode="json",
+                )
+                for row in rows
+            ]
+    lists = (
         db.query(GroceryList)
         .order_by(GroceryList.created_at.desc())
         .all()
     )
+    return [
+        GroceryListResponse.model_validate(gl).model_dump(mode="json")
+        for gl in lists
+    ]
 
 
 @router.get("/lists/{list_id}", response_model=GroceryListResponse)
@@ -175,6 +201,8 @@ def add_item(
         grocery_list_id=list_id,
     )
     db.add(item)
+    # Bump parent list so a list-level watermark reflects item edits.
+    grocery_list.updated_at = _now()
     db.commit()
     db.refresh(item)
     return item
@@ -199,6 +227,7 @@ def toggle_item(
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
     item.is_checked = not item.is_checked
+    item.grocery_list.updated_at = _now()
     db.commit()
     db.refresh(item)
     return item
@@ -226,6 +255,7 @@ def update_item(
     for key, value in patch_data.items():
         setattr(item, key, value)
 
+    item.grocery_list.updated_at = _now()
     db.commit()
     db.refresh(item)
     return item
@@ -246,6 +276,7 @@ def delete_item(
     )
     if not item:
         raise HTTPException(status_code=404, detail="Item not found")
+    item.grocery_list.updated_at = _now()
     db.delete(item)
     db.commit()
 
@@ -253,17 +284,37 @@ def delete_item(
 # --- Shopping Templates ---
 
 
-@router.get("/templates", response_model=list[ShoppingTemplateResponse])
+@router.get("/templates")
 @limiter.limit("120/minute")
 def list_templates(
     request: Request,
+    fields: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-) -> list[ShoppingTemplate]:
-    return (
+) -> list:
+    """List templates. Use ?fields=id,updated_at for lightweight sync."""
+    if fields:
+        requested = {f.strip() for f in fields.split(",")}
+        if requested == {"id", "updated_at"}:
+            rows = (
+                db.query(ShoppingTemplate.id, ShoppingTemplate.updated_at)
+                .order_by(ShoppingTemplate.updated_at.desc())
+                .all()
+            )
+            return [
+                SyncListItem(id=row.id, updated_at=row.updated_at).model_dump(
+                    mode="json",
+                )
+                for row in rows
+            ]
+    templates = (
         db.query(ShoppingTemplate)
         .order_by(ShoppingTemplate.sort_order)
         .all()
     )
+    return [
+        ShoppingTemplateResponse.model_validate(t).model_dump(mode="json")
+        for t in templates
+    ]
 
 
 @router.get(
@@ -346,6 +397,7 @@ def update_template(
 
     template.name = data.name
     template.sort_order = data.sort_order
+    template.updated_at = _now()
 
     db.query(TemplateItem).filter(
         TemplateItem.template_id == template_id,

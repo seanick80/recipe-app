@@ -27,6 +27,11 @@ class GroceryList(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
     archived_at = Column(DateTime(timezone=True), nullable=True)
 
     items = relationship(
@@ -47,6 +52,11 @@ class GroceryItem(Base):
     is_checked = Column(Boolean, default=False)
     source_recipe_name = Column(Text, default="")
     source_recipe_id = Column(Text, default="")
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
     grocery_list_id = Column(
         UUID(as_uuid=True),
         ForeignKey("grocery_lists.id"),
@@ -66,6 +76,11 @@ class ShoppingTemplate(Base):
         DateTime(timezone=True),
         default=lambda: datetime.now(timezone.utc),
     )
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
 
     items = relationship(
         "TemplateItem",
@@ -84,6 +99,11 @@ class TemplateItem(Base):
     unit = Column(Text, default="")
     category = Column(Text, default="Other")
     sort_order = Column(Integer, default=0)
+    updated_at = Column(
+        DateTime(timezone=True),
+        default=lambda: datetime.now(timezone.utc),
+        onupdate=lambda: datetime.now(timezone.utc),
+    )
     template_id = Column(
         UUID(as_uuid=True),
         ForeignKey("shopping_templates.id"),

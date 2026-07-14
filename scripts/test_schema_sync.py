@@ -182,6 +182,9 @@ def parse_pydantic() -> dict[str, set[str]]:
 
 def parse_typescript() -> dict[str, set[str]]:
     """Parse TypeScript interfaces for field names."""
+    # TODO(Phase B): also parse recipe-app-rn/src/grocery/types.ts and add
+    # `typescript` to the grocery models' surfaces in canonical.yaml, so the RN
+    # client's grocery/template types are drift-protected the same way recipes are.
     path = REPO_ROOT / "frontend" / "src" / "api" / "recipes.ts"
     content = path.read_text(encoding="utf-8")
 

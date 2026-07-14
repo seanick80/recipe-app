@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import time
 import uuid
 
 
@@ -245,3 +246,182 @@ def test_delete_template(client, auth_headers):
         f"/api/v1/grocery/templates/{template_id}",
     )
     assert get_resp.status_code == 404
+
+
+# --- Sync: updated_at watermark ---
+
+
+def test_list_created_with_updated_at(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "Watermark"},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["updated_at"] is not None
+
+
+def test_template_created_with_updated_at(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/templates",
+        json={"name": "T", "sort_order": 0},
+        headers=auth_headers,
+    )
+    assert resp.status_code == 201
+    assert resp.json()["updated_at"] is not None
+
+
+def test_item_add_bumps_parent_list_updated_at(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "Bump"},
+        headers=auth_headers,
+    )
+    list_id = resp.json()["id"]
+    original = resp.json()["updated_at"]
+
+    time.sleep(0.01)
+    add = client.post(
+        f"/api/v1/grocery/lists/{list_id}/items",
+        json={"name": "Milk"},
+        headers=auth_headers,
+    )
+    assert add.status_code == 201
+
+    after = client.get(f"/api/v1/grocery/lists/{list_id}").json()["updated_at"]
+    assert after > original
+
+
+def test_item_toggle_bumps_parent_list_updated_at(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "ToggleBump"},
+        headers=auth_headers,
+    )
+    list_id = resp.json()["id"]
+    item_id = client.post(
+        f"/api/v1/grocery/lists/{list_id}/items",
+        json={"name": "Eggs"},
+        headers=auth_headers,
+    ).json()["id"]
+    before = client.get(f"/api/v1/grocery/lists/{list_id}").json()["updated_at"]
+
+    time.sleep(0.01)
+    client.patch(
+        f"/api/v1/grocery/items/{item_id}/toggle",
+        headers=auth_headers,
+    )
+    after = client.get(f"/api/v1/grocery/lists/{list_id}").json()["updated_at"]
+    assert after > before
+
+
+def test_item_patch_bumps_parent_list_updated_at(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "PatchBump"},
+        headers=auth_headers,
+    )
+    list_id = resp.json()["id"]
+    item_id = client.post(
+        f"/api/v1/grocery/lists/{list_id}/items",
+        json={"name": "Flour"},
+        headers=auth_headers,
+    ).json()["id"]
+    before = client.get(f"/api/v1/grocery/lists/{list_id}").json()["updated_at"]
+
+    time.sleep(0.01)
+    client.patch(
+        f"/api/v1/grocery/items/{item_id}",
+        json={"quantity": 5},
+        headers=auth_headers,
+    )
+    after = client.get(f"/api/v1/grocery/lists/{list_id}").json()["updated_at"]
+    assert after > before
+
+
+def test_item_delete_bumps_parent_list_updated_at(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "DeleteBump"},
+        headers=auth_headers,
+    )
+    list_id = resp.json()["id"]
+    item_id = client.post(
+        f"/api/v1/grocery/lists/{list_id}/items",
+        json={"name": "Sugar"},
+        headers=auth_headers,
+    ).json()["id"]
+    before = client.get(f"/api/v1/grocery/lists/{list_id}").json()["updated_at"]
+
+    time.sleep(0.01)
+    client.delete(
+        f"/api/v1/grocery/items/{item_id}",
+        headers=auth_headers,
+    )
+    after = client.get(f"/api/v1/grocery/lists/{list_id}").json()["updated_at"]
+    assert after > before
+
+
+def test_template_update_bumps_updated_at(client, auth_headers):
+    resp = client.post(
+        "/api/v1/grocery/templates",
+        json={"name": "Orig", "sort_order": 0},
+        headers=auth_headers,
+    )
+    template_id = resp.json()["id"]
+    before = resp.json()["updated_at"]
+
+    time.sleep(0.01)
+    upd = client.put(
+        f"/api/v1/grocery/templates/{template_id}",
+        json={"name": "Orig", "sort_order": 0, "items": []},
+        headers=auth_headers,
+    )
+    assert upd.status_code == 200
+    assert upd.json()["updated_at"] > before
+
+
+def test_lists_fields_sync_listing(client, auth_headers):
+    client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "L1"},
+        headers=auth_headers,
+    )
+    client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "L2"},
+        headers=auth_headers,
+    )
+    resp = client.get("/api/v1/grocery/lists?fields=id,updated_at")
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert len(rows) == 2
+    for row in rows:
+        assert set(row.keys()) == {"id", "updated_at"}
+
+
+def test_templates_fields_sync_listing(client, auth_headers):
+    client.post(
+        "/api/v1/grocery/templates",
+        json={"name": "T1", "sort_order": 0},
+        headers=auth_headers,
+    )
+    resp = client.get("/api/v1/grocery/templates?fields=id,updated_at")
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert len(rows) == 1
+    assert set(rows[0].keys()) == {"id", "updated_at"}
+
+
+def test_lists_full_listing_unaffected_by_fields_absent(client, auth_headers):
+    client.post(
+        "/api/v1/grocery/lists",
+        json={"name": "Full"},
+        headers=auth_headers,
+    )
+    resp = client.get("/api/v1/grocery/lists")
+    assert resp.status_code == 200
+    row = resp.json()[0]
+    assert row["name"] == "Full"
+    assert "items" in row
+    assert "updated_at" in row

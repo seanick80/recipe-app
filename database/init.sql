@@ -49,6 +49,7 @@ CREATE TABLE grocery_lists (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     archived_at TIMESTAMP WITH TIME ZONE
 );
 
@@ -61,6 +62,7 @@ CREATE TABLE grocery_items (
     is_checked BOOLEAN DEFAULT FALSE,
     source_recipe_name TEXT DEFAULT '',
     source_recipe_id TEXT DEFAULT '',
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     grocery_list_id UUID NOT NULL REFERENCES grocery_lists(id) ON DELETE CASCADE
 );
 
@@ -68,7 +70,8 @@ CREATE TABLE shopping_templates (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name TEXT NOT NULL,
     sort_order INTEGER DEFAULT 0,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
 );
 
 CREATE TABLE template_items (
@@ -78,6 +81,7 @@ CREATE TABLE template_items (
     unit TEXT DEFAULT '',
     category TEXT DEFAULT 'Other',
     sort_order INTEGER DEFAULT 0,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     template_id UUID NOT NULL REFERENCES shopping_templates(id) ON DELETE CASCADE
 );
 

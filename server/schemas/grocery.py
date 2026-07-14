@@ -32,6 +32,16 @@ class GroceryItemResponse(BaseModel):
     is_checked: bool
     source_recipe_name: str
     source_recipe_id: str
+    updated_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class SyncListItem(BaseModel):
+    """Lightweight response for sync — only id and updated_at."""
+
+    id: UUID
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -45,6 +55,7 @@ class GroceryListResponse(BaseModel):
     name: str
     items: list[GroceryItemResponse]
     created_at: datetime
+    updated_at: datetime
     archived_at: datetime | None
 
     model_config = {"from_attributes": True}
@@ -65,6 +76,7 @@ class TemplateItemResponse(BaseModel):
     unit: str
     category: str
     sort_order: int
+    updated_at: datetime
 
     model_config = {"from_attributes": True}
 
@@ -81,5 +93,6 @@ class ShoppingTemplateResponse(BaseModel):
     sort_order: int
     items: list[TemplateItemResponse]
     created_at: datetime
+    updated_at: datetime
 
     model_config = {"from_attributes": True}

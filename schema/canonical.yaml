@@ -99,82 +99,96 @@ models:
     fields:
       id:
         type: uuid
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       name:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       created_at:
         type: datetime
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
+      # updated_at is the sync watermark; child item edits bump it (see routers/grocery.py).
+      # swiftdata/testfixtures do not carry it yet — that is Phase B (RN/Swift client).
+      updated_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, pydantic_response]
       archived_at:
         type: datetime_optional
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       items:
         type: relationship
-        surfaces: [sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sqlalchemy, pydantic_response, swiftdata, testfixtures]
 
   GroceryItem:
     fields:
       id:
         type: uuid
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       name:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       quantity:
         type: float
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       unit:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       category:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       is_checked:
         type: bool
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       source_recipe_name:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       source_recipe_id:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
+      updated_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, pydantic_response]
 
   ShoppingTemplate:
     fields:
       id:
         type: uuid
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       name:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       sort_order:
         type: int
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       created_at:
         type: datetime
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
+      updated_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, pydantic_response]
       items:
         type: relationship
-        surfaces: [sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sqlalchemy, pydantic_response, swiftdata, testfixtures]
 
   TemplateItem:
     fields:
       id:
         type: uuid
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       name:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       quantity:
         type: float
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       unit:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       category:
         type: string
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
       sort_order:
         type: int
-        surfaces: [sql, sqlalchemy, swiftdata, testfixtures]
+        surfaces: [sql, sqlalchemy, pydantic_response, swiftdata, testfixtures]
+      updated_at:
+        type: datetime
+        surfaces: [sql, sqlalchemy, pydantic_response]
