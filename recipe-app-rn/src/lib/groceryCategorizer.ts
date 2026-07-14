@@ -23,6 +23,26 @@ export type GroceryCategory =
   | 'Household'
   | 'Other';
 
+/**
+ * All grocery categories, in the classifier's type-union order. Used to
+ * populate the category-override picker. (Store-aisle *display* order for
+ * grouping lives separately in `groceryLogic.CATEGORY_ORDER`.)
+ */
+export const GROCERY_CATEGORIES: readonly GroceryCategory[] = [
+  'Produce',
+  'Dairy',
+  'Meat',
+  'Bakery',
+  'Dry & Canned',
+  'Frozen',
+  'Snacks',
+  'Beverages',
+  'Condiments',
+  'Spices',
+  'Household',
+  'Other',
+];
+
 // MARK: - Public API
 
 /**

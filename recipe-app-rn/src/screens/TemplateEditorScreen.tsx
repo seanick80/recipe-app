@@ -3,6 +3,7 @@ import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
 import { Pressable, ScrollView, Text, TextInput, View } from 'react-native';
 
+import { UnitPicker } from '../components/UnitPicker';
 import { useGrocery } from '../contexts/GroceryContext';
 import type { TemplateItem } from '../grocery/types';
 import { newLocalId } from '../lib/ids';
@@ -90,14 +91,9 @@ export function TemplateEditorScreen({ route, navigation }: Props) {
             keyboardType="decimal-pad"
             className="mr-2 w-14 rounded border border-gray-200 px-2 py-1.5 text-base text-gray-900"
           />
-          <TextInput
-            value={row.unit}
-            onChangeText={(t) => setRow(index, { unit: t })}
-            placeholder="unit"
-            placeholderTextColor="#9ca3af"
-            autoCapitalize="none"
-            className="mr-2 w-16 rounded border border-gray-200 px-2 py-1.5 text-base text-gray-900"
-          />
+          <View className="mr-2 w-20">
+            <UnitPicker value={row.unit} onChange={(u) => setRow(index, { unit: u })} context="shopping" />
+          </View>
           <TextInput
             value={row.name}
             onChangeText={(t) => setRow(index, { name: t })}

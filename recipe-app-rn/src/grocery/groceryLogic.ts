@@ -142,6 +142,23 @@ export function mergeInto(
   return result;
 }
 
+/**
+ * Plan a multi-list merge from a selection. Given the lists in display order and
+ * the set of selected ids, the target is the first selected list in display
+ * order and the rest are merged into it (mirroring the Shopping tab, which
+ * merges into `activeLists[0]`). Returns `null` unless at least two selected ids
+ * are actually present in `orderedIds` — a merge needs two lists.
+ */
+export function planListMerge(
+  orderedIds: string[],
+  selected: ReadonlySet<string>,
+): { targetId: string; sourceIds: string[] } | null {
+  const chosen = orderedIds.filter((id) => selected.has(id));
+  if (chosen.length < 2) return null;
+  const [targetId, ...sourceIds] = chosen;
+  return { targetId, sourceIds };
+}
+
 /** Title-case a cleaned ingredient name for display ("white flour" → "White Flour"). */
 function titleCase(s: string): string {
   return s.replace(/\S+/g, (w) => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase());

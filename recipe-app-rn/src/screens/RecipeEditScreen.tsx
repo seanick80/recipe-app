@@ -11,6 +11,8 @@ import { ScrollView } from '../../components/ui/scroll-view';
 import { Switch } from '../../components/ui/switch';
 import { Text } from '../../components/ui/text';
 import { Textarea, TextareaInput } from '../../components/ui/textarea';
+import { CategoryPicker } from '../components/CategoryPicker';
+import { UnitPicker } from '../components/UnitPicker';
 import { useSync } from '../contexts/SyncContext';
 import type { RecipesStackParamList } from '../navigation/RecipesStack';
 import { emptyDraft, isDraftValid, localToDraft } from '../sync/recipeDraft';
@@ -164,8 +166,9 @@ function Stepper({
  * Recipe create/edit form (Phase 4), a port of the SwiftUI `RecipeEditView`.
  * `localId` param present = edit, absent = create. Saving writes through the
  * offline-first store via {@link useSync} (sets `needsSync`, kicks a background
- * sync). Cuisine/course/difficulty are free-text like the SwiftUI form; the
- * dedicated UnitPicker is deferred (unit is a free-text field for now).
+ * sync). Cuisine/course/difficulty are free-text like the SwiftUI form;
+ * ingredient unit + category use the dedicated {@link UnitPicker} /
+ * {@link CategoryPicker} (preset options + "Other…" free-text for units).
  *
  * UI note: this screen is the gluestack-ui look-and-feel sample. Layout uses
  * gluestack primitives (Box/HStack), form controls use Input/Textarea/Switch/
@@ -293,15 +296,12 @@ export function RecipeEditScreen({ route, navigation }: Props) {
                 keyboardType="decimal-pad"
               />
             </Input>
-            <Input className="h-9 w-20">
-              <InputField
-                value={row.unit}
-                onChangeText={(t) => setIngredient(index, { unit: t })}
-                placeholder="unit"
-                placeholderTextColor="#9ca3af"
-                autoCapitalize="none"
-              />
-            </Input>
+            <UnitPicker
+              value={row.unit}
+              onChange={(u) => setIngredient(index, { unit: u })}
+              context="recipe"
+              triggerClassName="w-24"
+            />
             <Input className="h-9 flex-1">
               <InputField
                 value={row.name}
@@ -320,6 +320,14 @@ export function RecipeEditScreen({ route, navigation }: Props) {
               className="text-sm"
             />
           </Input>
+          <HStack className="mt-2 items-center gap-2">
+            <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Category</Text>
+            <CategoryPicker
+              value={row.category}
+              onChange={(c) => setIngredient(index, { category: c })}
+              triggerClassName="flex-1"
+            />
+          </HStack>
           <HStack className="mt-2 justify-end">
             <Pressable accessibilityRole="button" accessibilityLabel="Move up" onPress={() => moveIngredient(index, -1)} className="mr-3 active:opacity-50">
               <Ionicons name="arrow-up" size={18} color="#6b7280" />

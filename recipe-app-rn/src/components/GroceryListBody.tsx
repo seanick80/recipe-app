@@ -6,6 +6,7 @@ import { useGrocery } from '../contexts/GroceryContext';
 import { groupByCategory } from '../grocery/groceryLogic';
 import type { GroceryItem } from '../grocery/types';
 import { formatQuantity } from '../lib/recipeFormat';
+import { UnitPicker } from './UnitPicker';
 
 function amount(item: GroceryItem): string {
   const qty = item.quantity > 0 ? formatQuantity(item.quantity) : '';
@@ -101,14 +102,7 @@ export function GroceryListBody({ listId }: { listId: string }) {
           keyboardType="decimal-pad"
           className="mx-2 w-12 rounded border border-gray-200 bg-white px-2 py-1.5 text-base text-gray-900"
         />
-        <TextInput
-          value={unit}
-          onChangeText={setUnit}
-          placeholder="unit"
-          placeholderTextColor="#9ca3af"
-          autoCapitalize="none"
-          className="mr-2 w-16 rounded border border-gray-200 bg-white px-2 py-1.5 text-base text-gray-900"
-        />
+        <UnitPicker value={unit} onChange={setUnit} context="shopping" triggerClassName="mr-2 w-20" />
         <Pressable accessibilityRole="button" accessibilityLabel="Add item" onPress={onAdd} className="active:opacity-60">
           <Ionicons name="add-circle" size={30} color="#2563eb" />
         </Pressable>

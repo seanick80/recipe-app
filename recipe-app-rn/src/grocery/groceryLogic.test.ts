@@ -5,6 +5,7 @@ import {
   groupByCategory,
   makeGroceryItem,
   mergeInto,
+  planListMerge,
   staplesToAdd,
 } from './groceryLogic';
 import type { GenerateRecipe, GroceryItem, TemplateItem } from './types';
@@ -133,5 +134,32 @@ describe('generateFromRecipes', () => {
     const result = generateFromRecipes(rs, [], idGen());
     const flour = result.find((i) => i.name.toLowerCase() === 'flour')!;
     expect(flour.quantity).toBe(1); // second (g) not summed into first (cup)
+  });
+});
+
+describe('planListMerge', () => {
+  it('returns null when fewer than two lists are selected', () => {
+    expect(planListMerge(['a', 'b', 'c'], new Set())).toBeNull();
+    expect(planListMerge(['a', 'b', 'c'], new Set(['b']))).toBeNull();
+  });
+
+  it('targets the first selected list in display order, rest are sources', () => {
+    expect(planListMerge(['a', 'b', 'c'], new Set(['b', 'c']))).toEqual({
+      targetId: 'b',
+      sourceIds: ['c'],
+    });
+    expect(planListMerge(['a', 'b', 'c'], new Set(['a', 'b', 'c']))).toEqual({
+      targetId: 'a',
+      sourceIds: ['b', 'c'],
+    });
+  });
+
+  it('ignores selected ids not present in the ordered list', () => {
+    expect(planListMerge(['a', 'b'], new Set(['a', 'b', 'ghost']))).toEqual({
+      targetId: 'a',
+      sourceIds: ['b'],
+    });
+    // Only one real id present → not enough to merge.
+    expect(planListMerge(['a', 'b'], new Set(['a', 'ghost']))).toBeNull();
   });
 });

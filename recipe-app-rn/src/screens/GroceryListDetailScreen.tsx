@@ -1,9 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useLayoutEffect } from 'react';
+import { useLayoutEffect, useState } from 'react';
 import { Alert, Pressable } from 'react-native';
 
 import { GroceryListBody } from '../components/GroceryListBody';
+import { PromptModal } from '../components/PromptModal';
 import { useGrocery } from '../contexts/GroceryContext';
 import type { ListsStackParamList } from '../navigation/ListsStack';
 
@@ -12,11 +13,12 @@ type Props = NativeStackScreenProps<ListsStackParamList, 'GroceryListDetail'>;
 /**
  * A single grocery list (Phase 4 slice 3). Renders the shared
  * {@link GroceryListBody} (grouped, checkable items + inline add) and adds a
- * header menu for uncheck-all / remove-checked / clear.
+ * header menu for rename / uncheck-all / remove-checked / clear.
  */
 export function GroceryListDetailScreen({ route, navigation }: Props) {
   const { listId } = route.params;
-  const { uncheckAll, removeChecked, clearItems } = useGrocery();
+  const { getList, renameList, uncheckAll, removeChecked, clearItems } = useGrocery();
+  const [renaming, setRenaming] = useState(false);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -26,6 +28,7 @@ export function GroceryListDetailScreen({ route, navigation }: Props) {
           accessibilityLabel="List actions"
           onPress={() =>
             Alert.alert('List actions', undefined, [
+              { text: 'Rename list', onPress: () => setRenaming(true) },
               { text: 'Uncheck all', onPress: () => void uncheckAll(listId) },
               { text: 'Remove checked', onPress: () => void removeChecked(listId) },
               {
@@ -48,5 +51,21 @@ export function GroceryListDetailScreen({ route, navigation }: Props) {
     });
   }, [navigation, listId, uncheckAll, removeChecked, clearItems]);
 
-  return <GroceryListBody listId={listId} />;
+  return (
+    <>
+      <GroceryListBody listId={listId} />
+      <PromptModal
+        visible={renaming}
+        title="Rename list"
+        initialValue={getList(listId)?.name ?? route.params.name}
+        placeholder="List name"
+        onSubmit={(name) => {
+          void renameList(listId, name);
+          navigation.setOptions({ title: name });
+          setRenaming(false);
+        }}
+        onCancel={() => setRenaming(false)}
+      />
+    </>
+  );
 }
