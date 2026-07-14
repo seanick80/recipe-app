@@ -26,16 +26,17 @@ function formatDetails(details?: LogEntry['details']): string | null {
 }
 
 /**
- * Debug logs viewer (Settings → App logs). Renders the in-memory {@link debugLog}
- * ring buffer newest-first with a Clear action and an empty state. Re-reads on
- * focus so entries emitted while elsewhere in the app show up on return.
+ * Debug logs viewer (Settings → App logs). Renders the durable {@link debugLog}
+ * store newest-first with a Clear action and an empty state. Reads via
+ * `readPersisted()` so pre-crash entries from earlier launches show up too, and
+ * re-reads on focus so entries emitted elsewhere in the app appear on return.
  */
 export function LogsScreen() {
   const [entries, setEntries] = useState<LogEntry[]>([]);
 
   const refresh = useCallback(() => {
-    // Newest first (the buffer stores oldest → newest).
-    setEntries(debugLog.entries().reverse());
+    // Durable store, newest first (falls back to the in-memory buffer).
+    setEntries(debugLog.readPersisted());
   }, []);
 
   useFocusEffect(refresh);

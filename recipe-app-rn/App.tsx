@@ -1,6 +1,6 @@
 import './global.css';
 
-import { NavigationContainer } from '@react-navigation/native';
+import { NavigationContainer, type NavigationState } from '@react-navigation/native';
 import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, Text, View } from 'react-native';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -9,8 +9,28 @@ import { GluestackUIProvider } from './components/ui/gluestack-ui-provider';
 import { AuthProvider, useAuth } from './src/contexts/AuthContext';
 import { GroceryProvider } from './src/contexts/GroceryContext';
 import { SyncProvider } from './src/contexts/SyncContext';
+import { debugLog } from './src/lib/debugLog';
+import { initDebugLogPersistence } from './src/lib/debugLogInit';
 import { RootTabs } from './src/navigation/RootTabs';
 import { LoginScreen } from './src/screens/LoginScreen';
+
+// Make the debug log durable BEFORE anything renders: hydrate pre-crash entries,
+// install the SQLite sink, and register the global JS error handler.
+initDebugLogPersistence();
+
+/** Deepest active route name in a navigation state tree (the current screen). */
+function activeRouteName(state: NavigationState | undefined): string | undefined {
+  if (!state || typeof state.index !== 'number') return undefined;
+  const route = state.routes[state.index];
+  const child = route.state as NavigationState | undefined;
+  return child ? activeRouteName(child) : route.name;
+}
+
+/** Breadcrumb: record the active route so a crash trail shows where we were. */
+function logRouteChange(state: NavigationState | undefined): void {
+  const name = activeRouteName(state);
+  if (name) debugLog.log('nav', name);
+}
 
 /**
  * Auth gate: block on the initial session restore, show the login screen when
@@ -45,7 +65,7 @@ function AppContent() {
       <View className="flex-1">
         <SyncProvider>
           <GroceryProvider>
-            <NavigationContainer>
+            <NavigationContainer onStateChange={logRouteChange}>
               <RootTabs />
             </NavigationContainer>
           </GroceryProvider>

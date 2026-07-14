@@ -22,6 +22,21 @@
 /** Optional key/value payload attached to a log entry. Values are strings. */
 export type LogDetails = Record<string, string>;
 
+/**
+ * A durable back-end for the log. When one is installed via
+ * {@link DebugLog.setSink}, every `log()` call also writes through to it so
+ * entries survive a crash/restart. With NO sink the log is purely in-memory
+ * (the shape unit tests rely on). See `logStore.ts` for the SQLite sink.
+ */
+export interface LogSink {
+  /** Persist a single entry. Should be synchronous for crash durability. */
+  append(entry: LogEntry): void;
+  /** All persisted entries, newest first. */
+  readAll(): LogEntry[];
+  /** Delete every persisted entry. */
+  clear(): void;
+}
+
 /** One structured log entry. Mirrors the SwiftUI JSONL object shape. */
 export interface LogEntry {
   /** ISO-8601 timestamp with fractional seconds (e.g. `2026-07-14T12:34:56.789Z`). */
@@ -40,6 +55,7 @@ const DEFAULT_MAX_ENTRIES = 2000;
 export class DebugLog {
   private readonly maxEntries: number;
   private buffer: LogEntry[] = [];
+  private sink: LogSink | null = null;
 
   /**
    * @param maxEntries Ring-buffer capacity. Once exceeded, the oldest entries
@@ -47,6 +63,39 @@ export class DebugLog {
    */
   constructor(maxEntries: number = DEFAULT_MAX_ENTRIES) {
     this.maxEntries = Math.max(1, maxEntries);
+  }
+
+  /**
+   * Install (or remove, with `null`) a durable sink. Once set, every `log()`
+   * also writes through to the sink, and `clear()` clears it too. Sink write
+   * failures are swallowed so a broken sink can never take down the app.
+   */
+  setSink(sink: LogSink | null): void {
+    this.sink = sink;
+  }
+
+  /**
+   * Replace the in-memory buffer with `entries` (oldest first), trimmed to
+   * capacity. Used at startup to load pre-crash entries back from the sink so
+   * the viewer shows them. Does not write back to the sink.
+   */
+  hydrate(entries: LogEntry[]): void {
+    this.buffer = entries.slice(Math.max(0, entries.length - this.maxEntries));
+  }
+
+  /**
+   * Entries for display, newest first. Prefers the durable sink (survives
+   * launches) and falls back to the in-memory buffer when none is installed.
+   */
+  readPersisted(): LogEntry[] {
+    if (this.sink) {
+      try {
+        return this.sink.readAll();
+      } catch {
+        // Fall through to the buffer if the sink read fails.
+      }
+    }
+    return this.buffer.slice().reverse();
   }
 
   /**
@@ -69,11 +118,25 @@ export class DebugLog {
     if (this.buffer.length > this.maxEntries) {
       this.buffer.splice(0, this.buffer.length - this.maxEntries);
     }
+    if (this.sink) {
+      try {
+        this.sink.append(entry);
+      } catch {
+        // Never let a persistence failure crash the caller.
+      }
+    }
   }
 
-  /** Drops every retained entry. Idempotent. */
+  /** Drops every retained entry, in memory and in the durable sink. Idempotent. */
   clear(): void {
     this.buffer = [];
+    if (this.sink) {
+      try {
+        this.sink.clear();
+      } catch {
+        // Ignore — the in-memory buffer is cleared regardless.
+      }
+    }
   }
 
   /** The retained entries, oldest first. Returns a defensive copy. */
