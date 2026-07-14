@@ -1,5 +1,7 @@
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
+import type { ImportedRecipe } from '../lib/recipeSchemaParser';
+import { ImportReviewScreen } from '../screens/ImportReviewScreen';
 import { RecipeDetailScreen } from '../screens/RecipeDetailScreen';
 import { RecipeEditScreen } from '../screens/RecipeEditScreen';
 import { RecipeListScreen } from '../screens/RecipeListScreen';
@@ -10,6 +12,13 @@ export type RecipesStackParamList = {
   RecipeDetail: { localId: string; name: string };
   /** `localId` present = edit an existing recipe; absent = create a new one. */
   RecipeEdit: { localId?: string };
+  /**
+   * Review a recipe parsed from a URL before saving. This is the shared target
+   * for the manual "Import from URL" flow and, in a later phase, the platform
+   * share entry points (iOS Share Extension / Android share-intent), which will
+   * navigate here with an already-parsed recipe.
+   */
+  ImportReview: { recipe: ImportedRecipe };
 };
 
 const Stack = createNativeStackNavigator<RecipesStackParamList>();
@@ -28,6 +37,7 @@ export function RecipesStack() {
         component={RecipeEditScreen}
         options={{ presentation: 'modal', title: 'Recipe' }}
       />
+      <Stack.Screen name="ImportReview" component={ImportReviewScreen} options={{ title: 'Import Recipe' }} />
     </Stack.Navigator>
   );
 }

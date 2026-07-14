@@ -1,10 +1,23 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
-import { useCallback, useLayoutEffect } from 'react';
-import { ActivityIndicator, Alert, FlatList, Pressable, RefreshControl, Text, View } from 'react-native';
+import { useCallback, useLayoutEffect, useState } from 'react';
+import {
+  ActivityIndicator,
+  Alert,
+  FlatList,
+  KeyboardAvoidingView,
+  Modal,
+  Platform,
+  Pressable,
+  RefreshControl,
+  Text,
+  TextInput,
+  View,
+} from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { useSync } from '../contexts/SyncContext';
+import { fetchAndParseRecipe } from '../lib/recipeImport';
 import { totalTimeMinutes } from '../lib/recipeFormat';
 import type { RecipesStackParamList } from '../navigation/RecipesStack';
 import type { LocalRecipe } from '../sync/types';
@@ -69,23 +82,67 @@ export function RecipeListScreen({ navigation }: Props) {
 
   const authed = !!token && !isGuest;
 
-  // Header "+" to create a recipe (authenticated users only).
+  // "Import from URL" prompt state.
+  const [importVisible, setImportVisible] = useState(false);
+  const [importUrl, setImportUrl] = useState('');
+  const [importing, setImporting] = useState(false);
+  const [importError, setImportError] = useState<string | null>(null);
+
+  const openImport = useCallback(() => {
+    setImportUrl('');
+    setImportError(null);
+    setImporting(false);
+    setImportVisible(true);
+  }, []);
+
+  const closeImport = useCallback(() => {
+    if (importing) return;
+    setImportVisible(false);
+  }, [importing]);
+
+  // Fetch + parse the entered URL, then hand the parsed recipe to the shared
+  // ImportReview step (the same target the future share entry points will use).
+  const runImport = useCallback(async () => {
+    if (importing) return;
+    setImporting(true);
+    setImportError(null);
+    const result = await fetchAndParseRecipe(importUrl);
+    setImporting(false);
+    if (result.success) {
+      setImportVisible(false);
+      navigation.navigate('ImportReview', { recipe: result.recipe });
+    } else {
+      setImportError(result.message);
+    }
+  }, [importing, importUrl, navigation]);
+
+  // Header actions: "Import from URL" + "+" to create (authenticated users only).
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: authed
         ? () => (
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="New recipe"
-              onPress={() => navigation.navigate('RecipeEdit', {})}
-              className="active:opacity-60"
-            >
-              <Ionicons name="add" size={28} color="#2563eb" />
-            </Pressable>
+            <View className="flex-row items-center">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Import recipe from URL"
+                onPress={openImport}
+                className="mr-4 active:opacity-60"
+              >
+                <Ionicons name="link" size={24} color="#2563eb" />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="New recipe"
+                onPress={() => navigation.navigate('RecipeEdit', {})}
+                className="active:opacity-60"
+              >
+                <Ionicons name="add" size={28} color="#2563eb" />
+              </Pressable>
+            </View>
           )
         : undefined,
     });
-  }, [navigation, authed]);
+  }, [navigation, authed, openImport]);
 
   const confirmDelete = useCallback(
     (recipe: LocalRecipe) => {
@@ -150,6 +207,64 @@ export function RecipeListScreen({ navigation }: Props) {
         }
         contentContainerStyle={recipes.length === 0 ? { flex: 1 } : undefined}
       />
+      <Modal visible={importVisible} transparent animationType="fade" onRequestClose={closeImport}>
+        <KeyboardAvoidingView
+          className="flex-1 justify-center bg-black/40 px-6"
+          behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        >
+          <View className="rounded-2xl bg-white p-5">
+            <Text className="text-lg font-semibold text-gray-900">Import from URL</Text>
+            <Text className="mt-1 text-sm text-gray-500">
+              Paste a link to a recipe page and we’ll pull out the ingredients and steps.
+            </Text>
+            <TextInput
+              value={importUrl}
+              onChangeText={(t) => {
+                setImportUrl(t);
+                if (importError) setImportError(null);
+              }}
+              placeholder="https://…"
+              placeholderTextColor="#9ca3af"
+              autoCapitalize="none"
+              autoCorrect={false}
+              keyboardType="url"
+              editable={!importing}
+              onSubmitEditing={() => void runImport()}
+              className="mt-4 rounded-lg border border-gray-300 px-3 py-3 text-base text-gray-900"
+            />
+            {importError ? <Text className="mt-2 text-sm text-red-600">{importError}</Text> : null}
+            <View className="mt-5 flex-row justify-end">
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Cancel import"
+                disabled={importing}
+                onPress={closeImport}
+                className="mr-6 active:opacity-60"
+              >
+                <Text className={importing ? 'text-base text-gray-300' : 'text-base text-gray-500'}>Cancel</Text>
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Fetch recipe"
+                disabled={importing || importUrl.trim().length === 0}
+                onPress={() => void runImport()}
+                className="flex-row items-center active:opacity-60"
+              >
+                {importing ? <ActivityIndicator size="small" color="#2563eb" style={{ marginRight: 6 }} /> : null}
+                <Text
+                  className={
+                    importing || importUrl.trim().length === 0
+                      ? 'text-base text-gray-400'
+                      : 'text-base font-semibold text-blue-600'
+                  }
+                >
+                  {importing ? 'Fetching…' : 'Import'}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     </View>
   );
 }
