@@ -8,7 +8,7 @@ struct ArchivedListsView: View {
     // `@Query(sort:)` on an optional key path (`archivedAt` is `Date?`) crashes
     // SwiftData when the view appears. We sort in memory below instead.
     @Query(
-        filter: #Predicate<GroceryList> { $0.archivedAt != nil }
+        filter: #Predicate<GroceryList> { $0.archivedAt != nil && $0.locallyDeleted == false }
     ) private var archivedLists: [GroceryList]
 
     var viewModel: ShoppingViewModel
@@ -55,7 +55,10 @@ struct ArchivedListsView: View {
                     }
                     .onDelete { offsets in
                         for index in offsets {
-                            modelContext.delete(sortedArchivedLists[index])
+                            let list = sortedArchivedLists[index]
+                            list.locallyDeleted = true
+                            list.pendingRemoteDelete = true
+                            list.deletedAt = Date()
                         }
                     }
                 }

@@ -62,6 +62,144 @@ actor APIClient {
         _ = try await performRequest(request)
     }
 
+    // MARK: - Grocery Lists
+    //
+    // NOTE: the grocery routes are registered WITHOUT a trailing slash (unlike
+    // the recipe collection route), so none is added here. Item responses carry
+    // no `list_id` — an item is created under a list via the URL and thereafter
+    // addressed by its own id; the parent is tracked locally.
+
+    func fetchGroceryListIds() async throws -> [GrocerySyncListItemDTO] {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("grocery/lists"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "fields", value: "id,updated_at")]
+        let data = try await performRequest(authorizedRequest(for: components.url!))
+        return try JSONDecoder.apiDecoder.decode([GrocerySyncListItemDTO].self, from: data)
+    }
+
+    func fetchGroceryList(id: UUID) async throws -> GroceryListDTO {
+        let url = baseURL.appendingPathComponent("grocery/lists/\(id.uuidString)")
+        let data = try await performRequest(authorizedRequest(for: url))
+        return try JSONDecoder.apiDecoder.decode(GroceryListDTO.self, from: data)
+    }
+
+    func createGroceryList(name: String) async throws -> GroceryListDTO {
+        let url = baseURL.appendingPathComponent("grocery/lists")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder.apiEncoder.encode(GroceryListCreateDTO(name: name))
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(GroceryListDTO.self, from: data)
+    }
+
+    func deleteGroceryList(id: UUID) async throws {
+        let url = baseURL.appendingPathComponent("grocery/lists/\(id.uuidString)")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "DELETE"
+        _ = try await performRequest(request)
+    }
+
+    func archiveGroceryList(id: UUID) async throws -> GroceryListDTO {
+        let url = baseURL.appendingPathComponent("grocery/lists/\(id.uuidString)/archive")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "PATCH"
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(GroceryListDTO.self, from: data)
+    }
+
+    func restoreGroceryList(id: UUID) async throws -> GroceryListDTO {
+        let url = baseURL.appendingPathComponent("grocery/lists/\(id.uuidString)/restore")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "PATCH"
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(GroceryListDTO.self, from: data)
+    }
+
+    // MARK: - Grocery Items
+
+    func createItem(listId: UUID, _ input: GroceryItemInput) async throws -> GroceryItemDTO {
+        let url = baseURL.appendingPathComponent("grocery/lists/\(listId.uuidString)/items")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder.apiEncoder.encode(input)
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(GroceryItemDTO.self, from: data)
+    }
+
+    func patchItem(id: UUID, _ patch: GroceryItemPatchDTO) async throws -> GroceryItemDTO {
+        let url = baseURL.appendingPathComponent("grocery/items/\(id.uuidString)")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "PATCH"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder.apiEncoder.encode(patch)
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(GroceryItemDTO.self, from: data)
+    }
+
+    func toggleItem(id: UUID) async throws -> GroceryItemDTO {
+        let url = baseURL.appendingPathComponent("grocery/items/\(id.uuidString)/toggle")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "PATCH"
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(GroceryItemDTO.self, from: data)
+    }
+
+    func deleteItem(id: UUID) async throws {
+        let url = baseURL.appendingPathComponent("grocery/items/\(id.uuidString)")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "DELETE"
+        _ = try await performRequest(request)
+    }
+
+    // MARK: - Shopping Templates
+
+    func fetchTemplateIds() async throws -> [GrocerySyncListItemDTO] {
+        var components = URLComponents(
+            url: baseURL.appendingPathComponent("grocery/templates"),
+            resolvingAgainstBaseURL: false
+        )!
+        components.queryItems = [URLQueryItem(name: "fields", value: "id,updated_at")]
+        let data = try await performRequest(authorizedRequest(for: components.url!))
+        return try JSONDecoder.apiDecoder.decode([GrocerySyncListItemDTO].self, from: data)
+    }
+
+    func fetchTemplate(id: UUID) async throws -> TemplateDTO {
+        let url = baseURL.appendingPathComponent("grocery/templates/\(id.uuidString)")
+        let data = try await performRequest(authorizedRequest(for: url))
+        return try JSONDecoder.apiDecoder.decode(TemplateDTO.self, from: data)
+    }
+
+    func createTemplate(_ input: TemplateInput) async throws -> TemplateDTO {
+        let url = baseURL.appendingPathComponent("grocery/templates")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "POST"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder.apiEncoder.encode(input)
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(TemplateDTO.self, from: data)
+    }
+
+    func updateTemplate(id: UUID, _ input: TemplateInput) async throws -> TemplateDTO {
+        let url = baseURL.appendingPathComponent("grocery/templates/\(id.uuidString)")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "PUT"
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.httpBody = try JSONEncoder.apiEncoder.encode(input)
+        let data = try await performRequest(request)
+        return try JSONDecoder.apiDecoder.decode(TemplateDTO.self, from: data)
+    }
+
+    func deleteTemplate(id: UUID) async throws {
+        let url = baseURL.appendingPathComponent("grocery/templates/\(id.uuidString)")
+        var request = authorizedRequest(for: url)
+        request.httpMethod = "DELETE"
+        _ = try await performRequest(request)
+    }
+
     // MARK: - Request Helpers
 
     private func authorizedRequest(for url: URL) -> URLRequest {
@@ -197,6 +335,150 @@ struct RecipeListItemDTO: Codable {
     enum CodingKeys: String, CodingKey {
         case id
         case updatedAt = "updated_at"
+    }
+}
+
+// MARK: - Grocery DTOs
+
+/// Lightweight sync-list row: `GET /grocery/{lists,templates}?fields=id,updated_at`.
+/// Shared by both list and template id fetches (same shape as RecipeListItemDTO).
+struct GrocerySyncListItemDTO: Codable {
+    let id: UUID
+    let updatedAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case updatedAt = "updated_at"
+    }
+}
+
+/// A grocery item on the wire (server `GroceryItemResponse`). NOTE: no `list_id`.
+struct GroceryItemDTO: Codable {
+    let id: UUID
+    let name: String
+    let quantity: Double
+    let unit: String
+    let category: String
+    let isChecked: Bool
+    let sourceRecipeName: String
+    let sourceRecipeId: String
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, quantity, unit, category
+        case isChecked = "is_checked"
+        case sourceRecipeName = "source_recipe_name"
+        case sourceRecipeId = "source_recipe_id"
+    }
+}
+
+/// A full grocery list on the wire (server `GroceryListResponse`).
+struct GroceryListDTO: Codable {
+    let id: UUID
+    let name: String
+    let items: [GroceryItemDTO]
+    let createdAt: Date?
+    let updatedAt: Date?
+    let archivedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, items
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+        case archivedAt = "archived_at"
+    }
+}
+
+/// POST body for creating a grocery list.
+struct GroceryListCreateDTO: Codable {
+    let name: String
+}
+
+/// POST body for creating an item under a list.
+struct GroceryItemInput: Codable {
+    let name: String
+    let quantity: Double
+    let unit: String
+    let category: String
+    let sourceRecipeName: String
+    let sourceRecipeId: String
+
+    enum CodingKeys: String, CodingKey {
+        case name, quantity, unit, category
+        case sourceRecipeName = "source_recipe_name"
+        case sourceRecipeId = "source_recipe_id"
+    }
+}
+
+/// PATCH body for updating an item. Carries `is_checked` so a combined content +
+/// checkbox edit needs only one call.
+struct GroceryItemPatchDTO: Codable {
+    let name: String
+    let quantity: Double
+    let unit: String
+    let category: String
+    let isChecked: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name, quantity, unit, category
+        case isChecked = "is_checked"
+    }
+}
+
+/// A template item on the wire (server `TemplateItemResponse`).
+struct TemplateItemDTO: Codable {
+    let id: UUID
+    let name: String
+    let quantity: Double
+    let unit: String
+    let category: String
+    let sortOrder: Int
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, quantity, unit, category
+        case sortOrder = "sort_order"
+    }
+}
+
+/// A full template on the wire (server `ShoppingTemplateResponse`).
+struct TemplateDTO: Codable {
+    let id: UUID
+    let name: String
+    let sortOrder: Int
+    let items: [TemplateItemDTO]
+    let createdAt: Date?
+    let updatedAt: Date?
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, items
+        case sortOrder = "sort_order"
+        case createdAt = "created_at"
+        case updatedAt = "updated_at"
+    }
+}
+
+/// POST/PUT body for a template item (aggregate).
+struct TemplateItemInput: Codable {
+    let name: String
+    let quantity: Double
+    let unit: String
+    let category: String
+    let sortOrder: Int
+
+    enum CodingKeys: String, CodingKey {
+        case name, quantity, unit, category
+        case sortOrder = "sort_order"
+    }
+}
+
+/// POST/PUT body for a template (aggregate create / full replace).
+struct TemplateInput: Codable {
+    let name: String
+    let sortOrder: Int
+    let items: [TemplateItemInput]
+
+    enum CodingKeys: String, CodingKey {
+        case name, items
+        case sortOrder = "sort_order"
     }
 }
 

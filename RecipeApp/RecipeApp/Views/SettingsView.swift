@@ -5,6 +5,7 @@ struct SettingsView: View {
     @Environment(\.dismiss) private var dismiss
     @Environment(\.modelContext) private var modelContext
     @Environment(SyncService.self) private var syncService
+    @Environment(GrocerySyncService.self) private var grocerySyncService
     @EnvironmentObject private var authService: AuthService
     @AppStorage("improvementReportingEnabled") private var improvementReporting = false
     @AppStorage("autoPublishEnabled") private var autoPublish = false
@@ -27,7 +28,7 @@ struct SettingsView: View {
                         } else {
                             LabeledContent("Last synced", value: "Never")
                         }
-                        if syncService.isSyncing {
+                        if syncService.isSyncing || grocerySyncService.isSyncing {
                             HStack {
                                 ProgressView()
                                     .controlSize(.small)
@@ -36,13 +37,16 @@ struct SettingsView: View {
                             }
                         }
                         Button("Sync Now") {
-                            Task { await syncService.sync() }
+                            Task {
+                                await syncService.sync()
+                                await grocerySyncService.sync()
+                            }
                         }
-                        .disabled(syncService.isSyncing)
+                        .disabled(syncService.isSyncing || grocerySyncService.isSyncing)
                         Button("Force Full Sync") {
                             showingForceSync = true
                         }
-                        .disabled(syncService.isSyncing)
+                        .disabled(syncService.isSyncing || grocerySyncService.isSyncing)
                         NavigationLink("Recently Deleted") {
                             RecentlyDeletedView()
                         }
@@ -90,7 +94,10 @@ struct SettingsView: View {
             .alert("Force Full Sync", isPresented: $showingForceSync) {
                 Button("Cancel", role: .cancel) {}
                 Button("Re-download All") {
-                    Task { await syncService.forceFullSync() }
+                    Task {
+                        await syncService.forceFullSync()
+                        await grocerySyncService.forceFullSync()
+                    }
                 }
             } message: {
                 Text(

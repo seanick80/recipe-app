@@ -32,6 +32,7 @@ struct RecipeAppApp: App {
 
     @State private var importService = PendingImportService()
     @State private var syncService = SyncService()
+    @State private var grocerySyncService = GrocerySyncService()
 
     var body: some Scene {
         WindowGroup {
@@ -43,7 +44,11 @@ struct RecipeAppApp: App {
                             syncService.configure(
                                 modelContext: sharedModelContainer.mainContext
                             )
+                            grocerySyncService.configure(
+                                modelContext: sharedModelContainer.mainContext
+                            )
                             Task { await syncService.sync() }
+                            Task { await grocerySyncService.sync() }
                         }
                         .onChange(of: scenePhase) { _, newPhase in
                             if newPhase == .active {
@@ -56,6 +61,7 @@ struct RecipeAppApp: App {
                                         await authService.validateSession()
                                         if !authService.needsReauth {
                                             await syncService.sync()
+                                            await grocerySyncService.sync()
                                         }
                                     }
                                 }
@@ -75,6 +81,7 @@ struct RecipeAppApp: App {
             }
             .environmentObject(authService)
             .environment(syncService)
+            .environment(grocerySyncService)
         }
         .modelContainer(sharedModelContainer)
     }

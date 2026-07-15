@@ -7,11 +7,14 @@ import SwiftUI
 struct ShoppingListTab: View {
     @Environment(\.modelContext) private var modelContext
     @Query(
-        filter: #Predicate<GroceryList> { $0.archivedAt == nil },
+        filter: #Predicate<GroceryList> { $0.archivedAt == nil && $0.locallyDeleted == false },
         sort: \GroceryList.createdAt,
         order: .reverse
     ) private var activeLists: [GroceryList]
-    @Query(sort: \ShoppingTemplate.sortOrder) private var templates: [ShoppingTemplate]
+    @Query(
+        filter: #Predicate<ShoppingTemplate> { $0.locallyDeleted == false },
+        sort: \ShoppingTemplate.sortOrder
+    ) private var templates: [ShoppingTemplate]
 
     @State private var showingTemplateEditor = false
     @State private var showingStaplesPicker = false

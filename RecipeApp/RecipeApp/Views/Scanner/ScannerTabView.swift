@@ -6,7 +6,7 @@ import SwiftUI
 /// Shows as a tab in the main app, launches the appropriate scanner as a sheet.
 struct ScannerTabView: View {
     @Query(
-        filter: #Predicate<GroceryList> { $0.archivedAt == nil },
+        filter: #Predicate<GroceryList> { $0.archivedAt == nil && $0.locallyDeleted == false },
         sort: \GroceryList.createdAt,
         order: .reverse
     )
@@ -222,7 +222,7 @@ struct ScanReviewSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var processor: ScanProcessor
     @Query(
-        filter: #Predicate<GroceryList> { $0.archivedAt == nil },
+        filter: #Predicate<GroceryList> { $0.archivedAt == nil && $0.locallyDeleted == false },
         sort: \GroceryList.createdAt,
         order: .reverse
     )
@@ -354,6 +354,7 @@ struct ScanReviewSheet: View {
             groceryItem.groceryList = list
             modelContext.insert(groceryItem)
         }
+        list.markDirty()
     }
 
     private func saveRecipe(_ items: [ScanProcessor.ParsedItem]) {

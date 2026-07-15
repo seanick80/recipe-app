@@ -65,6 +65,7 @@ class ShoppingViewModel {
             item.groceryList = list
             context.insert(item)
         }
+        list.markDirty()
         return list
     }
 
@@ -93,12 +94,14 @@ class ShoppingViewModel {
             context.insert(item)
             added += 1
         }
+        if added > 0 { list.markDirty() }
         return added
     }
 
     /// Archives a grocery list by setting its archivedAt date.
     func archive(_ list: GroceryList) {
         list.archivedAt = Date()
+        list.markDirty()
     }
 
     /// Merges items from source lists into the target list, then archives the sources.
@@ -133,10 +136,12 @@ class ShoppingViewModel {
             }
             archive(source)
         }
+        target.markDirty()
     }
 
     /// Restores an archived list by clearing its archivedAt date.
     func restore(_ list: GroceryList) {
         list.archivedAt = nil
+        list.markDirty()
     }
 }

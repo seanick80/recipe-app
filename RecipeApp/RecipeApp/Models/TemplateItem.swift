@@ -9,6 +9,9 @@ final class TemplateItem {
     var unit: String = ""
     var category: String = "Other"
     var sortOrder: Int = 0
+    // Sync metadata: the server UUID once synced. Template items round-trip as
+    // part of the parent template's aggregate (matches the RN client).
+    var serverId: String? = nil
     var template: ShoppingTemplate?
 
     init(

@@ -6,7 +6,7 @@ struct GenerateGroceryListView: View {
     @Environment(\.dismiss) private var dismiss
     @Query(sort: \Recipe.name) private var recipes: [Recipe]
     @Query(
-        filter: #Predicate<GroceryList> { $0.archivedAt == nil },
+        filter: #Predicate<GroceryList> { $0.archivedAt == nil && $0.locallyDeleted == false },
         sort: \GroceryList.createdAt,
         order: .reverse
     ) private var existingLists: [GroceryList]
@@ -182,6 +182,7 @@ struct GenerateGroceryListView: View {
             }
         }
 
+        list.markDirty()
         dismiss()
     }
 }
