@@ -167,9 +167,14 @@ export function SyncProvider({ children }: { children: React.ReactNode }) {
       if (token) {
         serviceRef.current = new SyncService({ repo, api: createSyncApi(token), env: realEnv });
         setSyncing(true);
-        await runSync();
-        if (cancelled) return;
-        setSyncing(false);
+        // Always clear the flag, even if this effect was cancelled mid-sync
+        // (token change / remount) — otherwise `syncing` could leak `true` and
+        // strand a spinner until a manual pull-to-refresh.
+        try {
+          await runSync();
+        } finally {
+          setSyncing(false);
+        }
       } else {
         serviceRef.current = null;
       }

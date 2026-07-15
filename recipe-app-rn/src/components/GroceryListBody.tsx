@@ -6,6 +6,7 @@ import { useGrocery } from '../contexts/GroceryContext';
 import { groupByCategory } from '../grocery/groceryLogic';
 import type { GroceryItem } from '../grocery/types';
 import { formatQuantity } from '../lib/recipeFormat';
+import { GroceryItemEditModal } from './GroceryItemEditModal';
 import { UnitPicker } from './UnitPicker';
 
 function amount(item: GroceryItem): string {
@@ -16,37 +17,52 @@ function amount(item: GroceryItem): string {
 function ItemRow({
   item,
   onToggle,
+  onEdit,
   onDelete,
 }: {
   item: GroceryItem;
   onToggle: () => void;
+  onEdit: () => void;
   onDelete: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="checkbox"
-      accessibilityState={{ checked: item.isChecked }}
-      onPress={onToggle}
-      onLongPress={onDelete}
-      className="flex-row items-center border-b border-gray-100 px-4 py-3 active:bg-gray-50"
-    >
-      <Ionicons
-        name={item.isChecked ? 'checkmark-circle' : 'ellipse-outline'}
-        size={22}
-        color={item.isChecked ? '#16a34a' : '#d1d5db'}
-      />
-      <Text
-        className={`ml-3 flex-1 text-base ${item.isChecked ? 'text-gray-400 line-through' : 'text-gray-900'}`}
-        numberOfLines={1}
+    <View className="flex-row items-center border-b border-gray-100">
+      {/* Distinct hit-target: the checkbox toggles complete… */}
+      <Pressable
+        accessibilityRole="checkbox"
+        accessibilityState={{ checked: item.isChecked }}
+        accessibilityLabel={`Toggle ${item.name}`}
+        onPress={onToggle}
+        hitSlop={8}
+        className="py-3 pl-4 pr-2 active:opacity-60"
       >
-        {item.name}
-      </Text>
-      {amount(item).length > 0 ? (
-        <Text className={`ml-2 text-sm ${item.isChecked ? 'text-gray-300' : 'text-gray-500'}`}>
-          {amount(item)}
+        <Ionicons
+          name={item.isChecked ? 'checkmark-circle' : 'ellipse-outline'}
+          size={22}
+          color={item.isChecked ? '#16a34a' : '#d1d5db'}
+        />
+      </Pressable>
+      {/* …and tapping the body opens the edit sheet (long-press still deletes). */}
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Edit ${item.name}`}
+        onPress={onEdit}
+        onLongPress={onDelete}
+        className="flex-1 flex-row items-center py-3 pr-4 active:bg-gray-50"
+      >
+        <Text
+          className={`flex-1 text-base ${item.isChecked ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+          numberOfLines={1}
+        >
+          {item.name}
         </Text>
-      ) : null}
-    </Pressable>
+        {amount(item).length > 0 ? (
+          <Text className={`ml-2 text-sm ${item.isChecked ? 'text-gray-300' : 'text-gray-500'}`}>
+            {amount(item)}
+          </Text>
+        ) : null}
+      </Pressable>
+    </View>
   );
 }
 
@@ -57,12 +73,13 @@ function ItemRow({
  * via {@link useGrocery}.
  */
 export function GroceryListBody({ listId }: { listId: string }) {
-  const { getList, addItem, toggleItem, deleteItem } = useGrocery();
+  const { getList, addItem, updateItem, toggleItem, deleteItem } = useGrocery();
   const list = getList(listId);
 
   const [name, setName] = useState('');
   const [qty, setQty] = useState('');
   const [unit, setUnit] = useState('');
+  const [editingItemId, setEditingItemId] = useState<string | null>(null);
 
   const onAdd = useCallback(async () => {
     if (name.trim().length === 0) return;
@@ -81,6 +98,7 @@ export function GroceryListBody({ listId }: { listId: string }) {
   }
 
   const sections = groupByCategory(list.items);
+  const editingItem = editingItemId ? (list.items.find((i) => i.id === editingItemId) ?? null) : null;
 
   return (
     <View className="flex-1 bg-white">
@@ -124,6 +142,7 @@ export function GroceryListBody({ listId }: { listId: string }) {
                   key={item.id}
                   item={item}
                   onToggle={() => void toggleItem(listId, item.id)}
+                  onEdit={() => setEditingItemId(item.id)}
                   onDelete={() =>
                     Alert.alert('Remove item?', `“${item.name}”`, [
                       { text: 'Cancel', style: 'cancel' },
@@ -136,6 +155,15 @@ export function GroceryListBody({ listId }: { listId: string }) {
           ))
         )}
       </ScrollView>
+
+      <GroceryItemEditModal
+        item={editingItem}
+        onSubmit={(updated) => {
+          void updateItem(listId, updated);
+          setEditingItemId(null);
+        }}
+        onCancel={() => setEditingItemId(null)}
+      />
     </View>
   );
 }

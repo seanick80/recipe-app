@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
+import { ActivityIndicator } from 'react-native';
 
 import { Box } from '../../components/ui/box';
 import { Button, ButtonText } from '../../components/ui/button';
@@ -14,6 +15,7 @@ import { Textarea, TextareaInput } from '../../components/ui/textarea';
 import { CategoryPicker } from '../components/CategoryPicker';
 import { UnitPicker } from '../components/UnitPicker';
 import { useSync } from '../contexts/SyncContext';
+import { fetchAndParseRecipe, importedRecipeToDraft } from '../lib/recipeImport';
 import type { RecipesStackParamList } from '../navigation/RecipesStack';
 import { emptyDraft, isDraftValid, localToDraft } from '../sync/recipeDraft';
 import type { RecipeInput } from '../sync/types';
@@ -191,8 +193,41 @@ export function RecipeEditScreen({ route, navigation }: Props) {
 
   const [form, setForm] = useState<FormState>(initial);
   const [saving, setSaving] = useState(false);
+  const [reimporting, setReimporting] = useState(false);
+  const [reimportError, setReimportError] = useState<string | null>(null);
 
   const patch = useCallback((p: Partial<FormState>) => setForm((f) => ({ ...f, ...p })), []);
+
+  // Re-fetch + re-parse the recipe from its source URL and repopulate the parsed
+  // fields in-place (instructions, ingredients, times/servings, cuisine/course),
+  // while keeping the user's name + identity (favorite, tags, difficulty, etc.).
+  // Fixes recipes captured by the old buggy parser (e.g. incomplete steps); the
+  // user reviews the refreshed fields inline and taps the existing Save.
+  const onReimport = useCallback(async () => {
+    const url = form.source_url.trim();
+    if (url.length === 0 || reimporting) return;
+    setReimporting(true);
+    setReimportError(null);
+    const result = await fetchAndParseRecipe(url);
+    setReimporting(false);
+    if (!result.success) {
+      setReimportError(result.message);
+      return;
+    }
+    const fresh = toFormState(importedRecipeToDraft(result.recipe));
+    setForm((f) => ({
+      ...f,
+      // Keep the existing name unless it's empty; identity fields untouched.
+      name: f.name.trim().length > 0 ? f.name : fresh.name,
+      instructions: fresh.instructions,
+      ingredients: fresh.ingredients,
+      prep_time_minutes: fresh.prep_time_minutes,
+      cook_time_minutes: fresh.cook_time_minutes,
+      servings: fresh.servings,
+      cuisine: fresh.cuisine,
+      course: fresh.course,
+    }));
+  }, [form.source_url, reimporting]);
 
   const setIngredient = useCallback((index: number, p: Partial<IngRow>) => {
     setForm((f) => ({
@@ -271,6 +306,34 @@ export function RecipeEditScreen({ route, navigation }: Props) {
         autoCorrect={false}
         keyboardType="url"
       />
+
+      {form.source_url.trim().length > 0 ? (
+        <Box className="mb-4">
+          <Button
+            variant="outline"
+            size="sm"
+            accessibilityRole="button"
+            accessibilityLabel="Re-import from source"
+            disabled={reimporting}
+            onPress={onReimport}
+            className="gap-2"
+          >
+            {reimporting ? (
+              <ActivityIndicator size="small" color="#2563eb" />
+            ) : (
+              <Ionicons name="refresh" size={18} color="#2563eb" />
+            )}
+            <ButtonText className="text-sm font-semibold text-primary">
+              {reimporting ? 'Re-importing…' : 'Re-import from source'}
+            </ButtonText>
+          </Button>
+          <Text className="mt-1 text-xs text-muted-foreground">
+            Re-fetches this recipe from its source URL and refreshes the steps, ingredients, and details below.
+            Review, then Save.
+          </Text>
+          {reimportError ? <Text className="mt-1 text-sm text-red-600">{reimportError}</Text> : null}
+        </Box>
+      ) : null}
 
       <Stepper label="Prep (min)" value={form.prep_time_minutes} onChange={(n) => patch({ prep_time_minutes: n })} step={TIME_STEP} min={0} max={TIME_MAX} />
       <Stepper label="Cook (min)" value={form.cook_time_minutes} onChange={(n) => patch({ cook_time_minutes: n })} step={TIME_STEP} min={0} max={TIME_MAX} />

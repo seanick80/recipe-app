@@ -78,9 +78,25 @@ function CenteredMessage({ children }: { children: React.ReactNode }) {
  */
 export function RecipeListScreen({ navigation }: Props) {
   const { token, isGuest } = useAuth();
-  const { recipes, initializing, syncing, error, hasWriteFailures, syncNow, deleteRecipe } = useSync();
+  const { recipes, initializing, error, hasWriteFailures, syncNow, deleteRecipe } = useSync();
 
   const authed = !!token && !isGuest;
+
+  // Pull-to-refresh spinner state, kept local + distinct from the context's
+  // global `syncing` flag. The RefreshControl must only spin for a refresh the
+  // user actually pulled — binding it to background syncs (app foreground /
+  // post-write / initial load) left the spinner stranded when the tab regained
+  // focus mid-sync, clearing only on a manual pull. It always resets when the
+  // sync settles (success or error).
+  const [refreshing, setRefreshing] = useState(false);
+  const onRefresh = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await syncNow();
+    } finally {
+      setRefreshing(false);
+    }
+  }, [syncNow]);
 
   // "Import from URL" prompt state.
   const [importVisible, setImportVisible] = useState(false);
@@ -197,7 +213,7 @@ export function RecipeListScreen({ navigation }: Props) {
             onLongPress={() => confirmDelete(item)}
           />
         )}
-        refreshControl={<RefreshControl refreshing={syncing} onRefresh={syncNow} />}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
         ListEmptyComponent={
           <CenteredMessage>
             <Text className="text-center text-base text-gray-500">
