@@ -298,35 +298,24 @@ workflows:
           - $RECIPIENT_EMAIL
 
   # -----------------------------------------------------------------------
-  # RN Android — comparison APK (auto, Linux)
+  # RN Android — comparison APK (MANUAL)
   # -----------------------------------------------------------------------
-  # Builds the React Native rewrite (recipe-app-rn/) as an installable
-  # Android APK so it can sit side-by-side with the SwiftUI app for A/B
-  # comparison (distinct package `com.seanick80.recipeapp.rn`). Runs on a
-  # Linux instance — cheaper/faster minutes than macOS — and is scoped via
-  # `when.changeset` to `recipe-app-rn/`, so SwiftUI-only pushes never
-  # trigger it (and this workflow never triggers the iOS SwiftUI build).
+  # Builds the React Native app (recipe-app-rn/) as an installable Android
+  # APK (package `com.seanick80.recipeapp.rn`).
+  # MANUAL-trigger only (no `triggering:` block) — the Codemagic plan is
+  # macOS-minutes-only (no Linux instance available), and now that recipe-app-rn/
+  # lives on master it would otherwise auto-fire on every push and burn the
+  # macOS budget. Runs on mac_mini_m2 (Android builds fine on macOS); start it
+  # from the dashboard when you actually want an Android APK. (Android sign-in
+  # also still needs the OAuth keystore SHA-1 setup — see MIGRATION_STATUS.)
   rn-android-workflow:
-    name: RN Android (comparison APK)
+    name: RN Android (comparison APK — manual)
     max_build_duration: 45
-    instance_type: linux_x2
+    instance_type: mac_mini_m2
     environment:
       groups:
         - recipe_app_notifications
       node: 20.18.0
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: master
-          include: true
-          source: true
-      cancel_previous_builds: true
-    when:
-      changeset:
-        includes:
-          - 'recipe-app-rn/'
-          - 'codemagic.yaml'
     scripts:
       - name: Install dependencies
         script: |
