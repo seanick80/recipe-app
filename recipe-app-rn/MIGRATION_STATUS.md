@@ -4,18 +4,26 @@ Living handoff doc for the React Native rewrite. **Read this first** when
 starting a new conversation on this work. Canonical plan:
 `../docs/REACT_NATIVE_MIGRATION_PLAN.md`.
 
-- **Branch:** `react-native` (all RN work lives here; branch off it per phase or
-  commit directly during early phases)
+- **Branch:** `master` (branches unified 2026-07-15 — `react-native` was reconciled
+  into `master`; both apps now live on `master`; the `gluestack-spike` /
+  `swiftui-grocery-sync` branches are merged + deleted).
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
-  sharing `server/` + `schema/canonical.yaml` with the SwiftUI app
-- **Last updated:** RN iOS → TestFlight pipeline fully working + robust (2026-07-13; modular-headers + export-compliance + non-fatal-publish fixes landed). Next: finish Phase 5 headless parser ports, then adopt gluestack (planned eval). Native camera spike deferred to its own device session. See "Suggested next session".
+  sharing `server/` + `schema/canonical.yaml`.
+- **Last updated:** 🚀 **CUTOVER (2026-07-15): RN is now the SHIPPING app; SwiftUI is
+  archived.** Feature-complete vs SwiftUI (minus dropped Pantry); Codemagic flipped so
+  `rn-ios-workflow` is the primary build and the SwiftUI `ios-workflow` is manual/legacy.
+  In active on-device feedback iteration. NEXT DESIGN CHANGE decided but not yet built:
+  **collapse grocery to ONE persistent shopping list** (no multi-list / archive / trips;
+  add → check-off → remove-checked loop; staples + recipe-append into it; auto-consolidate
+  existing lists on launch) — supersedes tasks #22/#23's grocery bits.
 
 ## Where the app came from
 
 Re-implementation (not a port) of the SwiftUI app in `RecipeApp/`
-(~7,700 lines app Swift + ~3,600 lines framework-free `SharedLogic/`). The
-SwiftUI app stays the shipping app; RN is built in parallel until a deliberate
-cutover. **Pantry is dropped** from the RN app (on-device food classification —
+(~7,700 lines app Swift + ~3,600 lines framework-free `SharedLogic/`). **The
+cutover happened 2026-07-15: RN is now the shipping app; the SwiftUI app +
+Swift `SharedLogic/` are archived/legacy** (kept for reference / as the port
+source). **Pantry is dropped** from the RN app (on-device food classification —
 not worth porting).
 
 ## Phase status

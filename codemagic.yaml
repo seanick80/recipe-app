@@ -43,20 +43,11 @@ workflows:
           - ios_distribution_cert
       xcode: latest
       cocoapods: default
-    triggering:
-      events:
-        - push
-      branch_patterns:
-        - pattern: master
-          include: true
-          source: true
-      cancel_previous_builds: true
-    when:
-      changeset:
-        includes:
-          - 'RecipeApp/'
-          - 'SharedLogic/'
-          - 'codemagic.yaml'
+    # ARCHIVED (2026-07-15): the SwiftUI app is LEGACY — the React Native app
+    # (rn-ios-workflow) is the shipping app now. No auto-trigger; run this
+    # manually from the dashboard only if a legacy SwiftUI TestFlight build is
+    # ever needed. (Was previously auto-triggered on master pushes touching
+    # RecipeApp/ · SharedLogic/ · codemagic.yaml.)
     scripts:
       - name: Install xcodegen
         script: |
@@ -356,17 +347,16 @@ workflows:
           - $RECIPIENT_EMAIL
 
   # -----------------------------------------------------------------------
-  # RN iOS — TestFlight (manual trigger only)
+  # RN iOS — TestFlight  ***PRIMARY / SHIPPING APP*** (manual trigger)
   # -----------------------------------------------------------------------
-  # Builds the RN rewrite as an IPA and publishes it to TestFlight under the
-  # separate bundle ID `com.seanick80.recipeapp.rn`, so it installs alongside
-  # the SwiftUI app. Deliberately has NO `triggering:` block → it runs ONLY
-  # when started by hand from the Codemagic dashboard. This keeps scarce
-  # free-tier macOS minutes for the shipping SwiftUI app; start an RN iOS
-  # build manually when you want a fresh TestFlight build to compare.
-  #
-  # BLOCKED until three one-time Apple-console tasks are done (see TODO in the
-  # environment block below). The distribution cert + ASC API key are reused.
+  # Builds the React Native app (the SHIPPING app as of 2026-07-15; the SwiftUI
+  # ios-workflow above is archived/legacy) as an IPA and publishes it to
+  # TestFlight (bundle `com.seanick80.recipeapp.rn`).
+  # MANUAL trigger by choice: the plan is macOS-minutes-only and RN dev is fast,
+  # so we don't auto-build every push. Start it from the dashboard when you want
+  # a fresh TestFlight build. (To auto-build on every recipe-app-rn/ push instead,
+  # add a `triggering:` block scoped via `when.changeset` to `recipe-app-rn/`.)
+  # The distribution cert + ASC API key are reused.
   rn-ios-workflow:
     name: RN iOS (TestFlight — manual)
     max_build_duration: 60

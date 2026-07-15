@@ -1,16 +1,26 @@
 # Recipe App
 
+> **⚠️ CUTOVER (2026-07-15): the React Native app in `recipe-app-rn/` is now the
+> SHIPPING app.** The SwiftUI app (`RecipeApp/`), the Swift `SharedLogic/`, and
+> `TestFixtures/` are **ARCHIVED / legacy** — kept for reference and as the source
+> the RN app was ported from, but no longer developed or auto-built. Their
+> Codemagic workflow (`ios-workflow`) is manual-only now. New app work happens in
+> `recipe-app-rn/` (builds via the `rn-ios-workflow`, the primary build). The
+> shared `server/`, `schema/canonical.yaml`, and web `frontend/` are still active.
+
 ## Project Structure
-- `RecipeApp/` — SwiftUI iOS app (MVVM + SwiftData + CloudKit)
+- `recipe-app-rn/` — **React Native / Expo app — THE SHIPPING APP** (TypeScript;
+  offline-first expo-sqlite + server-canonical REST sync; NativeWind). See
+  `recipe-app-rn/MIGRATION_STATUS.md`. Built + published via `rn-ios-workflow`.
+- `RecipeApp/` — **ARCHIVED** SwiftUI iOS app (MVVM + SwiftData + CloudKit); legacy
   - `project.yml` — xcodegen config (source of truth; `.xcodeproj` is generated and gitignored)
   - `RecipeApp/RecipeApp.entitlements` — CloudKit service + container identifier
-- `SharedLogic/` — Pure-Swift modules shipped into the iOS app (parsers,
-  classifiers, quality gate, debug log). Copied into
-  `RecipeApp/RecipeApp/Parsers/` at CI build time by codemagic.yaml. Must
-  compile with `swiftc` on Windows (no Apple frameworks).
-- `TestFixtures/` — Windows-only test mirrors of the SwiftData `@Model` types
-  (`Recipe.swift`, `GroceryItem.swift`, `ShoppingTemplate.swift`) plus all
-  `Test*.swift` suites. Never copied into the iOS bundle.
+- `SharedLogic/` — **ARCHIVED** Pure-Swift modules (parsers, classifiers, quality
+  gate, debug log) for the legacy SwiftUI app; ported to TS under
+  `recipe-app-rn/src/lib/`. Copied into `RecipeApp/RecipeApp/Parsers/` at CI build
+  time by codemagic.yaml. Compile with `swiftc` on Windows (no Apple frameworks).
+- `TestFixtures/` — **ARCHIVED** Windows-only test mirrors of the SwiftData `@Model`
+  types + `Test*.swift` suites for the legacy SwiftUI app.
 - `scripts/layout-bench/` — Local document layout analysis benchmark (Python/PyTorch, Windows)
 - `data/layout-bench/` — Test images + ground truth for layout bench (images gitignored)
 - `schema/` — Canonical schema definition (`canonical.yaml`) and sync test
