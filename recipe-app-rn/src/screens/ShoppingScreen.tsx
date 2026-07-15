@@ -1,11 +1,10 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useLayoutEffect } from 'react';
-import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
+import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, View } from 'react-native';
 
 import { GroceryListBody } from '../components/GroceryListBody';
 import { useGrocery } from '../contexts/GroceryContext';
-import { allItemsChecked } from '../grocery/groceryLogic';
 import type { ShoppingStackParamList } from '../navigation/ShoppingStack';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'ShoppingHome'>;
@@ -19,9 +18,7 @@ type Props = NativeStackScreenProps<ShoppingStackParamList, 'ShoppingHome'>;
  * {@link GroceryListBody}; the header "…" menu hosts the bulk actions.
  */
 export function ShoppingScreen({ navigation }: Props) {
-  const { list, initializing, ensureDefaultTemplate, addStaples, setAllChecked, removeChecked, clearItems } =
-    useGrocery();
-  const allChecked = allItemsChecked(list?.items ?? []);
+  const { list, initializing, ensureDefaultTemplate, addStaples, removeChecked, clearItems } = useGrocery();
 
   const addStaplesToList = useCallback(async () => {
     if (!list) return;
@@ -39,43 +36,71 @@ export function ShoppingScreen({ navigation }: Props) {
     navigation.navigate('TemplateEditor', { templateId: template.id });
   }, [ensureDefaultTemplate, navigation]);
 
+  // Confirm before wiping the whole list (preserved from the old menu).
+  const confirmClearAll = useCallback(() => {
+    if (!list) return;
+    Alert.alert('Clear all items?', undefined, [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Clear', style: 'destructive', onPress: () => void clearItems(list.id) },
+    ]);
+  }, [list, clearItems]);
+
+  // The header "…" bulk-actions menu. Check-all/Uncheck-all now lives on the add
+  // bar (GroceryListBody), so it's intentionally absent here. Native ActionSheet
+  // on iOS (Clear all destructive, Cancel last); Alert fallback on Android.
+  const openActions = useCallback(() => {
+    if (!list) return;
+    const actions: { label: string; run: () => void; destructive?: boolean }[] = [
+      { label: 'Remove checked', run: () => void removeChecked(list.id) },
+      { label: 'Clear all', run: confirmClearAll, destructive: true },
+      { label: 'Add staples', run: () => void addStaplesToList() },
+      { label: 'Edit staples', run: () => void editStaples() },
+      { label: 'Generate from Recipes', run: () => navigation.navigate('GenerateGroceryList') },
+    ];
+
+    if (Platform.OS === 'ios') {
+      const options = [...actions.map((a) => a.label), 'Cancel'];
+      const cancelButtonIndex = actions.length;
+      const destructiveButtonIndex = actions.findIndex((a) => a.destructive);
+      ActionSheetIOS.showActionSheetWithOptions(
+        {
+          title: 'Shopping',
+          options,
+          cancelButtonIndex,
+          destructiveButtonIndex: destructiveButtonIndex >= 0 ? destructiveButtonIndex : undefined,
+        },
+        (index) => {
+          if (index === cancelButtonIndex) return;
+          actions[index]?.run();
+        },
+      );
+      return;
+    }
+
+    Alert.alert('Shopping', undefined, [
+      ...actions.map((a) => ({
+        text: a.label,
+        style: a.destructive ? ('destructive' as const) : undefined,
+        onPress: a.run,
+      })),
+      { text: 'Cancel', style: 'cancel' as const },
+    ]);
+  }, [list, removeChecked, confirmClearAll, addStaplesToList, editStaples, navigation]);
+
   useLayoutEffect(() => {
     navigation.setOptions({
       headerRight: () => (
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Shopping actions"
-          onPress={() => {
-            const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
-            if (list) {
-              buttons.push({
-                text: allChecked ? 'Uncheck all' : 'Check all',
-                onPress: () => void setAllChecked(list.id, !allChecked),
-              });
-              buttons.push({ text: 'Remove checked', onPress: () => void removeChecked(list.id) });
-              buttons.push({
-                text: 'Clear all',
-                style: 'destructive',
-                onPress: () =>
-                  Alert.alert('Clear all items?', undefined, [
-                    { text: 'Cancel', style: 'cancel' },
-                    { text: 'Clear', style: 'destructive', onPress: () => void clearItems(list.id) },
-                  ]),
-              });
-            }
-            buttons.push({ text: 'Generate from Recipes', onPress: () => navigation.navigate('GenerateGroceryList') });
-            buttons.push({ text: 'Add staples', onPress: () => void addStaplesToList() });
-            buttons.push({ text: 'Edit staples', onPress: () => void editStaples() });
-            buttons.push({ text: 'Cancel', style: 'cancel' });
-            Alert.alert('Shopping', undefined, buttons);
-          }}
+          onPress={openActions}
           className="active:opacity-60"
         >
           <Ionicons name="ellipsis-horizontal" size={22} color="#2563eb" />
         </Pressable>
       ),
     });
-  }, [navigation, list, allChecked, setAllChecked, removeChecked, clearItems, addStaplesToList, editStaples]);
+  }, [navigation, openActions]);
 
   if (initializing || !list) {
     return (

@@ -67,6 +67,11 @@ export function TemplateEditorScreen({ route, navigation }: Props) {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: template?.name ?? 'Staples',
+      headerLeft: () => (
+        <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={() => navigation.goBack()}>
+          <Text className="text-base text-gray-500">Cancel</Text>
+        </Pressable>
+      ),
       headerRight: () => (
         <Pressable accessibilityRole="button" disabled={saving} onPress={onSave}>
           <Text className="text-base font-semibold text-blue-600">Save</Text>

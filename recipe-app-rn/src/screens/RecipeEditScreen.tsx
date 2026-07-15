@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useLayoutEffect, useMemo, useState } from 'react';
-import { ActivityIndicator } from 'react-native';
+import { ActivityIndicator, Alert } from 'react-native';
 
 import { Box } from '../../components/ui/box';
 import { Button, ButtonText } from '../../components/ui/button';
@@ -256,6 +256,22 @@ export function RecipeEditScreen({ route, navigation }: Props) {
 
   const canSave = form.name.trim().length > 0 && !saving;
 
+  // Dirty = the editable payload differs from what we loaded. For a brand-new
+  // recipe the baseline is the empty draft, so an untouched form is not dirty
+  // and Cancel discards silently; any edit (or any content on a new recipe)
+  // prompts a discard confirm.
+  const onCancel = useCallback(() => {
+    const dirty = JSON.stringify(toDraft(form)) !== JSON.stringify(toDraft(initial));
+    if (!dirty) {
+      navigation.goBack();
+      return;
+    }
+    Alert.alert('Discard changes?', undefined, [
+      { text: 'Keep editing', style: 'cancel' },
+      { text: 'Discard', style: 'destructive', onPress: () => navigation.goBack() },
+    ]);
+  }, [form, initial, navigation]);
+
   const onSave = useCallback(async () => {
     const draft = toDraft(form);
     if (!isDraftValid(draft)) return;
@@ -272,6 +288,11 @@ export function RecipeEditScreen({ route, navigation }: Props) {
   useLayoutEffect(() => {
     navigation.setOptions({
       title: localId ? 'Edit Recipe' : 'New Recipe',
+      headerLeft: () => (
+        <Button variant="link" size="sm" accessibilityRole="button" onPress={onCancel}>
+          <ButtonText className="text-base text-primary">Cancel</ButtonText>
+        </Button>
+      ),
       headerRight: () => (
         <Button variant="link" size="sm" accessibilityRole="button" disabled={!canSave} onPress={onSave}>
           <ButtonText className={canSave ? 'text-base font-semibold text-primary' : 'text-base text-muted-foreground'}>
@@ -280,7 +301,7 @@ export function RecipeEditScreen({ route, navigation }: Props) {
         </Button>
       ),
     });
-  }, [navigation, canSave, onSave, localId]);
+  }, [navigation, canSave, onSave, onCancel, localId]);
 
   return (
     <ScrollView className="flex-1 bg-background" contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">

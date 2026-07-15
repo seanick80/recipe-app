@@ -6,23 +6,29 @@ import { CategoryPicker } from './CategoryPicker';
 import { UnitPicker } from './UnitPicker';
 
 /**
- * Edit sheet for a single grocery-list item (name / quantity / unit / category).
- * Built from RN primitives + NativeWind, reusing {@link UnitPicker} (shopping
- * units) and {@link CategoryPicker}. Controlled by `item` (non-null = open);
- * `onSubmit` fires with the updated item, `onCancel` dismisses. An empty name is
- * treated as cancel. The checkbox toggle lives on the row itself — this sheet is
- * reached by tapping the item's text/body.
+ * Add/edit sheet for a single grocery-list item (name / quantity / unit /
+ * category). Built from RN primitives + NativeWind, reusing {@link UnitPicker}
+ * (shopping units) and {@link CategoryPicker}. Controlled by `item` (non-null =
+ * open); `onSubmit` fires with the item, `onCancel` dismisses. An empty name is
+ * treated as cancel.
+ *
+ * `mode` switches the presentation: `'edit'` (default) shows an "Edit item"
+ * title and a Delete button and is reached by tapping an existing row; `'add'`
+ * shows an "Add item" title with no Delete, opened from the list's add bar with
+ * a blank item. Either way the checkbox toggle lives on the row itself.
  */
 export function GroceryItemEditModal({
   item,
+  mode = 'edit',
   onSubmit,
   onCancel,
   onDelete,
 }: {
   item: GroceryItem | null;
+  mode?: 'add' | 'edit';
   onSubmit: (updated: GroceryItem) => void;
   onCancel: () => void;
-  /** Remove this item from the list (parent confirms + deletes + closes). */
+  /** Remove this item from the list (parent confirms + deletes + closes). Edit mode only. */
   onDelete: (item: GroceryItem) => void;
 }) {
   const [name, setName] = useState('');
@@ -70,7 +76,9 @@ export function GroceryItemEditModal({
         className="flex-1 justify-center bg-black/40 px-8"
       >
         <Pressable className="rounded-xl bg-white p-4" onPress={() => {}}>
-          <Text className="mb-3 text-base font-semibold text-gray-900">Edit item</Text>
+          <Text className="mb-3 text-base font-semibold text-gray-900">
+            {mode === 'add' ? 'Add item' : 'Edit item'}
+          </Text>
 
           <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Name</Text>
           <TextInput
@@ -101,14 +109,18 @@ export function GroceryItemEditModal({
           <CategoryPicker value={category} onChange={setCategory} triggerClassName="mb-1" />
 
           <View className="mt-4 flex-row items-center justify-between">
-            <Pressable
-              accessibilityRole="button"
-              accessibilityLabel="Delete item"
-              onPress={() => item && onDelete(item)}
-              className="px-2 py-1 active:opacity-60"
-            >
-              <Text className="text-base font-semibold text-red-600">Delete</Text>
-            </Pressable>
+            {mode === 'edit' ? (
+              <Pressable
+                accessibilityRole="button"
+                accessibilityLabel="Delete item"
+                onPress={() => item && onDelete(item)}
+                className="px-2 py-1 active:opacity-60"
+              >
+                <Text className="text-base font-semibold text-red-600">Delete</Text>
+              </Pressable>
+            ) : (
+              <View />
+            )}
             <View className="flex-row gap-4">
               <Pressable accessibilityRole="button" onPress={onCancel} className="px-2 py-1 active:opacity-60">
                 <Text className="text-base text-gray-500">Cancel</Text>
