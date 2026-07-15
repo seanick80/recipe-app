@@ -38,6 +38,7 @@ struct AddGroceryItemView: View {
                         )
                         item.groceryList = groceryList
                         modelContext.insert(item)
+                        groceryList.markDirty()
                         dismiss()
                     }
                     .disabled(name.isEmpty)

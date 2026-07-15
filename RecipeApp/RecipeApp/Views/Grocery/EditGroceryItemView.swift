@@ -6,7 +6,10 @@ struct EditGroceryItemView: View {
     @Environment(\.dismiss) private var dismiss
     @Bindable var item: GroceryItem
 
-    @Query(sort: \ShoppingTemplate.sortOrder) private var templates: [ShoppingTemplate]
+    @Query(
+        filter: #Predicate<ShoppingTemplate> { $0.locallyDeleted == false },
+        sort: \ShoppingTemplate.sortOrder
+    ) private var templates: [ShoppingTemplate]
 
     @State private var name: String = ""
     @State private var quantity: String = ""
@@ -62,6 +65,7 @@ struct EditGroceryItemView: View {
                         item.quantity = Double(quantity) ?? 1
                         item.unit = unit
                         item.category = category
+                        item.groceryList?.markDirty()
                         if addToStaples, let template = templates.first {
                             let nextOrder = (template.items?.count ?? 0)
                             let templateItem = TemplateItem(
@@ -73,6 +77,7 @@ struct EditGroceryItemView: View {
                             )
                             templateItem.template = template
                             modelContext.insert(templateItem)
+                            template.markDirty()
                         }
                         dismiss()
                     }

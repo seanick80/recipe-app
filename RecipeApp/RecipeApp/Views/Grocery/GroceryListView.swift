@@ -3,6 +3,7 @@ import SwiftUI
 
 struct GroceryListView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(GrocerySyncService.self) private var grocerySyncService
     @Query(sort: \GroceryList.createdAt, order: .reverse) private var lists: [GroceryList]
     @State private var showingNewList = false
     @State private var showingGenerateFromRecipes = false
@@ -13,10 +14,16 @@ struct GroceryListView: View {
     @State private var selectedForMerge: Set<PersistentIdentifier> = []
     @State private var viewModel = ShoppingViewModel()
 
+    /// Soft-deleted lists are hidden from the UI (they linger for the 30-day
+    /// purge window while their DELETE is pushed to the server).
+    private var visibleLists: [GroceryList] {
+        lists.filter { !$0.locallyDeleted }
+    }
+
     var body: some View {
         NavigationStack {
             List {
-                ForEach(lists) { list in
+                ForEach(visibleLists) { list in
                     if isSelectingForMerge {
                         Button {
                             if selectedForMerge.contains(list.persistentModelID) {
@@ -67,7 +74,7 @@ struct GroceryListView: View {
                                 Label("Duplicate", systemImage: "doc.on.doc")
                             }
                             Button(role: .destructive) {
-                                modelContext.delete(list)
+                                softDelete(list)
                             } label: {
                                 Label("Delete", systemImage: "trash")
                             }
@@ -77,10 +84,11 @@ struct GroceryListView: View {
                 .onDelete { offsets in
                     guard !isSelectingForMerge else { return }
                     for index in offsets {
-                        modelContext.delete(lists[index])
+                        softDelete(visibleLists[index])
                     }
                 }
             }
+            .refreshable { await grocerySyncService.sync() }
             .navigationTitle("Grocery Lists")
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
@@ -103,7 +111,7 @@ struct GroceryListView: View {
                     }
                 }
                 ToolbarItem(placement: .secondaryAction) {
-                    if !isSelectingForMerge && lists.count >= 2 {
+                    if !isSelectingForMerge && visibleLists.count >= 2 {
                         Button {
                             isSelectingForMerge = true
                             selectedForMerge = []
@@ -139,6 +147,7 @@ struct GroceryListView: View {
                 Button("Create") {
                     let list = GroceryList(name: newListName)
                     modelContext.insert(list)
+                    list.markDirty()
                     newListName = ""
                 }
             }
@@ -153,11 +162,12 @@ struct GroceryListView: View {
                 Button("Cancel", role: .cancel) { renamingList = nil }
                 Button("Rename") {
                     renamingList?.name = renameText
+                    renamingList?.markDirty()
                     renamingList = nil
                 }
             }
             .overlay {
-                if lists.isEmpty {
+                if visibleLists.isEmpty {
                     ContentUnavailableView(
                         "No Lists",
                         systemImage: "cart",
@@ -172,7 +182,7 @@ struct GroceryListView: View {
     }
 
     private func mergeLists() {
-        let sources = lists.filter { selectedForMerge.contains($0.persistentModelID) }
+        let sources = visibleLists.filter { selectedForMerge.contains($0.persistentModelID) }
         guard sources.count >= 2, let target = sources.first else { return }
         viewModel.mergeLists(sources, into: target, context: modelContext)
         isSelectingForMerge = false
@@ -192,6 +202,16 @@ struct GroceryListView: View {
             newItem.groceryList = copy
             modelContext.insert(newItem)
         }
+        copy.markDirty()
+    }
+
+    /// Converts a direct delete into a soft-delete queued for a server DELETE.
+    /// The record lingers (hidden) for the 30-day purge window; the sync service
+    /// pushes the DELETE and then hard-deletes it locally.
+    private func softDelete(_ list: GroceryList) {
+        list.locallyDeleted = true
+        list.pendingRemoteDelete = true
+        list.deletedAt = Date()
     }
 }
 
@@ -232,6 +252,7 @@ struct GroceryListDetailView: View {
                         for index in offsets {
                             modelContext.delete(items[index])
                         }
+                        groceryList.markDirty()
                     }
                 }
             }
@@ -256,6 +277,7 @@ struct GroceryListDetailView: View {
                     for item in groceryList.items ?? [] {
                         item.isChecked = false
                     }
+                    groceryList.markDirty()
                 } label: {
                     Label("Uncheck All", systemImage: "arrow.uturn.backward")
                 }
@@ -279,6 +301,7 @@ struct GroceryListDetailView: View {
                 for item in groceryList.items ?? [] {
                     modelContext.delete(item)
                 }
+                groceryList.markDirty()
             }
             Button("Cancel", role: .cancel) {}
         } message: {
@@ -306,5 +329,6 @@ struct GroceryListDetailView: View {
         for item in checked {
             modelContext.delete(item)
         }
+        groceryList.markDirty()
     }
 }

@@ -132,6 +132,7 @@ struct BarcodeScannerView: View {
         )
         item.groceryList = list
         modelContext.insert(item)
+        list.markDirty()
         barcodeVM.reset()
     }
 

@@ -7,6 +7,7 @@ struct GroceryItemRow: View {
         HStack {
             Button {
                 item.isChecked.toggle()
+                item.groceryList?.markDirty()
             } label: {
                 Image(systemName: item.isChecked ? "checkmark.circle.fill" : "circle")
                     .foregroundStyle(item.isChecked ? .green : .gray)

@@ -43,6 +43,7 @@ struct AddTemplateItemView: View {
                         )
                         item.template = template
                         modelContext.insert(item)
+                        template.markDirty()
                         dismiss()
                     }
                     .disabled(name.isEmpty)

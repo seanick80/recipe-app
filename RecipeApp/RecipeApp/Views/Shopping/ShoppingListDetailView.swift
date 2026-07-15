@@ -6,6 +6,7 @@ import SwiftUI
 /// Checked items sink to the bottom of their category.
 struct ShoppingListDetailView: View {
     @Environment(\.modelContext) private var modelContext
+    @Environment(GrocerySyncService.self) private var grocerySyncService
     @Bindable var groceryList: GroceryList
     var viewModel: ShoppingViewModel
     @State private var showingAddItem = false
@@ -31,10 +32,12 @@ struct ShoppingListDetailView: View {
                         for index in offsets {
                             modelContext.delete(items[index])
                         }
+                        groceryList.markDirty()
                     }
                 }
             }
         }
+        .refreshable { await grocerySyncService.sync() }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -63,6 +66,7 @@ struct ShoppingListDetailView: View {
                     for item in groceryList.items ?? [] {
                         item.isChecked = false
                     }
+                    groceryList.markDirty()
                 } label: {
                     Label("Uncheck All", systemImage: "arrow.uturn.backward")
                 }
@@ -134,12 +138,14 @@ struct ShoppingListDetailView: View {
         for item in checked {
             modelContext.delete(item)
         }
+        groceryList.markDirty()
     }
 
     private func clearAllItems() {
         for item in groceryList.items ?? [] {
             modelContext.delete(item)
         }
+        groceryList.markDirty()
     }
 
     private func checkCameraAndPresent(_ action: @escaping () -> Void) {

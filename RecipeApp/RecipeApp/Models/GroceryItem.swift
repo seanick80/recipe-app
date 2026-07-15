@@ -11,6 +11,9 @@ final class GroceryItem {
     var isChecked: Bool = false
     var sourceRecipeName: String = ""
     var sourceRecipeId: String = ""
+    // Sync metadata: the server UUID once this item has been pushed. Per-item
+    // sync is driven by the parent list's watermark (matches the RN client).
+    var serverId: String? = nil
     var groceryList: GroceryList?
 
     init(

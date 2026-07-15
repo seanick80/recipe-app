@@ -6,7 +6,10 @@ import SwiftUI
 struct TemplateEditorView: View {
     @Environment(\.modelContext) private var modelContext
     @Environment(\.dismiss) private var dismiss
-    @Query(sort: \ShoppingTemplate.sortOrder) private var templates: [ShoppingTemplate]
+    @Query(
+        filter: #Predicate<ShoppingTemplate> { $0.locallyDeleted == false },
+        sort: \ShoppingTemplate.sortOrder
+    ) private var templates: [ShoppingTemplate]
 
     @State private var showingAddItem = false
 
@@ -17,6 +20,7 @@ struct TemplateEditorView: View {
         }
         let newTemplate = ShoppingTemplate(name: "Weekly Staples")
         modelContext.insert(newTemplate)
+        newTemplate.markDirty()
         return newTemplate
     }
 
@@ -53,6 +57,7 @@ struct TemplateEditorView: View {
                             for index in offsets {
                                 modelContext.delete(items[index])
                             }
+                            template.markDirty()
                         }
                     }
                 }
