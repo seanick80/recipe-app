@@ -6,6 +6,7 @@ import { Alert, Pressable } from 'react-native';
 import { GroceryListBody } from '../components/GroceryListBody';
 import { PromptModal } from '../components/PromptModal';
 import { useGrocery } from '../contexts/GroceryContext';
+import { allItemsChecked } from '../grocery/groceryLogic';
 import type { ListsStackParamList } from '../navigation/ListsStack';
 
 type Props = NativeStackScreenProps<ListsStackParamList, 'GroceryListDetail'>;
@@ -17,8 +18,10 @@ type Props = NativeStackScreenProps<ListsStackParamList, 'GroceryListDetail'>;
  */
 export function GroceryListDetailScreen({ route, navigation }: Props) {
   const { listId } = route.params;
-  const { getList, renameList, uncheckAll, removeChecked, clearItems } = useGrocery();
+  const { getList, renameList, setAllChecked, removeChecked, clearItems } = useGrocery();
   const [renaming, setRenaming] = useState(false);
+
+  const allChecked = allItemsChecked(getList(listId)?.items ?? []);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -29,7 +32,10 @@ export function GroceryListDetailScreen({ route, navigation }: Props) {
           onPress={() =>
             Alert.alert('List actions', undefined, [
               { text: 'Rename list', onPress: () => setRenaming(true) },
-              { text: 'Uncheck all', onPress: () => void uncheckAll(listId) },
+              {
+                text: allChecked ? 'Uncheck all' : 'Check all',
+                onPress: () => void setAllChecked(listId, !allChecked),
+              },
               { text: 'Remove checked', onPress: () => void removeChecked(listId) },
               {
                 text: 'Clear all',
@@ -49,7 +55,7 @@ export function GroceryListDetailScreen({ route, navigation }: Props) {
         </Pressable>
       ),
     });
-  }, [navigation, listId, uncheckAll, removeChecked, clearItems]);
+  }, [navigation, listId, allChecked, setAllChecked, removeChecked, clearItems]);
 
   return (
     <>

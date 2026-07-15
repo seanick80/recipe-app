@@ -59,6 +59,16 @@ export function groupByCategory(items: GroceryItem[]): CategorySection[] {
     }));
 }
 
+/**
+ * Whether every item in a (non-empty) list is checked. Drives the header's
+ * single check-all/uncheck-all toggle: an empty list, or any unchecked item,
+ * means the next bulk action should *check* all; only a fully-checked list
+ * flips the action to *uncheck* all.
+ */
+export function allItemsChecked(items: GroceryItem[]): boolean {
+  return items.length > 0 && items.every((i) => i.isChecked);
+}
+
 /** A new grocery item from a manual add — category auto-assigned by the classifier. */
 export function makeGroceryItem(
   id: string,

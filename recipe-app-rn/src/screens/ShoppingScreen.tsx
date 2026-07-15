@@ -5,6 +5,7 @@ import { Alert, Pressable, Text, View } from 'react-native';
 
 import { GroceryListBody } from '../components/GroceryListBody';
 import { useGrocery } from '../contexts/GroceryContext';
+import { allItemsChecked } from '../grocery/groceryLogic';
 import type { ShoppingStackParamList } from '../navigation/ShoppingStack';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'ShoppingHome'>;
@@ -16,8 +17,10 @@ type Props = NativeStackScreenProps<ShoppingStackParamList, 'ShoppingHome'>;
  * {@link GroceryListBody} for the item UI.
  */
 export function ShoppingScreen({ navigation }: Props) {
-  const { activeLists, archivedLists, ensureDefaultTemplate, addStaples, mergeLists, createList } = useGrocery();
+  const { activeLists, archivedLists, ensureDefaultTemplate, addStaples, mergeLists, createList, setAllChecked } =
+    useGrocery();
   const active = activeLists[0];
+  const allChecked = allItemsChecked(active?.items ?? []);
 
   const addStaplesTo = useCallback(
     async (listId: string) => {
@@ -50,7 +53,13 @@ export function ShoppingScreen({ navigation }: Props) {
           accessibilityLabel="Shopping actions"
           onPress={() => {
             const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
-            if (active) buttons.push({ text: 'Add staples', onPress: () => void addStaplesTo(active.id) });
+            if (active) {
+              buttons.push({ text: 'Add staples', onPress: () => void addStaplesTo(active.id) });
+              buttons.push({
+                text: allChecked ? 'Uncheck all' : 'Check all',
+                onPress: () => void setAllChecked(active.id, !allChecked),
+              });
+            }
             buttons.push({ text: 'Edit staples', onPress: () => void editStaples() });
             if (activeLists.length > 1) {
               buttons.push({
@@ -71,7 +80,17 @@ export function ShoppingScreen({ navigation }: Props) {
         </Pressable>
       ),
     });
-  }, [navigation, active, activeLists, archivedLists.length, addStaplesTo, editStaples, mergeLists]);
+  }, [
+    navigation,
+    active,
+    activeLists,
+    archivedLists.length,
+    allChecked,
+    setAllChecked,
+    addStaplesTo,
+    editStaples,
+    mergeLists,
+  ]);
 
   if (!active) {
     return (

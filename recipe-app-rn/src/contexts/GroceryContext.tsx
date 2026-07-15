@@ -75,6 +75,8 @@ type GroceryContextValue = {
   updateItem: (listId: string, item: GroceryItem) => Promise<void>;
   toggleItem: (listId: string, itemId: string) => Promise<void>;
   deleteItem: (listId: string, itemId: string) => Promise<void>;
+  /** Set `isChecked` on every item in the list, persisting once (one sync bump). */
+  setAllChecked: (listId: string, checked: boolean) => Promise<void>;
   uncheckAll: (listId: string) => Promise<void>;
   removeChecked: (listId: string) => Promise<void>;
   clearItems: (listId: string) => Promise<void>;
@@ -320,14 +322,17 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     [findList, persistItems],
   );
 
-  const uncheckAll = useCallback(
-    async (listId: string) => {
+  const setAllChecked = useCallback(
+    async (listId: string, checked: boolean) => {
       const list = findList(listId);
       if (!list) return;
-      await persistItems(listId, list.items.map((i) => ({ ...i, isChecked: false })));
+      // One batched persist over the whole array — a single needs_sync bump.
+      await persistItems(listId, list.items.map((i) => ({ ...i, isChecked: checked })));
     },
     [findList, persistItems],
   );
+
+  const uncheckAll = useCallback((listId: string) => setAllChecked(listId, false), [setAllChecked]);
 
   const removeChecked = useCallback(
     async (listId: string) => {
@@ -455,6 +460,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       updateItem,
       toggleItem,
       deleteItem,
+      setAllChecked,
       uncheckAll,
       removeChecked,
       clearItems,
@@ -480,6 +486,7 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       updateItem,
       toggleItem,
       deleteItem,
+      setAllChecked,
       uncheckAll,
       removeChecked,
       clearItems,

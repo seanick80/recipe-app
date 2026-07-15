@@ -1,4 +1,5 @@
 import {
+  allItemsChecked,
   CATEGORY_ORDER,
   categorySortIndex,
   generateFromRecipes,
@@ -28,6 +29,18 @@ function item(over: Partial<GroceryItem> = {}): GroceryItem {
     ...over,
   };
 }
+
+describe('allItemsChecked', () => {
+  it('is false for an empty list (so the action stays "Check all")', () => {
+    expect(allItemsChecked([])).toBe(false);
+  });
+  it('is false when any item is unchecked', () => {
+    expect(allItemsChecked([item({ isChecked: true }), item({ isChecked: false })])).toBe(false);
+  });
+  it('is true only when every item is checked', () => {
+    expect(allItemsChecked([item({ isChecked: true }), item({ isChecked: true })])).toBe(true);
+  });
+});
 
 describe('categorySortIndex', () => {
   it('orders known categories by CATEGORY_ORDER', () => {
