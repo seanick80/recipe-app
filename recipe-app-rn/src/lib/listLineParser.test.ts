@@ -115,6 +115,50 @@ describe('parseListLine — compound fractions', () => {
   });
 });
 
+// testQuantityRanges — take the first quantity, drop the range tail
+describe('parseListLine — quantity ranges', () => {
+  it.each<[string, number, string, string]>([
+    ['1-2 tsp', 1, '', 'tsp'],
+    ['1 tsp - 1/2 tsp', 1, '', 'tsp'],
+    ['1 tsp to 2 tsp', 1, '', 'tsp'],
+    ['2-3 cups flour', 2, 'cup', 'flour'],
+    ['1 to 2 cups flour', 1, 'cup', 'flour'],
+    ['1-2 cloves garlic', 1, '', 'cloves garlic'],
+  ])('%s → qty=%f unit=%s name=%s', (input, qty, unit, name) => {
+    const r = parseListLine(input)!;
+    expect(r.quantity).toBe(qty);
+    expect(r.unit).toBe(unit);
+    expect(r.name).toBe(name);
+    expect(r.name).not.toMatch(/[-–—]/); // no dangling range remainder
+  });
+
+  it('leaves a hyphenated name intact (no false range match)', () => {
+    const r = parseListLine('all-purpose flour')!;
+    expect(r.name).toBe('all-purpose flour');
+    expect(r.quantity).toBe(1);
+  });
+});
+
+// testSingleLetterUnits — "1 T"/"1 t" shorthand (case-sensitive)
+describe('parseListLine — single-letter units', () => {
+  it.each<[string, number, string, string]>([
+    ['1 T', 1, '', 'tbsp'],
+    ['1 t', 1, '', 'tsp'],
+    ['2 T butter', 2, 'tbsp', 'butter'],
+    ['1 t vanilla', 1, 'tsp', 'vanilla'],
+  ])('%s → qty=%f unit=%s name=%s', (input, qty, unit, name) => {
+    const r = parseListLine(input)!;
+    expect(r.quantity).toBe(qty);
+    expect(r.unit).toBe(unit);
+    expect(r.name).toBe(name);
+  });
+
+  it('does not treat a leading "T" (no quantity) as a unit', () => {
+    const r = parseListLine('T bone steak')!;
+    expect(r.name).toBe('T bone steak');
+  });
+});
+
 // testTrailingPunctuation
 describe('parseListLine — trailing punctuation', () => {
   it('strips a trailing comma', () => {

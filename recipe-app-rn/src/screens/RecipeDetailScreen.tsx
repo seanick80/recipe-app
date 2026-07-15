@@ -1,11 +1,13 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useLayoutEffect } from 'react';
-import { Alert, Linking, Pressable, ScrollView, Text, View } from 'react-native';
+import { Alert, Linking, Pressable, ScrollView, Share, Text, View } from 'react-native';
 
+import { WEB_BASE_URL } from '../config';
 import { useSync } from '../contexts/SyncContext';
 import { formatIngredient, isHttpUrl, parseTags, sortedIngredients } from '../lib/recipeFormat';
 import type { RecipesStackParamList } from '../navigation/RecipesStack';
+import { localToDraft } from '../sync/recipeDraft';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeDetail'>;
 
@@ -27,8 +29,33 @@ function Section({ title, children }: { title: string; children: React.ReactNode
  */
 export function RecipeDetailScreen({ route, navigation }: Props) {
   const { localId } = route.params;
-  const { getByLocalId, deleteRecipe } = useSync();
+  const { getByLocalId, deleteRecipe, updateRecipe } = useSync();
   const recipe = getByLocalId(localId);
+
+  // Share a public link to the recipe. Sharing makes the recipe publicly
+  // viewable (unauthenticated) at ${WEB_BASE_URL}/recipes/{serverId}: on first
+  // share we flip is_published=true through the normal update/sync path so it
+  // propagates to the server. A recipe with no serverId hasn't synced yet — the
+  // public link can't exist, so we block with a clear message.
+  const onShare = useCallback(async () => {
+    if (!recipe) return;
+    if (!recipe.serverId) {
+      Alert.alert(
+        'Sync required',
+        'This recipe hasn’t synced to the cloud yet, so it has no shareable link. Pull to refresh on the recipe list to sync, then try sharing again.',
+      );
+      return;
+    }
+    try {
+      if (!recipe.is_published) {
+        await updateRecipe(localId, { ...localToDraft(recipe), is_published: true });
+      }
+      const url = `${WEB_BASE_URL}/recipes/${recipe.serverId}`;
+      await Share.share({ url, message: `${recipe.name}\n${url}` });
+    } catch {
+      Alert.alert('Could not share', 'Something went wrong preparing the share link.');
+    }
+  }, [recipe, localId, updateRecipe]);
 
   const onDelete = useCallback(() => {
     Alert.alert('Delete recipe?', `“${recipe?.name ?? 'This recipe'}” will be removed.`, [
@@ -51,6 +78,14 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
             <View className="flex-row items-center">
               <Pressable
                 accessibilityRole="button"
+                accessibilityLabel="Share recipe"
+                onPress={onShare}
+                className="mr-4 active:opacity-60"
+              >
+                <Ionicons name="share-outline" size={24} color="#2563eb" />
+              </Pressable>
+              <Pressable
+                accessibilityRole="button"
                 accessibilityLabel="Edit recipe"
                 onPress={() => navigation.navigate('RecipeEdit', { localId })}
                 className="mr-4 active:opacity-60"
@@ -69,7 +104,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
           )
         : undefined,
     });
-  }, [navigation, recipe, localId, onDelete]);
+  }, [navigation, recipe, localId, onDelete, onShare]);
 
   if (!recipe) {
     return (

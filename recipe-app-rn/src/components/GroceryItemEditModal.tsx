@@ -17,10 +17,13 @@ export function GroceryItemEditModal({
   item,
   onSubmit,
   onCancel,
+  onDelete,
 }: {
   item: GroceryItem | null;
   onSubmit: (updated: GroceryItem) => void;
   onCancel: () => void;
+  /** Remove this item from the list (parent confirms + deletes + closes). */
+  onDelete: (item: GroceryItem) => void;
 }) {
   const [name, setName] = useState('');
   const [qty, setQty] = useState('');
@@ -97,13 +100,23 @@ export function GroceryItemEditModal({
           <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Category</Text>
           <CategoryPicker value={category} onChange={setCategory} triggerClassName="mb-1" />
 
-          <View className="mt-4 flex-row justify-end gap-4">
-            <Pressable accessibilityRole="button" onPress={onCancel} className="px-2 py-1 active:opacity-60">
-              <Text className="text-base text-gray-500">Cancel</Text>
+          <View className="mt-4 flex-row items-center justify-between">
+            <Pressable
+              accessibilityRole="button"
+              accessibilityLabel="Delete item"
+              onPress={() => item && onDelete(item)}
+              className="px-2 py-1 active:opacity-60"
+            >
+              <Text className="text-base font-semibold text-red-600">Delete</Text>
             </Pressable>
-            <Pressable accessibilityRole="button" onPress={submit} className="px-2 py-1 active:opacity-60">
-              <Text className="text-base font-semibold text-blue-600">Save</Text>
-            </Pressable>
+            <View className="flex-row gap-4">
+              <Pressable accessibilityRole="button" onPress={onCancel} className="px-2 py-1 active:opacity-60">
+                <Text className="text-base text-gray-500">Cancel</Text>
+              </Pressable>
+              <Pressable accessibilityRole="button" onPress={submit} className="px-2 py-1 active:opacity-60">
+                <Text className="text-base font-semibold text-blue-600">Save</Text>
+              </Pressable>
+            </View>
           </View>
         </Pressable>
       </Pressable>

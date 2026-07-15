@@ -266,7 +266,15 @@ export class GrocerySyncService {
       if (!serverUpdatedAt) continue;
       if (ms(serverUpdatedAt) <= ms(local.lastSyncedAt)) continue;
 
-      // Server is newer → server wins wholesale (no conflict copy for lists).
+      // Server is newer, BUT the local list has unpushed changes (e.g. a
+      // just-toggled item) → do NOT overwrite. Keep the local edit and let the
+      // push reconcile it up to the server (favor the local change). Without
+      // this guard a background pull clobbers a local check-off before the push
+      // sends it (mirrors the recipe sync's server-newer + needsSync guard).
+      if (local.needsSync) continue;
+
+      // Server is newer and local is clean → server wins wholesale (no conflict
+      // copy for lists).
       try {
         const dto = await this.api.getGroceryList(serverId);
         applyServerList(local, dto, this.env);
@@ -476,6 +484,10 @@ export class GrocerySyncService {
       const serverUpdatedAt = serverMap.get(serverId);
       if (!serverUpdatedAt) continue;
       if (ms(serverUpdatedAt) <= ms(local.lastSyncedAt)) continue;
+
+      // Same local-edit guard as lists: a server-newer template must not
+      // clobber unpushed local changes — let the push reconcile them up.
+      if (local.needsSync) continue;
 
       try {
         const dto = await this.api.getTemplate(serverId);

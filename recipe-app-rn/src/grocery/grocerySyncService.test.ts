@@ -412,6 +412,44 @@ describe('GrocerySyncService — lists', () => {
     expect(saved.lastSyncedAt).toBe(NEW);
   });
 
+  it('local-edit guard: a locally-dirty list survives a newer-server pull and is pushed', async () => {
+    // The clobber regression (#28): user checks an item locally (needsSync),
+    // and the server reports a NEWER updated_at (a background bump). The pull
+    // must NOT overwrite the local list — the local check-off must survive and
+    // get pushed up (toggled on the server).
+    const api = new FakeApi([
+      serverList({
+        id: 'srv-L',
+        name: 'Server',
+        updated_at: NEW, // server is newer than the local watermark…
+        items: [serverItem({ id: 'ia', name: 'Milk', is_checked: false })],
+      }),
+    ]);
+    const local = localList({
+      id: 'L',
+      serverId: 'srv-L',
+      name: 'Local',
+      lastSyncedAt: OLD, // …but the local list is dirty since OLD
+      needsSync: true,
+      items: [localItem({ id: 'la', serverId: 'ia', name: 'Milk', isChecked: true })],
+    });
+    const { repo, service } = makeService({ lists: [local] }, api);
+
+    const result = await service.sync();
+
+    // Pull did NOT overwrite (no wholesale download of the server version)…
+    expect(result.pulledUpdated).toBe(0);
+    // …and the local check-off was pushed up via the toggle endpoint.
+    expect(api.toggleItem).toHaveBeenCalledWith('ia');
+    expect(result.pushed).toBe(1);
+    const saved = (await repo.getAllLists())[0];
+    expect(saved.items).toHaveLength(1);
+    expect(saved.items[0].name).toBe('Milk');
+    expect(saved.items[0].isChecked).toBe(true); // survived — not clobbered
+    expect(saved.needsSync).toBe(false); // reconciled clean
+    expect(api.lists.get('srv-L')!.items[0].is_checked).toBe(true); // server now checked
+  });
+
   it('server-deletion: a synced list absent from the server list is soft-deleted', async () => {
     const api = new FakeApi(); // empty server list
     const local = localList({ id: 'G', serverId: 'srv-G', lastSyncedAt: OLD });

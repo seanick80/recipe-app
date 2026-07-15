@@ -22,6 +22,13 @@ export const API_BASE_URL = __DEV__
   ? `http://${DEV_HOST}:8000/api/v1`
   : 'https://recipe-api-972511622379.us-west1.run.app/api/v1';
 
+/**
+ * Web origin that serves the public recipe SPA (the same Cloud Run service that
+ * hosts the API, minus the `/api/v1` suffix). A published recipe is viewable at
+ * `${WEB_BASE_URL}/recipes/{serverId}` without signing in — used for share links.
+ */
+export const WEB_BASE_URL = API_BASE_URL.replace(/\/api\/v1\/?$/, '');
+
 /** Sent on every request (matches the SwiftUI client's `User-Agent`). */
 export const USER_AGENT = 'RecipeApp-RN/0.1.0';
 

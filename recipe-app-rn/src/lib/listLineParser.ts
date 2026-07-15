@@ -124,9 +124,11 @@ export function parseListLine(rawLine: string): ParsedListItem | null {
     [...line].length <= 20 &&
     line === line.toUpperCase() &&
     !/\p{Ll}/u.test(line) &&
-    /\p{L}/u.test(line)
+    /\p{L}/u.test(line) &&
+    !/\d/u.test(line)
   ) {
-    // Could be a category header like "DAIRY" or "PRODUCE"
+    // Could be a category header like "DAIRY" or "PRODUCE". A line with a digit
+    // (e.g. "1 T") is a quantified item, not a header.
     return null;
   }
 
@@ -140,7 +142,10 @@ export function parseListLine(rawLine: string): ParsedListItem | null {
 
   // Try to parse leading quantity: "2", "2x", "0.5"
   const firstNum = parseQuantityToken(tokens[0]);
-  const fused = firstNum === null ? parseFusedQuantityUnit(tokens[0]) : null;
+  // A fused range like "1-2" (take the first quantity, drop the range tail).
+  const rangeNum = firstNum === null ? parseRangeToken(tokens[0]) : null;
+  const fused =
+    firstNum === null && rangeNum === null ? parseFusedQuantityUnit(tokens[0]) : null;
   if (firstNum !== null) {
     quantity = firstNum;
     startIndex = 1;
@@ -162,6 +167,10 @@ export function parseListLine(rawLine: string): ParsedListItem | null {
         }
       }
     }
+  } else if (rangeNum !== null) {
+    // "1-2 tsp" → take the first quantity; the "-2" tail is dropped.
+    quantity = rangeNum;
+    startIndex = 1;
   } else if (fused !== null) {
     // Handles tokens like "150g", "60ml", "2oz" where OCR / recipe
     // formatting has glued the number and unit with no space.
@@ -198,11 +207,38 @@ export function parseListLine(rawLine: string): ParsedListItem | null {
   // dotted abbreviation like "Tbsp." or "tsp." still matches `knownUnits`
   // instead of leaking into the item name.
   if (startIndex < tokens.length) {
-    const candidate = trimCharacters(tokens[startIndex], ',.;:').toLowerCase();
-    const canonical = knownUnits[candidate];
+    const raw = trimCharacters(tokens[startIndex], ',.;:');
+    const canonical = knownUnits[raw.toLowerCase()];
     if (canonical !== undefined) {
       unit = canonical;
       startIndex += 1;
+    } else if (startIndex > 0 && (raw === 'T' || raw === 't')) {
+      // Single-letter units, only in the unit position right after a quantity
+      // (so "T-bone"/"t"-words in the name aren't eaten). Case matters: capital
+      // T = tablespoon, lowercase t = teaspoon (the standard recipe shorthand).
+      unit = raw === 'T' ? 'tbsp' : 'tsp';
+      startIndex += 1;
+    }
+  }
+
+  // Drop a quantity RANGE remainder ("- 1/2 tsp", "to 2 tsp") that follows the
+  // leading quantity so it doesn't leak into the item name. Only fires when a
+  // leading quantity was parsed and a *second* quantity follows the separator —
+  // a real name like "to go" (no number after) is left untouched. A trailing
+  // unit on the range is adopted as the item's unit if it had none.
+  if (startIndex > 0 && startIndex < tokens.length) {
+    const sep = tokens[startIndex];
+    const isSep = sep === '-' || sep === '–' || sep === '—' || sep.toLowerCase() === 'to';
+    if (isSep && startIndex + 1 < tokens.length && parseQuantityToken(tokens[startIndex + 1]) !== null) {
+      let j = startIndex + 2;
+      if (j < tokens.length) {
+        const c = trimCharacters(tokens[j], ',.;:').toLowerCase();
+        if (knownUnits[c] !== undefined) {
+          if (unit.length === 0) unit = knownUnits[c];
+          j += 1;
+        }
+      }
+      startIndex = j;
     }
   }
 
@@ -307,6 +343,21 @@ export function parseFusedQuantityUnit(token: string): { quantity: number; unit:
   const canonical = fusedUnitCanonicalForms[unitPart];
   if (canonical === undefined) return null;
   return { quantity: qty, unit: canonical };
+}
+
+/**
+ * Parses a fused quantity range token like "1-2", "1/2-1", "2–3" into its FIRST
+ * quantity (the range upper bound is dropped). Returns null unless the token is
+ * exactly `<qty><dash><qty>` with both sides parseable — so hyphenated names
+ * ("all-purpose") and lone numbers are unaffected.
+ */
+export function parseRangeToken(token: string): number | null {
+  const parts = token.split(/[-–—]/);
+  if (parts.length !== 2) return null;
+  const first = parseQuantityToken(parts[0]);
+  const second = parseQuantityToken(parts[1]);
+  if (first !== null && first > 0 && second !== null && second > 0) return first;
+  return null;
 }
 
 /** Parses trailing multiplier like "x3", "×2". */

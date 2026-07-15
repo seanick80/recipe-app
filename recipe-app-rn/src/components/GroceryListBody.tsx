@@ -88,6 +88,25 @@ export function GroceryListBody() {
     setUnit('');
   }, [addItem, listId, name, qty, unit]);
 
+  // Confirm + delete a single item (shared by the row long-press and the edit
+  // sheet's Delete button). Closes the sheet if it was the one being edited.
+  const confirmDelete = useCallback(
+    (item: GroceryItem) => {
+      Alert.alert('Remove item?', `“${item.name}”`, [
+        { text: 'Cancel', style: 'cancel' },
+        {
+          text: 'Remove',
+          style: 'destructive',
+          onPress: () => {
+            void deleteItem(listId, item.id);
+            setEditingItemId((cur) => (cur === item.id ? null : cur));
+          },
+        },
+      ]);
+    },
+    [deleteItem, listId],
+  );
+
   if (!list) {
     return (
       <View className="flex-1 items-center justify-center bg-white px-8">
@@ -142,12 +161,7 @@ export function GroceryListBody() {
                   item={item}
                   onToggle={() => void toggleItem(listId, item.id)}
                   onEdit={() => setEditingItemId(item.id)}
-                  onDelete={() =>
-                    Alert.alert('Remove item?', `“${item.name}”`, [
-                      { text: 'Cancel', style: 'cancel' },
-                      { text: 'Remove', style: 'destructive', onPress: () => void deleteItem(listId, item.id) },
-                    ])
-                  }
+                  onDelete={() => confirmDelete(item)}
                 />
               ))}
             </View>
@@ -162,6 +176,7 @@ export function GroceryListBody() {
           setEditingItemId(null);
         }}
         onCancel={() => setEditingItemId(null)}
+        onDelete={confirmDelete}
       />
     </View>
   );
