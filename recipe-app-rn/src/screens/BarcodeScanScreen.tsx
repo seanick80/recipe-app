@@ -2,9 +2,8 @@ import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { CameraView, useCameraPermissions, type BarcodeScanningResult } from 'expo-camera';
 import { useCallback, useRef, useState } from 'react';
-import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
+import { ActivityIndicator, Modal, Pressable, Text, View } from 'react-native';
 
-import { PromptModal } from '../components/PromptModal';
 import { useGrocery } from '../contexts/GroceryContext';
 import { lookupBarcode } from '../lib/barcodeLookup';
 import { formatProductDisplay, type ProductLookupResult } from '../lib/barcodeProductMapper';
@@ -30,18 +29,17 @@ type ScanOutcome =
 /**
  * Live barcode scanner (Phase 5). Mounts an `expo-camera` `CameraView`, decodes
  * grocery barcodes, looks them up on Open Food Facts via {@link lookupBarcode},
- * and lets the user drop the product onto an active grocery list (or a new one).
+ * and drops the product onto the single persistent shopping list.
  *
  * The camera preview + live decode can only be exercised on a real device; the
  * lookup/add wiring is unit-tested in `src/lib/barcodeLookup.test.ts`.
  */
 export function BarcodeScanScreen({ navigation }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
-  const { activeLists, addItem, createList } = useGrocery();
+  const { list, addItem } = useGrocery();
 
   const [looking, setLooking] = useState(false);
   const [outcome, setOutcome] = useState<ScanOutcome | null>(null);
-  const [creatingList, setCreatingList] = useState(false);
 
   // Scan guard: suppress the same code fired repeatedly by the camera, and
   // freeze scanning entirely while we're looking up / showing a result.
@@ -79,27 +77,15 @@ export function BarcodeScanScreen({ navigation }: Props) {
     [],
   );
 
-  const addToList = useCallback(
-    async (listId: string) => {
-      if (!outcome) return;
-      const name =
-        outcome.kind === 'found'
-          ? formatProductDisplay(outcome.product.name, outcome.product.brand)
-          : outcome.barcode;
-      await addItem(listId, name, 1, '');
-      resetScan();
-    },
-    [outcome, addItem, resetScan],
-  );
-
-  const createAndAdd = useCallback(
-    async (listName: string) => {
-      setCreatingList(false);
-      const id = await createList(listName);
-      await addToList(id);
-    },
-    [createList, addToList],
-  );
+  const addToList = useCallback(async () => {
+    if (!outcome || !list) return;
+    const name =
+      outcome.kind === 'found'
+        ? formatProductDisplay(outcome.product.name, outcome.product.brand)
+        : outcome.barcode;
+    await addItem(list.id, name, 1, '');
+    resetScan();
+  }, [outcome, list, addItem, resetScan]);
 
   // --- permission gates ---
   if (!permission) {
@@ -179,37 +165,14 @@ export function BarcodeScanScreen({ navigation }: Props) {
               </View>
             ) : null}
 
-            <Text className="mb-2 text-sm font-medium text-gray-500">Add to a list</Text>
-            <View className="min-h-[48px]">
-              {activeLists.length === 0 ? (
-                <Text className="py-2 text-sm text-gray-400">No lists yet — create one below.</Text>
-              ) : (
-                <ScrollView className="max-h-56">
-                  {activeLists.map((item) => (
-                    <Pressable
-                      key={item.id}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Add to ${item.name}`}
-                      onPress={() => void addToList(item.id)}
-                      className="flex-row items-center justify-between border-b border-gray-100 py-3 active:bg-gray-50"
-                    >
-                      <Text className="flex-1 text-base text-gray-900" numberOfLines={1}>
-                        {item.name}
-                      </Text>
-                      <Ionicons name="add-circle-outline" size={22} color="#2563eb" />
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-
             <Pressable
               accessibilityRole="button"
-              onPress={() => setCreatingList(true)}
-              className="mt-3 flex-row items-center justify-center rounded-lg bg-gray-900 px-4 py-3 active:opacity-80"
+              accessibilityLabel="Add to shopping list"
+              onPress={() => void addToList()}
+              className="mt-1 flex-row items-center justify-center rounded-lg bg-gray-900 px-4 py-3 active:opacity-80"
             >
               <Ionicons name="add" size={18} color="#fff" />
-              <Text className="ml-2 font-semibold text-white">New list</Text>
+              <Text className="ml-2 font-semibold text-white">Add to shopping list</Text>
             </Pressable>
 
             <View className="mt-3 flex-row justify-between">
@@ -230,16 +193,6 @@ export function BarcodeScanScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
-
-      <PromptModal
-        visible={creatingList}
-        title="New list"
-        placeholder="List name"
-        confirmLabel="Create & add"
-        initialValue="Grocery List"
-        onSubmit={(name) => void createAndAdd(name)}
-        onCancel={() => setCreatingList(false)}
-      />
     </View>
   );
 }

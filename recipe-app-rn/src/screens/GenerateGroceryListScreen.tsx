@@ -6,10 +6,10 @@ import { FlatList, Pressable, Text, View } from 'react-native';
 import { useGrocery } from '../contexts/GroceryContext';
 import { useSync } from '../contexts/SyncContext';
 import type { GenerateRecipe } from '../grocery/types';
-import type { ListsStackParamList } from '../navigation/ListsStack';
+import type { ShoppingStackParamList } from '../navigation/ShoppingStack';
 import type { LocalRecipe } from '../sync/types';
 
-type Props = NativeStackScreenProps<ListsStackParamList, 'GenerateGroceryList'>;
+type Props = NativeStackScreenProps<ShoppingStackParamList, 'GenerateGroceryList'>;
 
 /** LocalRecipe → the generate input shape (server id preferred as stable id). */
 function toGenerateRecipe(r: LocalRecipe): GenerateRecipe {
@@ -26,9 +26,9 @@ function toGenerateRecipe(r: LocalRecipe): GenerateRecipe {
 }
 
 /**
- * Generate-from-recipes (Phase 4 slice 3): pick recipes, and their ingredients
- * are consolidated (prep-note-stripped, categorized, quantity-summed) into a new
- * grocery list named after the picks. Ported from SwiftUI `GenerateGroceryListView`.
+ * Generate-from-recipes: pick recipes, and their ingredients are consolidated
+ * (prep-note-stripped, categorized, quantity-summed) and appended into the
+ * single persistent shopping list. Ported from SwiftUI `GenerateGroceryListView`.
  */
 export function GenerateGroceryListScreen({ navigation }: Props) {
   const { recipes } = useSync();
@@ -48,8 +48,7 @@ export function GenerateGroceryListScreen({ navigation }: Props) {
 
   const onGenerate = useCallback(async () => {
     if (chosen.length === 0) return;
-    const newListName = chosen.map((r) => r.name).join(', ');
-    await generate(chosen.map(toGenerateRecipe), { newListName });
+    await generate(chosen.map(toGenerateRecipe));
     navigation.goBack();
   }, [chosen, generate, navigation]);
 
@@ -83,7 +82,7 @@ export function GenerateGroceryListScreen({ navigation }: Props) {
       keyExtractor={(item) => item.localId}
       ListHeaderComponent={
         <Text className="px-4 py-3 text-sm text-gray-500">
-          Select recipes to add their ingredients to a new list.
+          Select recipes to add their ingredients to your shopping list.
         </Text>
       }
       renderItem={({ item }) => {

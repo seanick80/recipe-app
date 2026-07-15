@@ -85,6 +85,17 @@ describe('parseListLine — fused units', () => {
   it('treats space-separated g as a unit', () => {
     expect(parseListLine('2 g sugar')!.unit).toBe('g');
   });
+  it.each<[string, number, string, string]>([
+    ['2 Tbsp. butter', 2, 'tbsp', 'butter'],
+    ['1 tsp. salt', 1, 'tsp', 'salt'],
+    ['2 tbsp. unsalted butter', 2, 'tbsp', 'unsalted butter'],
+    ['1 TSP. salt', 1, 'tsp', 'salt'],
+  ])('strips trailing punctuation off a dotted unit: %s', (input, qty, unit, name) => {
+    const r = parseListLine(input)!;
+    expect(r.quantity).toBe(qty);
+    expect(r.unit).toBe(unit);
+    expect(r.name).toBe(name);
+  });
   it('canonicalizes the word "grams" to g', () => {
     expect(parseListLine('grams of truth')!.unit).toBe('g');
   });

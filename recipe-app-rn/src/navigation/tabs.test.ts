@@ -1,18 +1,21 @@
 import { TABS } from './tabs';
 
 describe('tab configuration', () => {
-  it('has exactly five tabs', () => {
-    expect(TABS).toHaveLength(5);
+  it('has exactly four tabs', () => {
+    expect(TABS).toHaveLength(4);
   });
 
-  it('matches the tab set (Recipes, Shopping, Scan, Lists, Settings)', () => {
+  it('matches the tab set (Recipes, Shopping, Scan, Settings)', () => {
     expect(TABS.map((t) => t.name)).toEqual([
       'Recipes',
       'Shopping',
       'Scan',
-      'Lists',
       'Settings',
     ]);
+  });
+
+  it('drops the separate Lists tab (folded into Shopping)', () => {
+    expect(TABS.some((t) => t.name === 'Lists')).toBe(false);
   });
 
   it('drops the Pantry tab (out of scope for the RN app)', () => {

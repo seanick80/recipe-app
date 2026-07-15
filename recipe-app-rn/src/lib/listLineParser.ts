@@ -194,9 +194,11 @@ export function parseListLine(rawLine: string): ParsedListItem | null {
     }
   }
 
-  // Check if next token is a known unit
+  // Check if next token is a known unit. Strip trailing punctuation first so a
+  // dotted abbreviation like "Tbsp." or "tsp." still matches `knownUnits`
+  // instead of leaking into the item name.
   if (startIndex < tokens.length) {
-    const candidate = tokens[startIndex].toLowerCase();
+    const candidate = trimCharacters(tokens[startIndex], ',.;:').toLowerCase();
     const canonical = knownUnits[candidate];
     if (canonical !== undefined) {
       unit = canonical;

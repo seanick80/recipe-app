@@ -5,7 +5,6 @@ import { CameraView, useCameraPermissions } from 'expo-camera';
 import { useCallback, useRef, useState } from 'react';
 import { ActivityIndicator, Modal, Pressable, ScrollView, Text, View } from 'react-native';
 
-import { PromptModal } from '../components/PromptModal';
 import { useGrocery } from '../contexts/GroceryContext';
 import { debugLog } from '../lib/debugLog';
 import type { ParsedListItem } from '../lib/listLineParser';
@@ -24,7 +23,7 @@ type Props = NativeStackScreenProps<ScanStackParamList, 'PhotoScan'>;
  *   - a recognized **recipe** → the Recipes tab's `ImportReview` screen (via the
  *     app {@link navigationRef}, same path the URL/share import uses);
  *   - a recognized **shopping list** → an in-screen review sheet where the user
- *     picks a grocery list to drop every parsed item onto.
+ *     drops every parsed item onto the single persistent shopping list.
  *
  * When the pipeline judges the capture low-quality it surfaces a "retake?" sheet
  * first; the user can retake or use the result anyway.
@@ -35,7 +34,7 @@ type Props = NativeStackScreenProps<ScanStackParamList, 'PhotoScan'>;
  */
 export function PhotoCaptureScreen({ navigation }: Props) {
   const [permission, requestPermission] = useCameraPermissions();
-  const { activeLists, addItem, createList } = useGrocery();
+  const { list, addItem } = useGrocery();
 
   const cameraRef = useRef<CameraView>(null);
   const busyRef = useRef(false);
@@ -45,7 +44,6 @@ export function PhotoCaptureScreen({ navigation }: Props) {
   const [shoppingItems, setShoppingItems] = useState<ParsedListItem[] | null>(null);
   // A low-quality result awaiting the user's retake/continue decision.
   const [retake, setRetake] = useState<OCRPipelineResult | null>(null);
-  const [creatingList, setCreatingList] = useState(false);
 
   const reset = useCallback(() => {
     setBusy(false);
@@ -107,25 +105,13 @@ export function PhotoCaptureScreen({ navigation }: Props) {
     }
   }, [reset, route]);
 
-  const addAllToList = useCallback(
-    async (listId: string) => {
-      if (!shoppingItems) return;
-      for (const item of shoppingItems) {
-        await addItem(listId, item.name, item.quantity, item.unit);
-      }
-      reset();
-    },
-    [shoppingItems, addItem, reset],
-  );
-
-  const createAndAddAll = useCallback(
-    async (listName: string) => {
-      setCreatingList(false);
-      const id = await createList(listName);
-      await addAllToList(id);
-    },
-    [createList, addAllToList],
-  );
+  const addAllToList = useCallback(async () => {
+    if (!shoppingItems || !list) return;
+    for (const item of shoppingItems) {
+      await addItem(list.id, item.name, item.quantity, item.unit);
+    }
+    reset();
+  }, [shoppingItems, list, addItem, reset]);
 
   // --- permission gates (mirror BarcodeScanScreen) ---
   if (!permission) {
@@ -242,37 +228,15 @@ export function PhotoCaptureScreen({ navigation }: Props) {
               ))}
             </ScrollView>
 
-            <Text className="mb-2 text-sm font-medium text-gray-500">Add all to a list</Text>
-            <View className="min-h-[48px]">
-              {activeLists.length === 0 ? (
-                <Text className="py-2 text-sm text-gray-400">No lists yet — create one below.</Text>
-              ) : (
-                <ScrollView className="max-h-44">
-                  {activeLists.map((list) => (
-                    <Pressable
-                      key={list.id}
-                      accessibilityRole="button"
-                      accessibilityLabel={`Add all to ${list.name}`}
-                      onPress={() => void addAllToList(list.id)}
-                      className="flex-row items-center justify-between border-b border-gray-100 py-3 active:bg-gray-50"
-                    >
-                      <Text className="flex-1 text-base text-gray-900" numberOfLines={1}>
-                        {list.name}
-                      </Text>
-                      <Ionicons name="add-circle-outline" size={22} color="#2563eb" />
-                    </Pressable>
-                  ))}
-                </ScrollView>
-              )}
-            </View>
-
             <Pressable
               accessibilityRole="button"
-              onPress={() => setCreatingList(true)}
-              className="mt-3 flex-row items-center justify-center rounded-lg bg-gray-900 px-4 py-3 active:opacity-80"
+              accessibilityLabel="Add all to shopping list"
+              disabled={(shoppingItems?.length ?? 0) === 0}
+              onPress={() => void addAllToList()}
+              className="mt-1 flex-row items-center justify-center rounded-lg bg-gray-900 px-4 py-3 active:opacity-80"
             >
               <Ionicons name="add" size={18} color="#fff" />
-              <Text className="ml-2 font-semibold text-white">New list</Text>
+              <Text className="ml-2 font-semibold text-white">Add all to shopping list</Text>
             </Pressable>
 
             <View className="mt-3 flex-row justify-between">
@@ -293,16 +257,6 @@ export function PhotoCaptureScreen({ navigation }: Props) {
           </View>
         </View>
       </Modal>
-
-      <PromptModal
-        visible={creatingList}
-        title="New list"
-        placeholder="List name"
-        confirmLabel="Create & add"
-        initialValue="Grocery List"
-        onSubmit={(name) => void createAndAddAll(name)}
-        onCancel={() => setCreatingList(false)}
-      />
     </View>
   );
 }

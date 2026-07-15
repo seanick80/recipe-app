@@ -1,7 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import type { NativeStackScreenProps } from '@react-navigation/native-stack';
 import { useCallback, useLayoutEffect } from 'react';
-import { Alert, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Alert, Pressable, View } from 'react-native';
 
 import { GroceryListBody } from '../components/GroceryListBody';
 import { useGrocery } from '../contexts/GroceryContext';
@@ -11,39 +11,33 @@ import type { ShoppingStackParamList } from '../navigation/ShoppingStack';
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'ShoppingHome'>;
 
 /**
- * Shopping tab (Phase 4 slice 3b) — the staples workflow, a port of SwiftUI
- * `ShoppingListTab`. Operates on the first active list: add/edit reusable
- * staples, merge all active lists, and reach archived lists. Reuses the shared
- * {@link GroceryListBody} for the item UI.
+ * Shopping tab — THE single persistent shopping list. Add manual items /
+ * staples / recipe ingredients, check them off, then remove the checked ones;
+ * unpurchased items stay for the next trip. The list is guaranteed to exist
+ * (GroceryContext.ensureSingleList), so there is no create/switch/archive UI —
+ * only item actions and the staples presets. Item UI is the shared
+ * {@link GroceryListBody}; the header "…" menu hosts the bulk actions.
  */
 export function ShoppingScreen({ navigation }: Props) {
-  const { activeLists, archivedLists, ensureDefaultTemplate, addStaples, mergeLists, createList, setAllChecked } =
+  const { list, initializing, ensureDefaultTemplate, addStaples, setAllChecked, removeChecked, clearItems } =
     useGrocery();
-  const active = activeLists[0];
-  const allChecked = allItemsChecked(active?.items ?? []);
+  const allChecked = allItemsChecked(list?.items ?? []);
 
-  const addStaplesTo = useCallback(
-    async (listId: string) => {
-      const template = await ensureDefaultTemplate();
-      if (template.items.length === 0) {
-        Alert.alert('No staples yet', 'Add some in "Edit Staples" first.');
-        return;
-      }
-      const added = await addStaples(listId, template.id);
-      Alert.alert(added > 0 ? `Added ${added} item${added === 1 ? '' : 's'}` : 'Already stocked', undefined);
-    },
-    [ensureDefaultTemplate, addStaples],
-  );
+  const addStaplesToList = useCallback(async () => {
+    if (!list) return;
+    const template = await ensureDefaultTemplate();
+    if (template.items.length === 0) {
+      Alert.alert('No staples yet', 'Add some in "Edit staples" first.');
+      return;
+    }
+    const added = await addStaples(list.id, template.id);
+    Alert.alert(added > 0 ? `Added ${added} item${added === 1 ? '' : 's'}` : 'Already stocked', undefined);
+  }, [list, ensureDefaultTemplate, addStaples]);
 
   const editStaples = useCallback(async () => {
     const template = await ensureDefaultTemplate();
     navigation.navigate('TemplateEditor', { templateId: template.id });
   }, [ensureDefaultTemplate, navigation]);
-
-  const startWithStaples = useCallback(async () => {
-    const id = await createList('Groceries');
-    await addStaplesTo(id);
-  }, [createList, addStaplesTo]);
 
   useLayoutEffect(() => {
     navigation.setOptions({
@@ -53,24 +47,25 @@ export function ShoppingScreen({ navigation }: Props) {
           accessibilityLabel="Shopping actions"
           onPress={() => {
             const buttons: { text: string; style?: 'cancel' | 'destructive'; onPress?: () => void }[] = [];
-            if (active) {
-              buttons.push({ text: 'Add staples', onPress: () => void addStaplesTo(active.id) });
+            if (list) {
               buttons.push({
                 text: allChecked ? 'Uncheck all' : 'Check all',
-                onPress: () => void setAllChecked(active.id, !allChecked),
+                onPress: () => void setAllChecked(list.id, !allChecked),
               });
-            }
-            buttons.push({ text: 'Edit staples', onPress: () => void editStaples() });
-            if (activeLists.length > 1) {
+              buttons.push({ text: 'Remove checked', onPress: () => void removeChecked(list.id) });
               buttons.push({
-                text: `Merge ${activeLists.length} active lists`,
-                onPress: () => void mergeLists(activeLists.map((l) => l.id), activeLists[0].id),
+                text: 'Clear all',
+                style: 'destructive',
+                onPress: () =>
+                  Alert.alert('Clear all items?', undefined, [
+                    { text: 'Cancel', style: 'cancel' },
+                    { text: 'Clear', style: 'destructive', onPress: () => void clearItems(list.id) },
+                  ]),
               });
             }
-            buttons.push({
-              text: `Archived lists${archivedLists.length ? ` (${archivedLists.length})` : ''}`,
-              onPress: () => navigation.navigate('ArchivedLists'),
-            });
+            buttons.push({ text: 'Generate from Recipes', onPress: () => navigation.navigate('GenerateGroceryList') });
+            buttons.push({ text: 'Add staples', onPress: () => void addStaplesToList() });
+            buttons.push({ text: 'Edit staples', onPress: () => void editStaples() });
             buttons.push({ text: 'Cancel', style: 'cancel' });
             Alert.alert('Shopping', undefined, buttons);
           }}
@@ -80,44 +75,15 @@ export function ShoppingScreen({ navigation }: Props) {
         </Pressable>
       ),
     });
-  }, [
-    navigation,
-    active,
-    activeLists,
-    archivedLists.length,
-    allChecked,
-    setAllChecked,
-    addStaplesTo,
-    editStaples,
-    mergeLists,
-  ]);
+  }, [navigation, list, allChecked, setAllChecked, removeChecked, clearItems, addStaplesToList, editStaples]);
 
-  if (!active) {
+  if (initializing || !list) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50 px-8">
-        <Text className="mb-6 text-center text-base text-gray-500">
-          No active shopping list. Start one from your weekly staples.
-        </Text>
-        <Pressable
-          accessibilityRole="button"
-          onPress={startWithStaples}
-          className="mb-3 w-full items-center rounded-lg bg-gray-900 px-4 py-3 active:opacity-80"
-        >
-          <Text className="font-semibold text-white">Add staples to a new list</Text>
-        </Pressable>
-        <Pressable
-          accessibilityRole="button"
-          onPress={() => void createList('Groceries')}
-          className="w-full items-center rounded-lg border border-gray-300 px-4 py-3 active:bg-gray-100"
-        >
-          <Text className="font-semibold text-gray-900">New empty list</Text>
-        </Pressable>
-        <Pressable accessibilityRole="button" onPress={() => void editStaples()} className="mt-6 active:opacity-60">
-          <Text className="text-sm font-semibold text-blue-600">Edit weekly staples</Text>
-        </Pressable>
+      <View className="flex-1 items-center justify-center bg-gray-50">
+        <ActivityIndicator size="large" color="#111827" />
       </View>
     );
   }
 
-  return <GroceryListBody listId={active.id} />;
+  return <GroceryListBody />;
 }

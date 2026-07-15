@@ -4,7 +4,6 @@ import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 
 import { Placeholder } from '../components/Placeholder';
-import { ListsStack } from './ListsStack';
 import { RecipesStack } from './RecipesStack';
 import { ScanStack } from './ScanStack';
 import { SettingsStack } from './SettingsStack';
@@ -37,7 +36,6 @@ const REAL_STACKS: Record<string, ComponentType> = {
   Recipes: RecipesStack,
   Shopping: ShoppingStack,
   Scan: ScanStack,
-  Lists: ListsStack,
   Settings: SettingsStack,
 };
 

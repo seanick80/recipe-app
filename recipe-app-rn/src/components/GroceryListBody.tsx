@@ -68,13 +68,12 @@ function ItemRow({
 
 /**
  * Shared grocery-list body: an inline add bar + category-grouped, checkable
- * item rows. Used by both the Lists-tab detail screen and the Shopping-tab
- * staples view (each supplies its own header actions). Reads/writes the list
- * via {@link useGrocery}.
+ * item rows for the single persistent shopping list. The Shopping tab supplies
+ * the header actions. Reads/writes the list via {@link useGrocery}.
  */
-export function GroceryListBody({ listId }: { listId: string }) {
-  const { getList, addItem, updateItem, toggleItem, deleteItem } = useGrocery();
-  const list = getList(listId);
+export function GroceryListBody() {
+  const { list, addItem, updateItem, toggleItem, deleteItem } = useGrocery();
+  const listId = list?.id ?? '';
 
   const [name, setName] = useState('');
   const [qty, setQty] = useState('');
