@@ -55,6 +55,12 @@ export function fetchRecipe(id: string): Promise<Recipe> {
   return apiFetch<Recipe>(`/recipes/${id}`);
 }
 
+// Unauthenticated view of a published recipe — powers shareable links opened
+// by recipients who are not signed in. 404s for unpublished/nonexistent.
+export function fetchPublicRecipe(id: string): Promise<Recipe> {
+  return apiFetch<Recipe>(`/recipes/${id}/public`);
+}
+
 export function createRecipe(data: RecipeCreate): Promise<Recipe> {
   return apiFetch<Recipe>("/recipes", {
     method: "POST",

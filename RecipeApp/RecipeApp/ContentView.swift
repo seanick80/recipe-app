@@ -24,11 +24,6 @@ struct ContentView: View {
                 .tabItem {
                     Label("Pantry", systemImage: "refrigerator")
                 }
-
-            GroceryListView()
-                .tabItem {
-                    Label("Lists", systemImage: "list.bullet")
-                }
         }
         .safeAreaInset(edge: .top) {
             if authService.needsReauth {
