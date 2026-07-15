@@ -9,13 +9,41 @@ starting a new conversation on this work. Canonical plan:
   `swiftui-grocery-sync` branches are merged + deleted).
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml`.
-- **Last updated:** 🚀 **CUTOVER (2026-07-15): RN is now the SHIPPING app; SwiftUI is
-  archived.** Feature-complete vs SwiftUI (minus dropped Pantry); Codemagic flipped so
-  `rn-ios-workflow` is the primary build and the SwiftUI `ios-workflow` is manual/legacy.
-  In active on-device feedback iteration. NEXT DESIGN CHANGE decided but not yet built:
-  **collapse grocery to ONE persistent shopping list** (no multi-list / archive / trips;
-  add → check-off → remove-checked loop; staples + recipe-append into it; auto-consolidate
-  existing lists on launch) — supersedes tasks #22/#23's grocery bits.
+- **Last updated (2026-07-15, master @ `6f50285`):** RN is the SHIPPING app (cutover done;
+  SwiftUI archived). Feature-complete vs SwiftUI (minus Pantry). **Grocery collapsed to ONE
+  persistent rolling shopping list** (no multi-list/archive/trips; add → check-off →
+  remove-checked; staples + recipe-append into it; auto-consolidate stray lists on launch).
+  In active on-device feedback iteration; several rounds landed (see "Open backlog").
+
+## Open backlog / next session (on-device feedback)
+
+**Build to test:** trigger `rn-ios-workflow` on `master` (manual). All feedback below
+that's ✅ is on master awaiting a build.
+
+Landed on master (✅): item-edit sheet, recipe re-import button, stuck-spinner fix,
+select-all/check-all, one-list refactor, unit-in-name strip (#22), **sync-clobber fix**
+(background pull no longer reverts a local check-off — needsSync guard in grocerySyncService),
+per-item **delete** (edit-sheet Delete + long-press), **recipe share** (publishes + shares
+public `WEB_BASE_URL/recipes/{serverId}`), parser ranges + single-letter T/t units.
+
+Still open (not built):
+- **#29** — re-judge the Shopping bulk-action menu vs Swift on the next build; if still
+  clunky, swap the Alert-style menu for a proper **ActionSheet** (and optionally drop
+  "Check all" — Swift only had "Uncheck All").
+- **#10** — extract a shared **design-token library** (colors/borders/spacing/typography)
+  for reskinning; deferred post-parity.
+- **Optional:** debounce the post-write grocery sync (currently syncs after every
+  mutation — chatty; correctness is fine after the #28 guard).
+
+Known limitations (flag to user, not bugs):
+- **Already-imported recipes with a unit baked into the ingredient name** (e.g. "Tbsp.
+  unsalted butter") won't self-heal — the parser fix only affects NEW imports/scans; fix
+  old ones via the item-edit sheet or a recipe **re-import**.
+- **Sharing a recipe makes it publicly viewable** at its URL (no opt-in/privacy toggle
+  yet — see the web-share privacy TODO). 
+- **Recent commits are UNSIGNED** (from `8945e94` on; per-commit GPG pinentry can't be
+  answered by the non-interactive agent). Re-sign later with
+  `git rebase <base> --exec 'git commit --amend --no-edit -S'` if signatures on master matter.
 
 ## Where the app came from
 
