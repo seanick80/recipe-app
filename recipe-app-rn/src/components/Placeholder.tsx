@@ -12,9 +12,9 @@ type PlaceholderProps = {
  */
 export function Placeholder({ title, subtitle }: PlaceholderProps) {
   return (
-    <View className="flex-1 items-center justify-center bg-white px-6">
-      <Text className="text-2xl font-semibold text-gray-900">{title}</Text>
-      <Text className="mt-2 text-center text-base text-gray-500">
+    <View className="flex-1 items-center justify-center bg-app-surface px-6">
+      <Text className="text-2xl font-semibold text-app-text-primary">{title}</Text>
+      <Text className="mt-2 text-center text-base text-app-text-secondary">
         {subtitle ?? 'Coming soon'}
       </Text>
     </View>

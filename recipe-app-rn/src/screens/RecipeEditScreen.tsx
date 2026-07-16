@@ -19,6 +19,7 @@ import { fetchAndParseRecipe, importedRecipeToDraft } from '../lib/recipeImport'
 import type { RecipesStackParamList } from '../navigation/RecipesStack';
 import { emptyDraft, isDraftValid, localToDraft } from '../sync/recipeDraft';
 import type { RecipeInput } from '../sync/types';
+import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeEdit'>;
 
@@ -97,7 +98,7 @@ function Field({
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textMuted}
             {...rest}
           />
         </Textarea>
@@ -107,7 +108,7 @@ function Field({
             value={value}
             onChangeText={onChangeText}
             placeholder={placeholder}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textMuted}
             className="text-base"
             {...rest}
           />
@@ -147,7 +148,7 @@ function Stepper({
           accessibilityLabel={`Decrease ${label}`}
           onPress={() => set(value - step)}
         >
-          <Ionicons name="remove" size={20} color="#111827" />
+          <Ionicons name="remove" size={20} color={colors.textPrimary} />
         </Button>
         <Button
           size="icon"
@@ -157,7 +158,7 @@ function Stepper({
           accessibilityLabel={`Increase ${label}`}
           onPress={() => set(value + step)}
         >
-          <Ionicons name="add" size={20} color="#111827" />
+          <Ionicons name="add" size={20} color={colors.textPrimary} />
         </Button>
       </HStack>
     </HStack>
@@ -340,9 +341,9 @@ export function RecipeEditScreen({ route, navigation }: Props) {
             className="gap-2"
           >
             {reimporting ? (
-              <ActivityIndicator size="small" color="#2563eb" />
+              <ActivityIndicator size="small" color={colors.primary} />
             ) : (
-              <Ionicons name="refresh" size={18} color="#2563eb" />
+              <Ionicons name="refresh" size={18} color={colors.primary} />
             )}
             <ButtonText className="text-sm font-semibold text-primary">
               {reimporting ? 'Re-importing…' : 'Re-import from source'}
@@ -352,7 +353,7 @@ export function RecipeEditScreen({ route, navigation }: Props) {
             Re-fetches this recipe from its source URL and refreshes the steps, ingredients, and details below.
             Review, then Save.
           </Text>
-          {reimportError ? <Text className="mt-1 text-sm text-red-600">{reimportError}</Text> : null}
+          {reimportError ? <Text className="mt-1 text-sm text-app-danger">{reimportError}</Text> : null}
         </Box>
       ) : null}
 
@@ -363,7 +364,7 @@ export function RecipeEditScreen({ route, navigation }: Props) {
       <HStack className="mb-2 mt-2 items-center justify-between">
         <Text className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Ingredients</Text>
         <Button variant="link" size="sm" accessibilityRole="button" onPress={addIngredient} className="gap-1">
-          <Ionicons name="add-circle-outline" size={20} color="#2563eb" />
+          <Ionicons name="add-circle-outline" size={20} color={colors.primary} />
           <ButtonText className="text-sm font-semibold text-primary">Add</ButtonText>
         </Button>
       </HStack>
@@ -376,7 +377,7 @@ export function RecipeEditScreen({ route, navigation }: Props) {
                 value={row.quantityText}
                 onChangeText={(t) => setIngredient(index, { quantityText: t })}
                 placeholder="Qty"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.textMuted}
                 keyboardType="decimal-pad"
               />
             </Input>
@@ -391,7 +392,7 @@ export function RecipeEditScreen({ route, navigation }: Props) {
                 value={row.name}
                 onChangeText={(t) => setIngredient(index, { name: t })}
                 placeholder="ingredient"
-                placeholderTextColor="#9ca3af"
+                placeholderTextColor={colors.textMuted}
               />
             </Input>
           </HStack>
@@ -400,7 +401,7 @@ export function RecipeEditScreen({ route, navigation }: Props) {
               value={row.notes}
               onChangeText={(t) => setIngredient(index, { notes: t })}
               placeholder="notes (optional)"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
               className="text-sm"
             />
           </Input>
@@ -414,13 +415,13 @@ export function RecipeEditScreen({ route, navigation }: Props) {
           </HStack>
           <HStack className="mt-2 justify-end">
             <Pressable accessibilityRole="button" accessibilityLabel="Move up" onPress={() => moveIngredient(index, -1)} className="mr-3 active:opacity-50">
-              <Ionicons name="arrow-up" size={18} color="#6b7280" />
+              <Ionicons name="arrow-up" size={18} color={colors.textSecondary} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Move down" onPress={() => moveIngredient(index, 1)} className="mr-3 active:opacity-50">
-              <Ionicons name="arrow-down" size={18} color="#6b7280" />
+              <Ionicons name="arrow-down" size={18} color={colors.textSecondary} />
             </Pressable>
             <Pressable accessibilityRole="button" accessibilityLabel="Remove ingredient" onPress={() => removeIngredient(index)} className="active:opacity-50">
-              <Ionicons name="trash-outline" size={18} color="#dc2626" />
+              <Ionicons name="trash-outline" size={18} color={colors.danger} />
             </Pressable>
           </HStack>
         </Box>

@@ -9,6 +9,7 @@ import { lookupBarcode } from '../lib/barcodeLookup';
 import { formatProductDisplay, type ProductLookupResult } from '../lib/barcodeProductMapper';
 import { debugLog } from '../lib/debugLog';
 import type { ScanStackParamList } from '../navigation/ScanStack';
+import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'BarcodeScan'>;
 
@@ -90,17 +91,17 @@ export function BarcodeScanScreen({ navigation }: Props) {
   // --- permission gates ---
   if (!permission) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#111827" />
+      <View className="flex-1 items-center justify-center bg-app-background">
+        <ActivityIndicator size="large" color={colors.textPrimary} />
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50 px-8">
-        <Ionicons name="camera-outline" size={48} color="#9ca3af" />
-        <Text className="mt-4 text-center text-base text-gray-600">
+      <View className="flex-1 items-center justify-center bg-app-background px-8">
+        <Ionicons name="camera-outline" size={48} color={colors.textMuted} />
+        <Text className="mt-4 text-center text-base text-app-text-secondary-mid">
           {permission.canAskAgain
             ? 'Camera access is needed to scan barcodes.'
             : 'Camera access is off. Enable it in Settings to scan barcodes.'}
@@ -109,7 +110,7 @@ export function BarcodeScanScreen({ navigation }: Props) {
           <Pressable
             accessibilityRole="button"
             onPress={() => void requestPermission()}
-            className="mt-6 rounded-lg bg-gray-900 px-6 py-3 active:opacity-80"
+            className="mt-6 rounded-lg bg-app-surface-dark px-6 py-3 active:opacity-80"
           >
             <Text className="font-semibold text-white">Grant camera access</Text>
           </Pressable>
@@ -137,7 +138,7 @@ export function BarcodeScanScreen({ navigation }: Props) {
 
       {looking ? (
         <View className="absolute inset-0 items-center justify-center bg-black/50">
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color={colors.textOnDark} />
           <Text className="mt-3 text-base text-white">Looking up product…</Text>
         </View>
       ) : null}
@@ -145,21 +146,21 @@ export function BarcodeScanScreen({ navigation }: Props) {
       {/* Result sheet: found product or manual-add fallback + list picker. */}
       <Modal visible={outcome !== null} transparent animationType="slide" onRequestClose={resetScan}>
         <View className="flex-1 justify-end bg-black/40">
-          <View className="max-h-[80%] rounded-t-2xl bg-white p-4">
+          <View className="max-h-[80%] rounded-t-2xl bg-app-surface p-4">
             {outcome?.kind === 'found' ? (
               <View className="mb-3">
-                <Text className="text-lg font-semibold text-gray-900">
+                <Text className="text-lg font-semibold text-app-text-primary">
                   {formatProductDisplay(outcome.product.name, outcome.product.brand)}
                 </Text>
-                <Text className="mt-0.5 text-xs text-gray-400">
+                <Text className="mt-0.5 text-xs text-app-text-muted">
                   {outcome.product.category}
                   {outcome.product.quantity ? ` · ${outcome.product.quantity}` : ''} · {outcome.product.barcode}
                 </Text>
               </View>
             ) : outcome?.kind === 'notFound' ? (
               <View className="mb-3">
-                <Text className="text-lg font-semibold text-gray-900">Product not found</Text>
-                <Text className="mt-0.5 text-sm text-gray-500">
+                <Text className="text-lg font-semibold text-app-text-primary">Product not found</Text>
+                <Text className="mt-0.5 text-sm text-app-text-secondary">
                   No match for barcode {outcome.barcode}. Add it manually to a list?
                 </Text>
               </View>
@@ -169,15 +170,15 @@ export function BarcodeScanScreen({ navigation }: Props) {
               accessibilityRole="button"
               accessibilityLabel="Add to shopping list"
               onPress={() => void addToList()}
-              className="mt-1 flex-row items-center justify-center rounded-lg bg-gray-900 px-4 py-3 active:opacity-80"
+              className="mt-1 flex-row items-center justify-center rounded-lg bg-app-surface-dark px-4 py-3 active:opacity-80"
             >
-              <Ionicons name="add" size={18} color="#fff" />
+              <Ionicons name="add" size={18} color={colors.textOnDark} />
               <Text className="ml-2 font-semibold text-white">Add to shopping list</Text>
             </Pressable>
 
             <View className="mt-3 flex-row justify-between">
               <Pressable accessibilityRole="button" onPress={resetScan} className="px-2 py-2 active:opacity-60">
-                <Text className="text-base text-blue-600">Scan another</Text>
+                <Text className="text-base text-app-primary">Scan another</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -187,7 +188,7 @@ export function BarcodeScanScreen({ navigation }: Props) {
                 }}
                 className="px-2 py-2 active:opacity-60"
               >
-                <Text className="text-base text-gray-500">Done</Text>
+                <Text className="text-base text-app-text-secondary">Done</Text>
               </Pressable>
             </View>
           </View>

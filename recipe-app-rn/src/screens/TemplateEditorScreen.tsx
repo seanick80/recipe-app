@@ -8,6 +8,7 @@ import { useGrocery } from '../contexts/GroceryContext';
 import type { TemplateItem } from '../grocery/types';
 import { newLocalId } from '../lib/ids';
 import type { ShoppingStackParamList } from '../navigation/ShoppingStack';
+import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'TemplateEditor'>;
 
@@ -69,32 +70,32 @@ export function TemplateEditorScreen({ route, navigation }: Props) {
       title: template?.name ?? 'Staples',
       headerLeft: () => (
         <Pressable accessibilityRole="button" accessibilityLabel="Cancel" onPress={() => navigation.goBack()}>
-          <Text className="text-base text-gray-500">Cancel</Text>
+          <Text className="text-base text-app-text-secondary">Cancel</Text>
         </Pressable>
       ),
       headerRight: () => (
         <Pressable accessibilityRole="button" disabled={saving} onPress={onSave}>
-          <Text className="text-base font-semibold text-blue-600">Save</Text>
+          <Text className="text-base font-semibold text-app-primary">Save</Text>
         </Pressable>
       ),
     });
   }, [navigation, onSave, saving, template?.name]);
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
-      <Text className="mb-3 text-sm text-gray-500">
+    <ScrollView className="flex-1 bg-app-background" contentContainerStyle={{ padding: 16 }} keyboardShouldPersistTaps="handled">
+      <Text className="mb-3 text-sm text-app-text-secondary">
         Reusable staples you can add to any list in one tap.
       </Text>
 
       {rows.map((row, index) => (
-        <View key={row.id} className="mb-2 flex-row items-center rounded-lg border border-gray-200 bg-white p-2">
+        <View key={row.id} className="mb-2 flex-row items-center rounded-lg border border-app-border bg-app-surface p-2">
           <TextInput
             value={row.quantityText}
             onChangeText={(t) => setRow(index, { quantityText: t })}
             placeholder="Qty"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textMuted}
             keyboardType="decimal-pad"
-            className="mr-2 w-14 rounded border border-gray-200 px-2 py-1.5 text-base text-gray-900"
+            className="mr-2 w-14 rounded border border-app-border px-2 py-1.5 text-base text-app-text-primary"
           />
           <View className="mr-2 w-20">
             <UnitPicker value={row.unit} onChange={(u) => setRow(index, { unit: u })} context="shopping" />
@@ -103,18 +104,18 @@ export function TemplateEditorScreen({ route, navigation }: Props) {
             value={row.name}
             onChangeText={(t) => setRow(index, { name: t })}
             placeholder="staple"
-            placeholderTextColor="#9ca3af"
-            className="flex-1 rounded border border-gray-200 px-2 py-1.5 text-base text-gray-900"
+            placeholderTextColor={colors.textMuted}
+            className="flex-1 rounded border border-app-border px-2 py-1.5 text-base text-app-text-primary"
           />
           <Pressable accessibilityRole="button" accessibilityLabel="Remove" onPress={() => removeRow(index)} className="ml-2 active:opacity-50">
-            <Ionicons name="close-circle" size={22} color="#dc2626" />
+            <Ionicons name="close-circle" size={22} color={colors.danger} />
           </Pressable>
         </View>
       ))}
 
       <Pressable accessibilityRole="button" onPress={addRow} className="mt-2 flex-row items-center active:opacity-60">
-        <Ionicons name="add-circle-outline" size={22} color="#2563eb" />
-        <Text className="ml-1 font-semibold text-blue-600">Add staple</Text>
+        <Ionicons name="add-circle-outline" size={22} color={colors.primary} />
+        <Text className="ml-1 font-semibold text-app-primary">Add staple</Text>
       </Pressable>
     </ScrollView>
   );

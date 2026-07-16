@@ -4,6 +4,7 @@ import { useCallback, useState } from 'react';
 import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 
 import { debugLog, type LogEntry } from '../lib/debugLog';
+import { colors } from '../theme/tokens';
 
 /** Local-time display of an ISO timestamp (rule: view formats UTC → local). */
 function formatTime(iso: string): string {
@@ -55,9 +56,9 @@ export function LogsScreen() {
     ]);
 
   return (
-    <View className="flex-1 bg-gray-50">
-      <View className="flex-row items-center justify-between border-b border-gray-100 bg-white px-4 py-3">
-        <Text className="text-sm text-gray-500">
+    <View className="flex-1 bg-app-background">
+      <View className="flex-row items-center justify-between border-b border-app-border-subtle bg-app-surface px-4 py-3">
+        <Text className="text-sm text-app-text-secondary">
           {entries.length} {entries.length === 1 ? 'entry' : 'entries'}
         </Text>
         <View className="flex-row items-center">
@@ -67,8 +68,8 @@ export function LogsScreen() {
             onPress={refresh}
             className="mr-4 flex-row items-center active:opacity-60"
           >
-            <Ionicons name="refresh-outline" size={18} color="#2563eb" />
-            <Text className="ml-1 text-sm font-semibold text-blue-600">Refresh</Text>
+            <Ionicons name="refresh-outline" size={18} color={colors.primary} />
+            <Text className="ml-1 text-sm font-semibold text-app-primary">Refresh</Text>
           </Pressable>
           <Pressable
             accessibilityRole="button"
@@ -77,9 +78,9 @@ export function LogsScreen() {
             disabled={entries.length === 0}
             className="flex-row items-center active:opacity-60"
           >
-            <Ionicons name="trash-outline" size={18} color={entries.length === 0 ? '#d1d5db' : '#dc2626'} />
+            <Ionicons name="trash-outline" size={18} color={entries.length === 0 ? colors.textDisabled : colors.danger} />
             <Text
-              className={`ml-1 text-sm font-semibold ${entries.length === 0 ? 'text-gray-300' : 'text-red-600'}`}
+              className={`ml-1 text-sm font-semibold ${entries.length === 0 ? 'text-app-text-disabled' : 'text-app-danger'}`}
             >
               Clear
             </Text>
@@ -89,9 +90,9 @@ export function LogsScreen() {
 
       {entries.length === 0 ? (
         <View className="flex-1 items-center justify-center px-8">
-          <Ionicons name="document-text-outline" size={40} color="#d1d5db" />
-          <Text className="mt-3 text-center text-base text-gray-400">No logs yet</Text>
-          <Text className="mt-1 text-center text-sm text-gray-400">
+          <Ionicons name="document-text-outline" size={40} color={colors.textDisabled} />
+          <Text className="mt-3 text-center text-base text-app-text-muted">No logs yet</Text>
+          <Text className="mt-1 text-center text-sm text-app-text-muted">
             App activity (sync, sign-in, API errors) will appear here.
           </Text>
         </View>
@@ -100,14 +101,14 @@ export function LogsScreen() {
           {entries.map((entry, index) => {
             const details = formatDetails(entry.details);
             return (
-              <View key={`${entry.ts}-${index}`} className="border-b border-gray-100 bg-white px-4 py-2">
+              <View key={`${entry.ts}-${index}`} className="border-b border-app-border-subtle bg-app-surface px-4 py-2">
                 <View className="flex-row items-center justify-between">
-                  <Text className="text-xs font-semibold uppercase tracking-wide text-blue-500">{entry.cat}</Text>
-                  <Text className="text-xs text-gray-400">{formatTime(entry.ts)}</Text>
+                  <Text className="text-xs font-semibold uppercase tracking-wide text-app-primary-light">{entry.cat}</Text>
+                  <Text className="text-xs text-app-text-muted">{formatTime(entry.ts)}</Text>
                 </View>
-                <Text className="mt-1 text-sm text-gray-900">{entry.msg}</Text>
+                <Text className="mt-1 text-sm text-app-text-primary">{entry.msg}</Text>
                 {details ? (
-                  <Text className="mt-0.5 font-mono text-xs text-gray-500">{details}</Text>
+                  <Text className="mt-0.5 font-mono text-xs text-app-text-secondary">{details}</Text>
                 ) : null}
               </View>
             );

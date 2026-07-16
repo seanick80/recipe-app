@@ -4,6 +4,7 @@ import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 import type { GroceryItem } from '../grocery/types';
 import { CategoryPicker } from './CategoryPicker';
 import { UnitPicker } from './UnitPicker';
+import { colors } from '../theme/tokens';
 
 /**
  * Add/edit sheet for a single grocery-list item (name / quantity / unit /
@@ -75,37 +76,37 @@ export function GroceryItemEditModal({
         onPress={onCancel}
         className="flex-1 justify-center bg-black/40 px-8"
       >
-        <Pressable className="rounded-xl bg-white p-4" onPress={() => {}}>
-          <Text className="mb-3 text-base font-semibold text-gray-900">
+        <Pressable className="rounded-xl bg-app-surface p-4" onPress={() => {}}>
+          <Text className="mb-3 text-base font-semibold text-app-text-primary">
             {mode === 'add' ? 'Add item' : 'Edit item'}
           </Text>
 
-          <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Name</Text>
+          <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-app-text-muted">Name</Text>
           <TextInput
             value={name}
             onChangeText={setName}
             placeholder="Item name"
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textMuted}
             autoFocus
             returnKeyType="done"
             onSubmitEditing={submit}
-            className="mb-3 rounded border border-gray-200 bg-white px-3 py-2 text-base text-gray-900"
+            className="mb-3 rounded border border-app-border bg-app-surface px-3 py-2 text-base text-app-text-primary"
           />
 
-          <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Quantity</Text>
+          <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-app-text-muted">Quantity</Text>
           <View className="mb-3 flex-row items-center">
             <TextInput
               value={qty}
               onChangeText={setQty}
               placeholder="Qty"
-              placeholderTextColor="#9ca3af"
+              placeholderTextColor={colors.textMuted}
               keyboardType="decimal-pad"
-              className="w-16 rounded border border-gray-200 bg-white px-3 py-2 text-base text-gray-900"
+              className="w-16 rounded border border-app-border bg-app-surface px-3 py-2 text-base text-app-text-primary"
             />
             <UnitPicker value={unit} onChange={setUnit} context="shopping" triggerClassName="ml-2 flex-1" />
           </View>
 
-          <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-gray-400">Category</Text>
+          <Text className="mb-1 text-xs font-semibold uppercase tracking-wide text-app-text-muted">Category</Text>
           <CategoryPicker value={category} onChange={setCategory} triggerClassName="mb-1" />
 
           <View className="mt-4 flex-row items-center justify-between">
@@ -116,17 +117,17 @@ export function GroceryItemEditModal({
                 onPress={() => item && onDelete(item)}
                 className="px-2 py-1 active:opacity-60"
               >
-                <Text className="text-base font-semibold text-red-600">Delete</Text>
+                <Text className="text-base font-semibold text-app-danger">Delete</Text>
               </Pressable>
             ) : (
               <View />
             )}
             <View className="flex-row gap-4">
               <Pressable accessibilityRole="button" onPress={onCancel} className="px-2 py-1 active:opacity-60">
-                <Text className="text-base text-gray-500">Cancel</Text>
+                <Text className="text-base text-app-text-secondary">Cancel</Text>
               </Pressable>
               <Pressable accessibilityRole="button" onPress={submit} className="px-2 py-1 active:opacity-60">
-                <Text className="text-base font-semibold text-blue-600">Save</Text>
+                <Text className="text-base font-semibold text-app-primary">Save</Text>
               </Pressable>
             </View>
           </View>

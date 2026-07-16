@@ -12,6 +12,7 @@ import { mlKitToOCRLines, type MLKitResult } from '../lib/ocrAdapter';
 import { runOCRPipeline, type OCRPipelineResult } from '../lib/ocrPipeline';
 import { navigationRef } from '../navigation/navigationRef';
 import type { ScanStackParamList } from '../navigation/ScanStack';
+import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<ScanStackParamList, 'PhotoScan'>;
 
@@ -116,17 +117,17 @@ export function PhotoCaptureScreen({ navigation }: Props) {
   // --- permission gates (mirror BarcodeScanScreen) ---
   if (!permission) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#111827" />
+      <View className="flex-1 items-center justify-center bg-app-background">
+        <ActivityIndicator size="large" color={colors.textPrimary} />
       </View>
     );
   }
 
   if (!permission.granted) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50 px-8">
-        <Ionicons name="camera-outline" size={48} color="#9ca3af" />
-        <Text className="mt-4 text-center text-base text-gray-600">
+      <View className="flex-1 items-center justify-center bg-app-background px-8">
+        <Ionicons name="camera-outline" size={48} color={colors.textMuted} />
+        <Text className="mt-4 text-center text-base text-app-text-secondary-mid">
           {permission.canAskAgain
             ? 'Camera access is needed to scan recipes and lists.'
             : 'Camera access is off. Enable it in Settings to scan photos.'}
@@ -135,7 +136,7 @@ export function PhotoCaptureScreen({ navigation }: Props) {
           <Pressable
             accessibilityRole="button"
             onPress={() => void requestPermission()}
-            className="mt-6 rounded-lg bg-gray-900 px-6 py-3 active:opacity-80"
+            className="mt-6 rounded-lg bg-app-surface-dark px-6 py-3 active:opacity-80"
           >
             <Text className="font-semibold text-white">Grant camera access</Text>
           </Pressable>
@@ -165,13 +166,13 @@ export function PhotoCaptureScreen({ navigation }: Props) {
           className="items-center justify-center rounded-full border-4 border-white/80 bg-white/20 p-1 active:opacity-70"
           style={{ height: 72, width: 72 }}
         >
-          <View className="h-full w-full rounded-full bg-white" />
+          <View className="h-full w-full rounded-full bg-app-surface" />
         </Pressable>
       </View>
 
       {busy ? (
         <View className="absolute inset-0 items-center justify-center bg-black/50">
-          <ActivityIndicator size="large" color="#fff" />
+          <ActivityIndicator size="large" color={colors.textOnDark} />
           <Text className="mt-3 text-base text-white">Reading text…</Text>
         </View>
       ) : null}
@@ -179,9 +180,9 @@ export function PhotoCaptureScreen({ navigation }: Props) {
       {/* Low-quality "retake?" sheet. */}
       <Modal visible={retake !== null} transparent animationType="slide" onRequestClose={reset}>
         <View className="flex-1 justify-end bg-black/40">
-          <View className="rounded-t-2xl bg-white p-4">
-            <Text className="text-lg font-semibold text-gray-900">Hard to read</Text>
-            <Text className="mt-1 text-sm text-gray-500">
+          <View className="rounded-t-2xl bg-app-surface p-4">
+            <Text className="text-lg font-semibold text-app-text-primary">Hard to read</Text>
+            <Text className="mt-1 text-sm text-app-text-secondary">
               {retake?.quality.reason || 'The photo may be blurry or poorly lit.'} Retake for a better result?
             </Text>
             <View className="mt-4 flex-row justify-end gap-4">
@@ -194,10 +195,10 @@ export function PhotoCaptureScreen({ navigation }: Props) {
                 }}
                 className="px-3 py-2 active:opacity-60"
               >
-                <Text className="text-base text-gray-500">Use anyway</Text>
+                <Text className="text-base text-app-text-secondary">Use anyway</Text>
               </Pressable>
               <Pressable accessibilityRole="button" onPress={reset} className="px-3 py-2 active:opacity-60">
-                <Text className="text-base font-semibold text-blue-600">Retake</Text>
+                <Text className="text-base font-semibold text-app-primary">Retake</Text>
               </Pressable>
             </View>
           </View>
@@ -207,19 +208,19 @@ export function PhotoCaptureScreen({ navigation }: Props) {
       {/* Shopping-list review + list picker. */}
       <Modal visible={shoppingItems !== null} transparent animationType="slide" onRequestClose={reset}>
         <View className="flex-1 justify-end bg-black/40">
-          <View className="max-h-[85%] rounded-t-2xl bg-white p-4">
-            <Text className="text-lg font-semibold text-gray-900">
+          <View className="max-h-[85%] rounded-t-2xl bg-app-surface p-4">
+            <Text className="text-lg font-semibold text-app-text-primary">
               {shoppingItems?.length ?? 0} item{(shoppingItems?.length ?? 0) === 1 ? '' : 's'} found
             </Text>
 
             <ScrollView className="my-3 max-h-40">
               {(shoppingItems ?? []).map((item, i) => (
-                <View key={`${item.name}-${i}`} className="flex-row justify-between border-b border-gray-100 py-1.5">
-                  <Text className="flex-1 text-sm text-gray-800" numberOfLines={1}>
+                <View key={`${item.name}-${i}`} className="flex-row justify-between border-b border-app-border-subtle py-1.5">
+                  <Text className="flex-1 text-sm text-app-text-body" numberOfLines={1}>
                     {item.name}
                   </Text>
                   {item.quantity !== 1 || item.unit ? (
-                    <Text className="ml-3 text-sm text-gray-400">
+                    <Text className="ml-3 text-sm text-app-text-muted">
                       {item.quantity}
                       {item.unit ? ` ${item.unit}` : ''}
                     </Text>
@@ -233,15 +234,15 @@ export function PhotoCaptureScreen({ navigation }: Props) {
               accessibilityLabel="Add all to shopping list"
               disabled={(shoppingItems?.length ?? 0) === 0}
               onPress={() => void addAllToList()}
-              className="mt-1 flex-row items-center justify-center rounded-lg bg-gray-900 px-4 py-3 active:opacity-80"
+              className="mt-1 flex-row items-center justify-center rounded-lg bg-app-surface-dark px-4 py-3 active:opacity-80"
             >
-              <Ionicons name="add" size={18} color="#fff" />
+              <Ionicons name="add" size={18} color={colors.textOnDark} />
               <Text className="ml-2 font-semibold text-white">Add all to shopping list</Text>
             </Pressable>
 
             <View className="mt-3 flex-row justify-between">
               <Pressable accessibilityRole="button" onPress={reset} className="px-2 py-2 active:opacity-60">
-                <Text className="text-base text-blue-600">Scan another</Text>
+                <Text className="text-base text-app-primary">Scan another</Text>
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -251,7 +252,7 @@ export function PhotoCaptureScreen({ navigation }: Props) {
                 }}
                 className="px-2 py-2 active:opacity-60"
               >
-                <Text className="text-base text-gray-500">Done</Text>
+                <Text className="text-base text-app-text-secondary">Done</Text>
               </Pressable>
             </View>
           </View>

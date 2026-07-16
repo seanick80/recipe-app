@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
+import { colors } from '../theme/tokens';
 
 /**
  * A small single-field text prompt built from RN primitives + NativeWind.
@@ -51,24 +52,24 @@ export function PromptModal({
         onPress={onCancel}
         className="flex-1 justify-center bg-black/40 px-8"
       >
-        <Pressable className="rounded-xl bg-white p-4" onPress={() => {}}>
-          <Text className="mb-3 text-base font-semibold text-gray-900">{title}</Text>
+        <Pressable className="rounded-xl bg-app-surface p-4" onPress={() => {}}>
+          <Text className="mb-3 text-base font-semibold text-app-text-primary">{title}</Text>
           <TextInput
             value={text}
             onChangeText={setText}
             placeholder={placeholder}
-            placeholderTextColor="#9ca3af"
+            placeholderTextColor={colors.textMuted}
             autoFocus
             onSubmitEditing={submit}
             returnKeyType="done"
-            className="rounded border border-gray-200 bg-white px-3 py-2 text-base text-gray-900"
+            className="rounded border border-app-border bg-app-surface px-3 py-2 text-base text-app-text-primary"
           />
           <View className="mt-4 flex-row justify-end gap-4">
             <Pressable accessibilityRole="button" onPress={onCancel} className="px-2 py-1 active:opacity-60">
-              <Text className="text-base text-gray-500">Cancel</Text>
+              <Text className="text-base text-app-text-secondary">Cancel</Text>
             </Pressable>
             <Pressable accessibilityRole="button" onPress={submit} className="px-2 py-1 active:opacity-60">
-              <Text className="text-base font-semibold text-blue-600">{confirmLabel}</Text>
+              <Text className="text-base font-semibold text-app-primary">{confirmLabel}</Text>
             </Pressable>
           </View>
         </Pressable>

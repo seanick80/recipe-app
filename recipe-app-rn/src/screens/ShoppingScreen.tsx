@@ -6,6 +6,7 @@ import { ActionSheetIOS, ActivityIndicator, Alert, Platform, Pressable, View } f
 import { GroceryListBody } from '../components/GroceryListBody';
 import { useGrocery } from '../contexts/GroceryContext';
 import type { ShoppingStackParamList } from '../navigation/ShoppingStack';
+import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<ShoppingStackParamList, 'ShoppingHome'>;
 
@@ -96,7 +97,7 @@ export function ShoppingScreen({ navigation }: Props) {
           onPress={openActions}
           className="active:opacity-60"
         >
-          <Ionicons name="ellipsis-horizontal" size={22} color="#2563eb" />
+          <Ionicons name="ellipsis-horizontal" size={22} color={colors.primary} />
         </Pressable>
       ),
     });
@@ -104,8 +105,8 @@ export function ShoppingScreen({ navigation }: Props) {
 
   if (initializing || !list) {
     return (
-      <View className="flex-1 items-center justify-center bg-gray-50">
-        <ActivityIndicator size="large" color="#111827" />
+      <View className="flex-1 items-center justify-center bg-app-background">
+        <ActivityIndicator size="large" color={colors.textPrimary} />
       </View>
     );
   }

@@ -11,7 +11,7 @@ type Props = NativeStackScreenProps<RecipesStackParamList, 'ImportReview'>;
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="mt-6">
-      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</Text>
+      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-text-muted">{title}</Text>
       {children}
     </View>
   );
@@ -20,9 +20,9 @@ function Section({ title, children }: { title: string; children: React.ReactNode
 /** A label/value row, mirroring the SwiftUI `LabeledContent` rows in the review sheet. */
 function Row({ label, value }: { label: string; value: string }) {
   return (
-    <View className="flex-row items-start justify-between border-b border-gray-100 py-2">
-      <Text className="mr-4 text-sm text-gray-500">{label}</Text>
-      <Text className="flex-1 text-right text-sm text-gray-900" numberOfLines={2}>
+    <View className="flex-row items-start justify-between border-b border-app-border-subtle py-2">
+      <Text className="mr-4 text-sm text-app-text-secondary">{label}</Text>
+      <Text className="flex-1 text-right text-sm text-app-text-primary" numberOfLines={2}>
         {value}
       </Text>
     </View>
@@ -66,7 +66,7 @@ export function ImportReviewScreen({ route, navigation }: Props) {
           onPress={() => navigation.goBack()}
           className="active:opacity-60"
         >
-          <Text className="text-base text-gray-500">Discard</Text>
+          <Text className="text-base text-app-text-secondary">Discard</Text>
         </Pressable>
       ),
       headerRight: () => (
@@ -77,7 +77,7 @@ export function ImportReviewScreen({ route, navigation }: Props) {
           onPress={onImport}
           className="active:opacity-60"
         >
-          <Text className={saving ? 'text-base text-gray-400' : 'text-base font-semibold text-blue-600'}>
+          <Text className={saving ? 'text-base text-app-text-muted' : 'text-base font-semibold text-app-primary'}>
             {saving ? 'Importing…' : 'Import'}
           </Text>
         </Pressable>
@@ -96,7 +96,7 @@ export function ImportReviewScreen({ route, navigation }: Props) {
   ].filter((r): r is { label: string; value: string } => r !== null);
 
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 16 }}>
+    <ScrollView className="flex-1 bg-app-surface" contentContainerStyle={{ padding: 16 }}>
       <Section title="Recipe">
         {detail.map((r) => (
           <Row key={r.label} label={r.label} value={r.value} />
@@ -106,8 +106,8 @@ export function ImportReviewScreen({ route, navigation }: Props) {
       <Section title={`Ingredients (${recipe.ingredients.length})`}>
         {recipe.ingredients.map((ing, i) => (
           <View key={i} className="flex-row py-1">
-            <Text className="mr-2 text-gray-400">•</Text>
-            <Text className="flex-1 text-base text-gray-800">{ing}</Text>
+            <Text className="mr-2 text-app-text-muted">•</Text>
+            <Text className="flex-1 text-base text-app-text-body">{ing}</Text>
           </View>
         ))}
       </Section>
@@ -116,8 +116,8 @@ export function ImportReviewScreen({ route, navigation }: Props) {
         <Section title={`Instructions (${recipe.instructions.length} steps)`}>
           {recipe.instructions.map((step, i) => (
             <View key={i} className="flex-row py-1">
-              <Text className="mr-2 w-6 text-right text-gray-400">{i + 1}.</Text>
-              <Text className="flex-1 text-base text-gray-800">{step}</Text>
+              <Text className="mr-2 w-6 text-right text-app-text-muted">{i + 1}.</Text>
+              <Text className="flex-1 text-base text-app-text-body">{step}</Text>
             </View>
           ))}
         </Section>

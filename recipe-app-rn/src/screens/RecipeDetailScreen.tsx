@@ -8,13 +8,14 @@ import { useSync } from '../contexts/SyncContext';
 import { formatIngredient, isHttpUrl, parseTags, sortedIngredients } from '../lib/recipeFormat';
 import type { RecipesStackParamList } from '../navigation/RecipesStack';
 import { localToDraft } from '../sync/recipeDraft';
+import { colors } from '../theme/tokens';
 
 type Props = NativeStackScreenProps<RecipesStackParamList, 'RecipeDetail'>;
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="mt-6">
-      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-400">
+      <Text className="mb-2 text-xs font-semibold uppercase tracking-wide text-app-text-muted">
         {title}
       </Text>
       {children}
@@ -82,7 +83,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
                 onPress={onShare}
                 className="mr-4 active:opacity-60"
               >
-                <Ionicons name="share-outline" size={24} color="#2563eb" />
+                <Ionicons name="share-outline" size={24} color={colors.primary} />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -90,7 +91,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
                 onPress={() => navigation.navigate('RecipeEdit', { localId })}
                 className="mr-4 active:opacity-60"
               >
-                <Ionicons name="create-outline" size={24} color="#2563eb" />
+                <Ionicons name="create-outline" size={24} color={colors.primary} />
               </Pressable>
               <Pressable
                 accessibilityRole="button"
@@ -98,7 +99,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
                 onPress={onDelete}
                 className="active:opacity-60"
               >
-                <Ionicons name="trash-outline" size={22} color="#dc2626" />
+                <Ionicons name="trash-outline" size={22} color={colors.danger} />
               </Pressable>
             </View>
           )
@@ -108,8 +109,8 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
 
   if (!recipe) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-8">
-        <Text className="text-center text-base text-gray-500">This recipe is no longer available.</Text>
+      <View className="flex-1 items-center justify-center bg-app-surface px-8">
+        <Text className="text-center text-base text-app-text-secondary">This recipe is no longer available.</Text>
       </View>
     );
   }
@@ -128,12 +129,12 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
   const sourceUrl = recipe.source_url.trim();
 
   return (
-    <ScrollView className="flex-1 bg-white" contentContainerStyle={{ padding: 16 }}>
+    <ScrollView className="flex-1 bg-app-surface" contentContainerStyle={{ padding: 16 }}>
       {recipe.summary.trim().length > 0 ? (
-        <Text className="text-base leading-6 text-gray-700">{recipe.summary}</Text>
+        <Text className="text-base leading-6 text-app-text-secondary-strong">{recipe.summary}</Text>
       ) : null}
 
-      {meta.length > 0 ? <Text className="mt-3 text-sm text-gray-500">{meta.join(' · ')}</Text> : null}
+      {meta.length > 0 ? <Text className="mt-3 text-sm text-app-text-secondary">{meta.join(' · ')}</Text> : null}
 
       {sourceUrl.length > 0 ? (
         isHttpUrl(sourceUrl) ? (
@@ -142,10 +143,10 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
             onPress={() => Linking.openURL(sourceUrl)}
             className="mt-2 active:opacity-60"
           >
-            <Text className="text-sm text-blue-600">Source: {sourceUrl}</Text>
+            <Text className="text-sm text-app-primary">Source: {sourceUrl}</Text>
           </Pressable>
         ) : (
-          <Text className="mt-2 text-sm text-gray-500">Source: {sourceUrl}</Text>
+          <Text className="mt-2 text-sm text-app-text-secondary">Source: {sourceUrl}</Text>
         )
       ) : null}
 
@@ -154,7 +155,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
           {tags.map((tag) => (
             <Text
               key={tag}
-              className="mb-2 mr-2 rounded-full bg-gray-100 px-3 py-1 text-xs text-gray-600"
+              className="mb-2 mr-2 rounded-full bg-app-chip-bg px-3 py-1 text-xs text-app-text-secondary-mid"
             >
               {tag}
             </Text>
@@ -166,8 +167,8 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
         <Section title="Ingredients">
           {ingredients.map((ing, i) => (
             <View key={`${ing.display_order}-${i}`} className="flex-row py-1">
-              <Text className="mr-2 text-gray-400">•</Text>
-              <Text className="flex-1 text-base text-gray-800">{formatIngredient(ing)}</Text>
+              <Text className="mr-2 text-app-text-muted">•</Text>
+              <Text className="flex-1 text-base text-app-text-body">{formatIngredient(ing)}</Text>
             </View>
           ))}
         </Section>
@@ -175,7 +176,7 @@ export function RecipeDetailScreen({ route, navigation }: Props) {
 
       {recipe.instructions.trim().length > 0 ? (
         <Section title="Instructions">
-          <Text className="text-base leading-6 text-gray-800">{recipe.instructions}</Text>
+          <Text className="text-base leading-6 text-app-text-body">{recipe.instructions}</Text>
         </Section>
       ) : null}
     </ScrollView>

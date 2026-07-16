@@ -1,6 +1,7 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useState } from 'react';
 import { Modal, Pressable, ScrollView, Text, TextInput, View } from 'react-native';
+import { colors } from '../theme/tokens';
 
 /**
  * A compact tap-to-open dropdown built from RN primitives + NativeWind (no
@@ -55,15 +56,15 @@ export function PickerField({
 
   if (showText) {
     return (
-      <View className={`h-9 flex-row items-center rounded border border-gray-200 bg-white px-2 ${triggerClassName}`}>
+      <View className={`h-9 flex-row items-center rounded border border-app-border bg-app-surface px-2 ${triggerClassName}`}>
         <TextInput
           value={value}
           onChangeText={onChange}
           placeholder={placeholder}
-          placeholderTextColor="#9ca3af"
+          placeholderTextColor={colors.textMuted}
           autoCapitalize={autoCapitalize}
           accessibilityLabel={accessibilityLabel}
-          className="flex-1 text-base text-gray-900"
+          className="flex-1 text-base text-app-text-primary"
         />
         <Pressable
           accessibilityRole="button"
@@ -75,7 +76,7 @@ export function PickerField({
           }}
           className="ml-1 active:opacity-60"
         >
-          <Ionicons name="list" size={16} color="#9ca3af" />
+          <Ionicons name="list" size={16} color={colors.textMuted} />
         </Pressable>
       </View>
     );
@@ -87,12 +88,12 @@ export function PickerField({
         accessibilityRole="button"
         accessibilityLabel={accessibilityLabel}
         onPress={() => setOpen(true)}
-        className="h-9 flex-row items-center justify-between rounded border border-gray-200 bg-white px-2 active:bg-gray-50"
+        className="h-9 flex-row items-center justify-between rounded border border-app-border bg-app-surface px-2 active:bg-app-background"
       >
-        <Text className={`flex-1 text-base ${value ? 'text-gray-900' : 'text-gray-400'}`} numberOfLines={1}>
+        <Text className={`flex-1 text-base ${value ? 'text-app-text-primary' : 'text-app-text-muted'}`} numberOfLines={1}>
           {value || placeholder}
         </Text>
-        <Ionicons name="chevron-expand" size={14} color="#9ca3af" />
+        <Ionicons name="chevron-expand" size={14} color={colors.textMuted} />
       </Pressable>
 
       <Modal visible={open} transparent animationType="fade" onRequestClose={() => setOpen(false)}>
@@ -102,9 +103,9 @@ export function PickerField({
           onPress={() => setOpen(false)}
           className="flex-1 justify-center bg-black/40 px-8"
         >
-          <Pressable className="max-h-[70%] overflow-hidden rounded-xl bg-white" onPress={() => {}}>
+          <Pressable className="max-h-[70%] overflow-hidden rounded-xl bg-app-surface" onPress={() => {}}>
             {title ? (
-              <Text className="border-b border-gray-100 px-4 py-3 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <Text className="border-b border-app-border-subtle px-4 py-3 text-xs font-semibold uppercase tracking-wide text-app-text-muted">
                 {title}
               </Text>
             ) : null}
@@ -120,10 +121,10 @@ export function PickerField({
                       setCustomMode(false);
                       setOpen(false);
                     }}
-                    className="flex-row items-center justify-between px-4 py-3 active:bg-gray-50"
+                    className="flex-row items-center justify-between px-4 py-3 active:bg-app-background"
                   >
-                    <Text className={`text-base ${opt ? 'text-gray-900' : 'text-gray-400'}`}>{opt || noneLabel}</Text>
-                    {selected ? <Ionicons name="checkmark" size={18} color="#2563eb" /> : null}
+                    <Text className={`text-base ${opt ? 'text-app-text-primary' : 'text-app-text-muted'}`}>{opt || noneLabel}</Text>
+                    {selected ? <Ionicons name="checkmark" size={18} color={colors.primary} /> : null}
                   </Pressable>
                 );
               })}
@@ -134,10 +135,10 @@ export function PickerField({
                     setCustomMode(true);
                     setOpen(false);
                   }}
-                  className="flex-row items-center border-t border-gray-100 px-4 py-3 active:bg-gray-50"
+                  className="flex-row items-center border-t border-app-border-subtle px-4 py-3 active:bg-app-background"
                 >
-                  <Ionicons name="create-outline" size={16} color="#2563eb" />
-                  <Text className="ml-2 text-base font-semibold text-blue-600">Other…</Text>
+                  <Ionicons name="create-outline" size={16} color={colors.primary} />
+                  <Text className="ml-2 text-base font-semibold text-app-primary">Other…</Text>
                 </Pressable>
               ) : null}
             </ScrollView>

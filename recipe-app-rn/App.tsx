@@ -16,6 +16,7 @@ import { initDebugLogPersistence } from './src/lib/debugLogInit';
 import { navigationRef } from './src/navigation/navigationRef';
 import { RootTabs } from './src/navigation/RootTabs';
 import { LoginScreen } from './src/screens/LoginScreen';
+import { colors } from './src/theme/tokens';
 
 // Make the debug log durable BEFORE anything renders: hydrate pre-crash entries,
 // install the SQLite sink, and register the global JS error handler.
@@ -46,8 +47,8 @@ function AppContent() {
 
   if (status === 'loading') {
     return (
-      <View className="flex-1 items-center justify-center bg-white">
-        <ActivityIndicator size="large" color="#111827" />
+      <View className="flex-1 items-center justify-center bg-app-surface">
+        <ActivityIndicator size="large" color={colors.textPrimary} />
       </View>
     );
   }
@@ -59,8 +60,8 @@ function AppContent() {
   return (
     <View className="flex-1">
       {needsReauth ? (
-        <View className="bg-amber-100 px-4 py-2">
-          <Text className="text-center text-xs text-amber-800">
+        <View className="bg-app-warning-bg px-4 py-2">
+          <Text className="text-center text-xs text-app-warning-text">
             Your session needs attention — sign in again from Settings.
           </Text>
         </View>

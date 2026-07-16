@@ -8,6 +8,7 @@ import type { GroceryItem } from '../grocery/types';
 import { newLocalId } from '../lib/ids';
 import { formatQuantity } from '../lib/recipeFormat';
 import { GroceryItemEditModal } from './GroceryItemEditModal';
+import { colors } from '../theme/tokens';
 
 function amount(item: GroceryItem): string {
   const qty = item.quantity > 0 ? formatQuantity(item.quantity) : '';
@@ -26,7 +27,7 @@ function ItemRow({
   onDelete: () => void;
 }) {
   return (
-    <View className="flex-row items-center border-b border-gray-100">
+    <View className="flex-row items-center border-b border-app-border-subtle">
       {/* Distinct hit-target: the checkbox toggles complete… */}
       <Pressable
         accessibilityRole="checkbox"
@@ -39,7 +40,7 @@ function ItemRow({
         <Ionicons
           name={item.isChecked ? 'checkmark-circle' : 'ellipse-outline'}
           size={22}
-          color={item.isChecked ? '#16a34a' : '#d1d5db'}
+          color={item.isChecked ? colors.success : colors.textDisabled}
         />
       </Pressable>
       {/* …and tapping the body opens the edit sheet (long-press still deletes). */}
@@ -48,16 +49,16 @@ function ItemRow({
         accessibilityLabel={`Edit ${item.name}`}
         onPress={onEdit}
         onLongPress={onDelete}
-        className="flex-1 flex-row items-center py-3 pr-4 active:bg-gray-50"
+        className="flex-1 flex-row items-center py-3 pr-4 active:bg-app-background"
       >
         <Text
-          className={`flex-1 text-base ${item.isChecked ? 'text-gray-400 line-through' : 'text-gray-900'}`}
+          className={`flex-1 text-base ${item.isChecked ? 'text-app-text-muted line-through' : 'text-app-text-primary'}`}
           numberOfLines={1}
         >
           {item.name}
         </Text>
         {amount(item).length > 0 ? (
-          <Text className={`ml-2 text-sm ${item.isChecked ? 'text-gray-300' : 'text-gray-500'}`}>
+          <Text className={`ml-2 text-sm ${item.isChecked ? 'text-app-text-disabled' : 'text-app-text-secondary'}`}>
             {amount(item)}
           </Text>
         ) : null}
@@ -116,8 +117,8 @@ export function GroceryListBody() {
 
   if (!list) {
     return (
-      <View className="flex-1 items-center justify-center bg-white px-8">
-        <Text className="text-center text-base text-gray-500">This list is no longer available.</Text>
+      <View className="flex-1 items-center justify-center bg-app-surface px-8">
+        <Text className="text-center text-base text-app-text-secondary">This list is no longer available.</Text>
       </View>
     );
   }
@@ -129,15 +130,15 @@ export function GroceryListBody() {
   const allChecked = allItemsChecked(list.items);
 
   return (
-    <View className="flex-1 bg-white">
-      <View className="flex-row items-center justify-between border-b border-gray-100 bg-gray-50 px-3 py-2">
+    <View className="flex-1 bg-app-surface">
+      <View className="flex-row items-center justify-between border-b border-app-border-subtle bg-app-background px-3 py-2">
         <Pressable
           accessibilityRole="button"
           accessibilityLabel="Add item"
           onPress={() => setAddDraft(blankItem(newLocalId()))}
-          className="flex-row items-center rounded-lg bg-blue-600 px-3 py-1.5 active:opacity-80"
+          className="flex-row items-center rounded-lg bg-app-primary px-3 py-1.5 active:opacity-80"
         >
-          <Ionicons name="add" size={18} color="#ffffff" />
+          <Ionicons name="add" size={18} color={colors.textOnDark} />
           <Text className="ml-1 text-base font-semibold text-white">Add item</Text>
         </Pressable>
         {hasItems ? (
@@ -145,14 +146,14 @@ export function GroceryListBody() {
             accessibilityRole="button"
             accessibilityLabel={allChecked ? 'Uncheck all items' : 'Check all items'}
             onPress={() => void setAllChecked(listId, !allChecked)}
-            className="flex-row items-center rounded-lg border border-gray-300 bg-white px-3 py-1.5 active:opacity-70"
+            className="flex-row items-center rounded-lg border border-app-border-strong bg-app-surface px-3 py-1.5 active:opacity-70"
           >
             <Ionicons
               name={allChecked ? 'ellipse-outline' : 'checkmark-circle'}
               size={18}
-              color="#374151"
+              color={colors.textSecondaryStrong}
             />
-            <Text className="ml-1 text-base font-medium text-gray-700">
+            <Text className="ml-1 text-base font-medium text-app-text-secondary-strong">
               {allChecked ? 'Uncheck all' : 'Check all'}
             </Text>
           </Pressable>
@@ -162,12 +163,12 @@ export function GroceryListBody() {
       <ScrollView contentContainerStyle={list.items.length === 0 ? { flex: 1 } : { paddingBottom: 24 }}>
         {list.items.length === 0 ? (
           <View className="flex-1 items-center justify-center px-8">
-            <Text className="text-center text-base text-gray-500">No items yet. Add one above.</Text>
+            <Text className="text-center text-base text-app-text-secondary">No items yet. Add one above.</Text>
           </View>
         ) : (
           sections.map((section) => (
             <View key={section.category}>
-              <Text className="bg-gray-50 px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400">
+              <Text className="bg-app-background px-4 py-1.5 text-xs font-semibold uppercase tracking-wide text-app-text-muted">
                 {section.category}
               </Text>
               {section.items.map((item) => (

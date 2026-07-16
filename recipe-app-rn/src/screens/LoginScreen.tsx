@@ -3,6 +3,7 @@ import { ActivityIndicator, Pressable, Text, View } from 'react-native';
 
 import { useAuth } from '../contexts/AuthContext';
 import { ApiError } from '../lib/apiClient';
+import { colors } from '../theme/tokens';
 
 export function LoginScreen() {
   const { signIn, continueAsGuest } = useAuth();
@@ -27,22 +28,22 @@ export function LoginScreen() {
   }
 
   return (
-    <View className="flex-1 items-center justify-center bg-white px-8">
-      <Text className="text-3xl font-bold text-gray-900">Recipe App</Text>
-      <Text className="mt-2 text-center text-base text-gray-500">
+    <View className="flex-1 items-center justify-center bg-app-surface px-8">
+      <Text className="text-3xl font-bold text-app-text-primary">Recipe App</Text>
+      <Text className="mt-2 text-center text-base text-app-text-secondary">
         Sign in to browse your recipes.
       </Text>
 
-      {error ? <Text className="mt-6 text-center text-sm text-red-600">{error}</Text> : null}
+      {error ? <Text className="mt-6 text-center text-sm text-app-danger">{error}</Text> : null}
 
       <Pressable
         accessibilityRole="button"
         disabled={busy}
         onPress={handleSignIn}
-        className="mt-8 w-full flex-row items-center justify-center rounded-xl bg-gray-900 px-6 py-4 active:opacity-80"
+        className="mt-8 w-full flex-row items-center justify-center rounded-xl bg-app-surface-dark px-6 py-4 active:opacity-80"
       >
         {busy ? (
-          <ActivityIndicator color="#ffffff" />
+          <ActivityIndicator color={colors.textOnDark} />
         ) : (
           <Text className="text-base font-semibold text-white">Sign in with Google</Text>
         )}
@@ -54,7 +55,7 @@ export function LoginScreen() {
         onPress={continueAsGuest}
         className="mt-4 px-6 py-3 active:opacity-60"
       >
-        <Text className="text-base text-gray-500">Continue without signing in</Text>
+        <Text className="text-base text-app-text-secondary">Continue without signing in</Text>
       </Pressable>
     </View>
   );

@@ -1,3 +1,5 @@
+const { colors } = require('./src/theme/tokens');
+
 /** @type {import('tailwindcss').Config} */
 module.exports = {
   darkMode: 'media',
@@ -78,6 +80,37 @@ module.exports = {
         accent: {
           DEFAULT: 'rgb(var(--accent)/<alpha-value>)',
           foreground: 'rgb(var(--accent-foreground)/<alpha-value>)',
+        },
+        // App design tokens (single-sourced from src/theme/tokens.js). Prefixed
+        // `app-` to avoid colliding with the gluestack semantic tokens above.
+        // Utilities: `bg-app-*`, `text-app-*`, `border-app-*`.
+        app: {
+          'primary': colors.primary,
+          'primary-light': colors.primaryLight,
+          'background': colors.background,
+          'surface': colors.surface,
+          'surface-dark': colors.surfaceDark,
+          'text-primary': colors.textPrimary,
+          'text-secondary': colors.textSecondary,
+          'text-secondary-mid': colors.textSecondaryMid,
+          'text-secondary-strong': colors.textSecondaryStrong,
+          'text-body': colors.textBody,
+          'text-muted': colors.textMuted,
+          'text-disabled': colors.textDisabled,
+          'text-on-dark': colors.textOnDark,
+          'border': colors.border,
+          'border-strong': colors.borderStrong,
+          'border-subtle': colors.borderSubtle,
+          'chip-bg': colors.chipBg,
+          'danger': colors.danger,
+          'danger-strong': colors.dangerStrong,
+          'danger-bg': colors.dangerBg,
+          'success': colors.success,
+          'warning': colors.warning,
+          'warning-bg': colors.warningBg,
+          'warning-bg-subtle': colors.warningBgSubtle,
+          'warning-text': colors.warningText,
+          'warning-text-soft': colors.warningTextSoft,
         },
       },
       fontFamily: {

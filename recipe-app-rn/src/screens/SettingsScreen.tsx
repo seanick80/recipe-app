@@ -7,6 +7,7 @@ import { Alert, Pressable, ScrollView, Text, View } from 'react-native';
 import { useAuth } from '../contexts/AuthContext';
 import { useSync } from '../contexts/SyncContext';
 import type { SettingsStackParamList } from '../navigation/SettingsStack';
+import { colors } from '../theme/tokens';
 
 /** `Version 1.0.0 (build 102)` — build number is the CI-stamped CFBundleVersion. */
 function appVersionLabel(): string {
@@ -25,8 +26,8 @@ function formatSynced(iso: string | null): string {
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <View className="mt-6">
-      <Text className="mb-2 px-4 text-xs font-semibold uppercase tracking-wide text-gray-400">{title}</Text>
-      <View className="border-y border-gray-100 bg-white">{children}</View>
+      <Text className="mb-2 px-4 text-xs font-semibold uppercase tracking-wide text-app-text-muted">{title}</Text>
+      <View className="border-y border-app-border-subtle bg-app-surface">{children}</View>
     </View>
   );
 }
@@ -45,19 +46,19 @@ function Row({
   icon?: React.ComponentProps<typeof Ionicons>['name'];
 }) {
   const body = (
-    <View className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3">
+    <View className="flex-row items-center justify-between border-b border-app-border-subtle px-4 py-3">
       <View className="flex-row items-center">
-        {icon ? <Ionicons name={icon} size={18} color={destructive ? '#dc2626' : '#6b7280'} style={{ marginRight: 8 }} /> : null}
-        <Text className={destructive ? 'text-base text-red-600' : 'text-base text-gray-900'}>{label}</Text>
+        {icon ? <Ionicons name={icon} size={18} color={destructive ? colors.danger : colors.textSecondary} style={{ marginRight: 8 }} /> : null}
+        <Text className={destructive ? 'text-base text-app-danger' : 'text-base text-app-text-primary'}>{label}</Text>
       </View>
-      {value !== undefined ? <Text className="text-base text-gray-400">{value}</Text> : null}
+      {value !== undefined ? <Text className="text-base text-app-text-muted">{value}</Text> : null}
       {onPress && value === undefined && !destructive ? (
-        <Ionicons name="chevron-forward" size={18} color="#d1d5db" />
+        <Ionicons name="chevron-forward" size={18} color={colors.textDisabled} />
       ) : null}
     </View>
   );
   return onPress ? (
-    <Pressable accessibilityRole="button" onPress={onPress} className="active:bg-gray-50">
+    <Pressable accessibilityRole="button" onPress={onPress} className="active:bg-app-background">
       {body}
     </Pressable>
   ) : (
@@ -97,7 +98,7 @@ export function SettingsScreen() {
     );
 
   return (
-    <ScrollView className="flex-1 bg-gray-50" contentContainerStyle={{ paddingBottom: 32 }}>
+    <ScrollView className="flex-1 bg-app-background" contentContainerStyle={{ paddingBottom: 32 }}>
       <Section title="Account">
         {isGuest ? (
           <>
@@ -121,15 +122,15 @@ export function SettingsScreen() {
           <Row label="Force full sync" icon="cloud-download-outline" onPress={confirmForceSync} />
           {error ? (
             <View className="px-4 py-2">
-              <Text className="text-sm text-red-600">{error}</Text>
+              <Text className="text-sm text-app-danger">{error}</Text>
             </View>
           ) : hasWriteFailures ? (
             <View className="px-4 py-2">
-              <Text className="text-sm text-amber-700">Some changes haven’t synced — will retry.</Text>
+              <Text className="text-sm text-app-warning-text-soft">Some changes haven’t synced — will retry.</Text>
             </View>
           ) : lastResult ? (
             <View className="px-4 py-2">
-              <Text className="text-xs text-gray-400">
+              <Text className="text-xs text-app-text-muted">
                 Last sync: {lastResult.pulledNew} new, {lastResult.pulledUpdated} updated,{' '}
                 {lastResult.pushed} pushed, {lastResult.conflictsResolved} conflicts.
               </Text>
@@ -146,9 +147,9 @@ export function SettingsScreen() {
             deletedRecipes.map((r) => (
               <View
                 key={r.localId}
-                className="flex-row items-center justify-between border-b border-gray-100 px-4 py-3"
+                className="flex-row items-center justify-between border-b border-app-border-subtle px-4 py-3"
               >
-                <Text className="flex-1 text-base text-gray-700" numberOfLines={1}>
+                <Text className="flex-1 text-base text-app-text-secondary-strong" numberOfLines={1}>
                   {r.name || 'Untitled'}
                 </Text>
                 <Pressable
@@ -157,8 +158,8 @@ export function SettingsScreen() {
                   onPress={() => void restoreRecipe(r.localId)}
                   className="ml-3 flex-row items-center active:opacity-60"
                 >
-                  <Ionicons name="arrow-undo-outline" size={18} color="#2563eb" />
-                  <Text className="ml-1 text-sm font-semibold text-blue-600">Restore</Text>
+                  <Ionicons name="arrow-undo-outline" size={18} color={colors.primary} />
+                  <Text className="ml-1 text-sm font-semibold text-app-primary">Restore</Text>
                 </Pressable>
               </View>
             ))
