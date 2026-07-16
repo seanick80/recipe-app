@@ -347,22 +347,35 @@ workflows:
           - $RECIPIENT_EMAIL
 
   # -----------------------------------------------------------------------
-  # RN iOS — TestFlight  ***PRIMARY / SHIPPING APP*** (manual trigger)
+  # RN iOS — TestFlight  ***PRIMARY / SHIPPING APP*** (AUTO)
   # -----------------------------------------------------------------------
-  # Builds the React Native app (the SHIPPING app as of 2026-07-15; the SwiftUI
-  # ios-workflow above is archived/legacy) as an IPA and publishes it to
-  # TestFlight (bundle `com.seanick80.recipeapp.rn`).
-  # MANUAL trigger by choice: the plan is macOS-minutes-only and RN dev is fast,
-  # so we don't auto-build every push. Start it from the dashboard when you want
-  # a fresh TestFlight build. (To auto-build on every recipe-app-rn/ push instead,
-  # add a `triggering:` block scoped via `when.changeset` to `recipe-app-rn/`.)
+  # Builds the React Native app (the SHIPPING app; the SwiftUI ios-workflow above
+  # is archived/legacy) as an IPA and publishes it to TestFlight (bundle
+  # `com.seanick80.recipeapp.rn`).
+  # AUTO-triggers on master pushes that touch `recipe-app-rn/` (scoped via
+  # when.changeset — so config/SwiftUI/server-only pushes don't fire it), with
+  # cancel_previous_builds so rapid pushes don't stack up macOS minutes.
+  # NOTE: plan is macOS-minutes-only (500/mo) — every RN push now spends minutes;
+  # revert to manual (delete the `triggering:` block) if the budget gets tight.
   # The distribution cert + ASC API key are reused.
   rn-ios-workflow:
-    name: RN iOS (TestFlight — manual)
+    name: RN iOS (TestFlight — auto)
     max_build_duration: 60
     instance_type: mac_mini_m2
     integrations:
       app_store_connect: recipe-app-appstore-key
+    triggering:
+      events:
+        - push
+      branch_patterns:
+        - pattern: master
+          include: true
+          source: true
+      cancel_previous_builds: true
+    when:
+      changeset:
+        includes:
+          - 'recipe-app-rn/'
     environment:
       groups:
         - recipe_app_notifications
