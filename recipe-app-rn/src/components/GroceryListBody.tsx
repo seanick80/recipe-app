@@ -189,7 +189,7 @@ export function GroceryListBody() {
         mode={addDraft ? 'add' : 'edit'}
         onSubmit={(updated) => {
           if (addDraft) {
-            void addItem(listId, updated.name, updated.quantity, updated.unit);
+            void addItem(listId, updated.name, updated.quantity, updated.unit, updated.category);
             setAddDraft(null);
           } else {
             void updateItem(listId, updated);

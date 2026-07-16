@@ -76,7 +76,13 @@ type GroceryContextValue = {
   list: GroceryList | null;
   templates: ShoppingTemplate[];
 
-  addItem: (listId: string, name: string, quantity: number, unit: string) => Promise<void>;
+  addItem: (
+    listId: string,
+    name: string,
+    quantity: number,
+    unit: string,
+    category?: string,
+  ) => Promise<void>;
   updateItem: (listId: string, item: GroceryItem) => Promise<void>;
   toggleItem: (listId: string, itemId: string) => Promise<void>;
   deleteItem: (listId: string, itemId: string) => Promise<void>;
@@ -268,11 +274,14 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   );
 
   const addItem = useCallback(
-    async (listId: string, name: string, quantity: number, unit: string) => {
+    async (listId: string, name: string, quantity: number, unit: string, category?: string) => {
       const target = lists.find((l) => l.id === listId);
       if (!target || name.trim().length === 0) return;
       const item = makeGroceryItem(newLocalId(), name.trim(), quantity, unit);
-      await persistItems(listId, [...target.items, item]);
+      // Honor an explicitly chosen category; otherwise keep the name-based
+      // auto-categorization from makeGroceryItem.
+      const withCategory = category && category.trim().length > 0 ? { ...item, category } : item;
+      await persistItems(listId, [...target.items, withCategory]);
     },
     [lists, persistItems],
   );
