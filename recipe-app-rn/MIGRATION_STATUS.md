@@ -9,31 +9,28 @@ starting a new conversation on this work. Canonical plan:
   `swiftui-grocery-sync` branches are merged + deleted).
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml`.
-- **Last updated (2026-07-15, master @ `6f50285`):** RN is the SHIPPING app (cutover done;
-  SwiftUI archived). Feature-complete vs SwiftUI (minus Pantry). **Grocery collapsed to ONE
-  persistent rolling shopping list** (no multi-list/archive/trips; add → check-off →
-  remove-checked; staples + recipe-append into it; auto-consolidate stray lists on launch).
-  In active on-device feedback iteration; several rounds landed (see "Open backlog").
+- **Last updated (2026-07-16, master @ `89d549d`):** RN is the SHIPPING app (cutover done;
+  SwiftUI archived). Feature-complete vs SwiftUI (minus Pantry). **Grocery = ONE persistent
+  rolling shopping list.** Many on-device feedback rounds landed; **backlog is CLEARED.**
 
 ## Open backlog / next session (on-device feedback)
 
-**Build to test:** trigger `rn-ios-workflow` on `master` (manual). All feedback below
-that's ✅ is on master awaiting a build.
+**Build to test:** trigger `rn-ios-workflow` on `master` (manual). Everything below is on master.
 
-Landed on master (✅): item-edit sheet, recipe re-import button, stuck-spinner fix,
-select-all/check-all, one-list refactor, unit-in-name strip (#22), **sync-clobber fix**
-(background pull no longer reverts a local check-off — needsSync guard in grocerySyncService),
-per-item **delete** (edit-sheet Delete + long-press), **recipe share** (publishes + shares
-public `WEB_BASE_URL/recipes/{serverId}`), parser ranges + single-letter T/t units.
+Landed on master (✅): item-edit sheet, recipe re-import, stuck-spinner fix, one-list
+refactor, unit-in-name strip, **sync-clobber fix** (needsSync guard — background pull no
+longer reverts a check-off), per-item **delete**, **recipe share** (public
+`WEB_BASE_URL/recipes/{serverId}`), parser ranges + single-letter T/t units, **add-bar
+redesign** ("+ Add item" sheet + Check-all toggle on the bar), Shopping "…" **ActionSheet**
+menu, **Cancel buttons** (recipe/template editors), add-item **honors chosen category** (#32),
+and a **single-source design-token library** (#10) — `src/theme/tokens.js` (+`.d.ts`) wired
+into `tailwind.config.js` as `app-*` classes; **reskin = edit `tokens.js` only** (current
+change was zero-visual, just indirection).
 
-Still open (not built):
-- **#29** — re-judge the Shopping bulk-action menu vs Swift on the next build; if still
-  clunky, swap the Alert-style menu for a proper **ActionSheet** (and optionally drop
-  "Check all" — Swift only had "Uncheck All").
-- **#10** — extract a shared **design-token library** (colors/borders/spacing/typography)
-  for reskinning; deferred post-parity.
-- **Optional:** debounce the post-write grocery sync (currently syncs after every
-  mutation — chatty; correctness is fine after the #28 guard).
+Backlog cleared. Only optional/nice-to-have left:
+- **Optional:** debounce the post-write grocery sync (syncs after every mutation — chatty;
+  correct after the #28 guard, just wasteful).
+- Otherwise: next work = whatever new on-device feedback surfaces.
 
 Known limitations (flag to user, not bugs):
 - **Already-imported recipes with a unit baked into the ingredient name** (e.g. "Tbsp.
