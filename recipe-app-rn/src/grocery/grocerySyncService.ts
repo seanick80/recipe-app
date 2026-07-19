@@ -191,6 +191,26 @@ export class GrocerySyncService {
     return result;
   }
 
+  /**
+   * Push local changes + process deletions + purge, WITHOUT a server pull. Used
+   * after a local mutation (check-off / add / delete) so the change goes up
+   * promptly without a pull that could momentarily clobber the just-edited UI.
+   * Full pulls are reserved for {@link sync} (init / foreground / pull-to-refresh),
+   * so the app no longer fetches from the server on every tap. A brand-new local
+   * list/template is still created here (pushOne* creates when `serverId` is null).
+   */
+  async pushLocalChanges(): Promise<GrocerySyncResult> {
+    const result = emptyGrocerySyncResult();
+    const localLists = await this.repo.getAllLists();
+    await this.pushLists(localLists, result);
+    await this.processListDeletions(localLists, result);
+    const localTemplates = await this.repo.getAllTemplates();
+    await this.pushTemplates(localTemplates, result);
+    await this.processTemplateDeletions(localTemplates, result);
+    await this.purgeExpiredDeletions();
+    return result;
+  }
+
   /** Clear every record's watermark (force a full re-download), then sync. */
   async forceFullSync(): Promise<GrocerySyncResult> {
     for (const l of await this.repo.getAllLists()) {
@@ -322,6 +342,9 @@ export class GrocerySyncService {
    * on any API error so the caller counts a write failure and retries.
    */
   private async pushOneList(local: GroceryList): Promise<void> {
+    // Snapshot the mtime we're pushing FROM. All the network I/O below is slow;
+    // a local mutation (check-off / add / delete) can land meanwhile.
+    const baseUpdatedAt = local.updatedAt;
     if (!local.serverId) {
       const created = await this.api.createGroceryList(local.name.trim() || 'Grocery List');
       local.serverId = created.id;
@@ -329,14 +352,42 @@ export class GrocerySyncService {
     const server = await this.api.getGroceryList(local.serverId);
     await this.reconcileItems(local, server);
     await this.reconcileArchive(local, server);
-
     const finalDto = await this.api.getGroceryList(local.serverId);
-    local.createdAt = finalDto.created_at;
-    local.updatedAt = finalDto.updated_at;
-    local.lastSyncedAt = finalDto.updated_at;
-    local.archivedAt = finalDto.archived_at;
-    local.needsSync = false;
-    await this.repo.updateList(local);
+
+    // Re-read the persisted list and detect a mutation that landed during the
+    // I/O above by comparing its mtime against our snapshot. Writing our stale
+    // in-memory copy straight back (as the old code did) reverted that edit AND
+    // cleared needsSync so it never re-pushed — the sync-clobber bug (#18). The
+    // pull path's needsSync guard didn't cover this write-back.
+    const current = (await this.repo.getAllLists()).find((l) => l.id === local.id);
+    if (!current) return; // deleted mid-push — the deletion path handles it.
+
+    // Carry the item server ids we just learned onto whatever the current items
+    // are, matched by stable local id, so a concurrent edit can't cause a
+    // duplicate server row on the next push.
+    const learned = new Map<string, string>();
+    for (const it of local.items) {
+      if (it.serverId) learned.set(it.id, it.serverId);
+    }
+    const items = current.items.map((it) =>
+      it.serverId || !learned.has(it.id) ? it : { ...it, serverId: learned.get(it.id)! },
+    );
+
+    const concurrentEdit = current.updatedAt !== baseUpdatedAt;
+    await this.repo.updateList({
+      ...current,
+      items,
+      serverId: local.serverId,
+      // On a clean push adopt the server's authoritative watermark + clear the
+      // dirty flag. On a concurrent edit keep the newer local state and
+      // needsSync so the next cycle re-pushes it; leave the watermark untouched
+      // (the pull is needsSync-guarded, so it won't clobber the local edit).
+      createdAt: concurrentEdit ? current.createdAt : finalDto.created_at,
+      updatedAt: concurrentEdit ? current.updatedAt : finalDto.updated_at,
+      archivedAt: concurrentEdit ? current.archivedAt : finalDto.archived_at,
+      lastSyncedAt: concurrentEdit ? current.lastSyncedAt : finalDto.updated_at,
+      needsSync: concurrentEdit,
+    });
   }
 
   /** Reconcile a list's items against the server's current item set. */
@@ -532,16 +583,25 @@ export class GrocerySyncService {
 
   /** Create (POST) or full-replace (PUT) a template as an aggregate. */
   private async pushOneTemplate(local: ShoppingTemplate): Promise<void> {
+    const baseUpdatedAt = local.updatedAt;
     const input = toTemplateInput(local);
     const dto = local.serverId
       ? await this.api.updateTemplate(local.serverId, input)
       : await this.api.createTemplate(input);
-    local.serverId = dto.id;
-    local.createdAt = dto.created_at;
-    local.updatedAt = dto.updated_at;
-    local.lastSyncedAt = dto.updated_at;
-    local.needsSync = false;
-    await this.repo.updateTemplate(local);
+
+    // Same CAS write-back as pushOneList (#18): a template edit during the PUT
+    // must not be reverted, nor its dirty flag cleared.
+    const current = (await this.repo.getAllTemplates()).find((t) => t.id === local.id);
+    if (!current) return;
+    const concurrentEdit = current.updatedAt !== baseUpdatedAt;
+    await this.repo.updateTemplate({
+      ...current,
+      serverId: dto.id,
+      createdAt: concurrentEdit ? current.createdAt : dto.created_at,
+      updatedAt: concurrentEdit ? current.updatedAt : dto.updated_at,
+      lastSyncedAt: concurrentEdit ? current.lastSyncedAt : dto.updated_at,
+      needsSync: concurrentEdit,
+    });
   }
 
   private async processTemplateDeletions(

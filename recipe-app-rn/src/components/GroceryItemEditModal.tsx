@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Modal, Pressable, Text, TextInput, View } from 'react-native';
 
 import type { GroceryItem } from '../grocery/types';
+import { categorizeGroceryItem } from '../lib/groceryCategorizer';
 import { CategoryPicker } from './CategoryPicker';
 import { UnitPicker } from './UnitPicker';
 import { colors } from '../theme/tokens';
@@ -35,7 +36,10 @@ export function GroceryItemEditModal({
   const [name, setName] = useState('');
   const [qty, setQty] = useState('');
   const [unit, setUnit] = useState('');
-  const [category, setCategory] = useState('Other');
+  // Empty = unset → auto-detected from the name on submit. A blank add-draft
+  // seeds this empty so new items get categorized instead of all landing in
+  // "Other" (#19); an existing item seeds to its stored category.
+  const [category, setCategory] = useState('');
 
   // Seed the fields when the sheet opens for a (new) item, by adjusting state
   // during render on the open transition — the React-recommended alternative to
@@ -48,7 +52,7 @@ export function GroceryItemEditModal({
       setName(item.name);
       setQty(item.quantity > 0 ? String(item.quantity) : '');
       setUnit(item.unit);
-      setCategory(item.category || 'Other');
+      setCategory(item.category); // '' for a blank add-draft → auto-detect
     }
   }
 
@@ -59,12 +63,14 @@ export function GroceryItemEditModal({
       onCancel();
       return;
     }
+    // Unset category → auto-detect from the name; a chosen one wins.
+    const resolvedCategory = category.trim().length > 0 ? category : categorizeGroceryItem(trimmed);
     onSubmit({
       ...item,
       name: trimmed,
       quantity: parseFloat(qty) || 0,
       unit: unit.trim(),
-      category: category || 'Other',
+      category: resolvedCategory,
     });
   };
 
