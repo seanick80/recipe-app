@@ -9,9 +9,10 @@ starting a new conversation on this work. Canonical plan:
   `swiftui-grocery-sync` branches are merged + deleted).
 - **Location:** `recipe-app-rn/` — sibling folder in the `recipe-app` repo,
   sharing `server/` + `schema/canonical.yaml`.
-- **Last updated (2026-07-16, master @ `89d549d`):** RN is the SHIPPING app (cutover done;
-  SwiftUI archived). Feature-complete vs SwiftUI (minus Pantry). **Grocery = ONE persistent
-  rolling shopping list.** Many on-device feedback rounds landed; **backlog is CLEARED.**
+- **Last updated (2026-07-20):** RN is the SHIPPING app (cutover done; SwiftUI archived).
+  Feature-complete vs SwiftUI (minus Pantry). **Grocery = ONE persistent rolling shopping
+  list.** Many on-device feedback rounds landed; **backlog is CLEARED** (only a public-release
+  privacy blocker + known limitations remain, below).
 
 ## Open backlog / next session (on-device feedback)
 
@@ -27,17 +28,34 @@ and a **single-source design-token library** (#10) — `src/theme/tokens.js` (+`
 into `tailwind.config.js` as `app-*` classes; **reskin = edit `tokens.js` only** (current
 change was zero-visual, just indirection).
 
-Backlog cleared. Only optional/nice-to-have left:
-- **Optional:** debounce the post-write grocery sync (syncs after every mutation — chatty;
-  correct after the #28 guard, just wasteful).
-- Otherwise: next work = whatever new on-device feedback surfaces.
+Landed 2026-07-20 (PR #20, ✅) — two more on-device Shopping fixes:
+- **Grocery sync-clobber #2 (#18):** the earlier #28 needsSync guard only protected the
+  *pull*. The real remaining bug was a read-modify-write race in the *push* — `pushOneList`
+  snapshotted the list, did slow network I/O, then wrote the STALE snapshot back with
+  `needsSync=false`, reverting any check/add/delete made mid-push and stranding it. Fix:
+  **CAS the write-back** in `pushOneList`/`pushOneTemplate` (re-read + compare `updatedAt`;
+  on a concurrent edit keep the newer local state + `needsSync=true`, carry learned item
+  server-ids by local id). Plus **push-only on mutation** — new
+  `GrocerySyncService.pushLocalChanges()` (push + deletions + purge, NO pull); mutations
+  push-only, full pull+push reserved for init/foreground/pull-to-refresh (this also
+  **resolves the old "debounce post-write sync" optional** — no more pull on every tap).
+- **Add-item category auto-detect (#19):** add sheet defaulted category to "Other" and
+  passed it explicitly, so auto-categorization never ran. Now defaults to **unset**,
+  `CategoryPicker` has an **"Auto-detect"** option, and an unset category resolves via
+  `categorizeGroceryItem(name)` on save (add + edit).
+
+Backlog cleared. Next work = whatever new on-device feedback surfaces.
+
+**Pre-public-release blocker (tracked):**
+- **Recipe web-share has no privacy toggle** — sharing makes a recipe publicly viewable at
+  its URL, no opt-in, no privacy policy. Fine for internal/allowlisted testers; **must be
+  fixed before public launch.** Tracked in **GH #21** (opt-in toggle + privacy policy +
+  consider unguessable slugs / unshare).
 
 Known limitations (flag to user, not bugs):
 - **Already-imported recipes with a unit baked into the ingredient name** (e.g. "Tbsp.
   unsalted butter") won't self-heal — the parser fix only affects NEW imports/scans; fix
   old ones via the item-edit sheet or a recipe **re-import**.
-- **Sharing a recipe makes it publicly viewable** at its URL (no opt-in/privacy toggle
-  yet — see the web-share privacy TODO). 
 - **Recent commits are UNSIGNED** (from `8945e94` on; per-commit GPG pinentry can't be
   answered by the non-interactive agent). Re-sign later with
   `git rebase <base> --exec 'git commit --amend --no-edit -S'` if signatures on master matter.
