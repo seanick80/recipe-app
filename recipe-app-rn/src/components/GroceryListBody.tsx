@@ -74,7 +74,7 @@ function blankItem(id: string): GroceryItem {
     name: '',
     quantity: 0,
     unit: '',
-    category: 'Other',
+    category: '', // unset → auto-detected from the name on save (#19)
     isChecked: false,
     sourceRecipeName: '',
     sourceRecipeId: '',

@@ -510,6 +510,71 @@ describe('GrocerySyncService — lists', () => {
     expect(saved.serverId).toBeNull();
   });
 
+  it('sync-clobber (#18): a check landed DURING push survives + stays dirty', async () => {
+    // The core sync-clobber bug: push snapshots the list, does slow network I/O,
+    // then the user checks an item before the push finishes. The old code wrote
+    // the stale snapshot back with needsSync=false, reverting the check AND
+    // stranding it. The CAS write-back must keep the newer local edit + dirty flag.
+    const api = new FakeApi([
+      serverList({ id: 'srv-L', updated_at: OLD, items: [serverItem({ id: 'ia', name: 'Milk', is_checked: false })] }),
+    ]);
+    const local = localList({
+      id: 'L',
+      serverId: 'srv-L',
+      lastSyncedAt: OLD,
+      needsSync: true,
+      updatedAt: NEW, // the mtime the push is snapshotting FROM
+      items: [localItem({ id: 'la', serverId: 'ia', name: 'Milk', isChecked: false })],
+    });
+    const { repo, service } = makeService({ lists: [local] }, api);
+
+    // pushOneList reads the list twice: once for the reconcile, once for the
+    // final watermark. Hook the SECOND read (network still "in flight") to write
+    // a newer local version — simulating the user checking the item mid-push.
+    const realGet = api.getGroceryList.getMockImplementation()!;
+    let calls = 0;
+    api.getGroceryList = jest.fn(async (id: string) => {
+      const dto = await realGet(id);
+      if ((calls += 1) === 2) {
+        const cur = (await repo.getAllLists()).find((l) => l.id === 'L')!;
+        await repo.updateList({
+          ...cur,
+          items: cur.items.map((i) => (i.id === 'la' ? { ...i, isChecked: true } : i)),
+          updatedAt: SERVER_NOW, // newer than the pushed snapshot (NEW)
+          needsSync: true,
+        });
+      }
+      return dto;
+    });
+
+    await service.sync();
+
+    const saved = (await repo.getAllLists())[0];
+    expect(saved.items[0].isChecked).toBe(true); // survived — not clobbered
+    expect(saved.needsSync).toBe(true); // still dirty → re-pushes next cycle
+  });
+
+  it('pushLocalChanges: pushes dirty records without any server pull', async () => {
+    const api = new FakeApi([serverList({ id: 'srv-A' })]);
+    const anchor = localList({ id: 'A', serverId: 'srv-A', lastSyncedAt: OLD }); // clean
+    const fresh = localList({
+      id: 'N',
+      name: 'New',
+      needsSync: true,
+      items: [localItem({ id: 'n1', name: 'Rice' })],
+    });
+    const { repo, service } = makeService({ lists: [anchor, fresh] }, api);
+
+    const result = await service.pushLocalChanges();
+
+    expect(api.listGroceryListIds).not.toHaveBeenCalled(); // no pull
+    expect(api.getGroceryList).not.toHaveBeenCalledWith('srv-A'); // clean list untouched
+    expect(result.pushed).toBe(1);
+    const saved = (await repo.getAllLists()).find((l) => l.id === 'N')!;
+    expect(saved.serverId).toBe('srv-1');
+    expect(saved.needsSync).toBe(false);
+  });
+
   it('archive reconcile: a locally-archived synced list is archived on the server', async () => {
     const api = new FakeApi([serverList({ id: 'srv-L', updated_at: OLD, archived_at: null })]);
     const local = localList({

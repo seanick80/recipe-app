@@ -118,6 +118,10 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
   const repoRef = useRef<SqliteGroceryRepo | null>(null);
   const serviceRef = useRef<GrocerySyncService | null>(null);
   const inFlight = useRef(false);
+  // A mutation that fires while a sync/push is already running sets this instead
+  // of racing it; the in-flight run drains it when it finishes (so no local
+  // write is ever silently dropped).
+  const pendingPush = useRef(false);
 
   // Locally-deleted records are hidden from the UI (they linger for the sync
   // layer to push a DELETE / age out over the 30-day purge window).
@@ -130,9 +134,40 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     setTemplates(allTemplates.filter((t) => !t.locallyDeleted));
   }, []);
 
+  // Push local changes UP without pulling — the trigger after every local
+  // mutation. No pull means a just-checked item can't be momentarily reverted by
+  // a racing download (#18), and we stop fetching from the server on every tap.
+  const pushGrocery = useCallback(async () => {
+    const service = serviceRef.current;
+    if (!service) return;
+    if (inFlight.current) {
+      pendingPush.current = true;
+      return;
+    }
+    inFlight.current = true;
+    try {
+      do {
+        pendingPush.current = false;
+        await service.pushLocalChanges();
+      } while (pendingPush.current);
+      await refresh();
+    } catch (e) {
+      debugLog.log('grocery.sync', 'Grocery push failed', { error: String(e) });
+    } finally {
+      inFlight.current = false;
+    }
+  }, [refresh]);
+
+  // Full reconcile (pull + push). Reserved for init / foreground / pull-to-
+  // refresh (driven by SyncContext) — NOT per-mutation, so server fetches are
+  // infrequent rather than firing on every checkbox tap.
   const syncGrocery = useCallback(async () => {
     const service = serviceRef.current;
-    if (!service || inFlight.current) return;
+    if (!service) return;
+    if (inFlight.current) {
+      pendingPush.current = true;
+      return;
+    }
     inFlight.current = true;
     try {
       await service.sync();
@@ -142,7 +177,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     } finally {
       inFlight.current = false;
     }
-  }, [refresh]);
+    // A mutation that raced this full sync only left a flag — drain it now.
+    if (pendingPush.current) void pushGrocery();
+  }, [refresh, pushGrocery]);
 
   const forceSyncGrocery = useCallback(async () => {
     const service = serviceRef.current;
@@ -268,9 +305,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       if (!target) return;
       await requireRepo().updateList({ ...target, items, updatedAt: nowIso(), needsSync: true });
       await refresh();
-      void syncGrocery();
+      void pushGrocery();
     },
-    [lists, refresh, syncGrocery],
+    [lists, refresh, pushGrocery],
   );
 
   const addItem = useCallback(
@@ -363,9 +400,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
       const merged = generateFromRecipes(recipes, target.items, newLocalId);
       await requireRepo().updateList({ ...target, items: merged, updatedAt: nowIso(), needsSync: true });
       await refresh();
-      void syncGrocery();
+      void pushGrocery();
     },
-    [lists, refresh, syncGrocery],
+    [lists, refresh, pushGrocery],
   );
 
   // --- templates ---
@@ -383,9 +420,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
     };
     await requireRepo().insertTemplate(template);
     await refresh();
-    void syncGrocery();
+    void pushGrocery();
     return template;
-  }, [templates, refresh, syncGrocery]);
+  }, [templates, refresh, pushGrocery]);
 
   const renameTemplate = useCallback(
     async (id: string, name: string) => {
@@ -398,9 +435,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         needsSync: true,
       });
       await refresh();
-      void syncGrocery();
+      void pushGrocery();
     },
-    [findTemplate, refresh, syncGrocery],
+    [findTemplate, refresh, pushGrocery],
   );
 
   const setTemplateItems = useCallback(
@@ -414,9 +451,9 @@ export function GroceryProvider({ children }: { children: React.ReactNode }) {
         needsSync: true,
       });
       await refresh();
-      void syncGrocery();
+      void pushGrocery();
     },
-    [findTemplate, refresh, syncGrocery],
+    [findTemplate, refresh, pushGrocery],
   );
 
   const value = useMemo<GroceryContextValue>(
