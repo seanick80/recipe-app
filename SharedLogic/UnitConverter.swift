@@ -64,7 +64,9 @@ enum UnitConverter {
     // MARK: - Imperial targets
 
     private static func imperialVolume(fromMl ml: Double) -> ConvertedMeasure {
-        let cup = 236.588, tbsp = 14.7868, tsp = 4.92892
+        let cup = 236.588
+        let tbsp = 14.7868
+        let tsp = 4.92892
         if ml >= cup * 0.75 {
             return ConvertedMeasure(quantity: prettyRound(ml / cup, decimals: 2), unit: "cup")
         }
@@ -75,7 +77,8 @@ enum UnitConverter {
     }
 
     private static func imperialWeight(fromG g: Double) -> ConvertedMeasure {
-        let lb = 453.592, oz = 28.3495
+        let lb = 453.592
+        let oz = 28.3495
         if g >= lb * 0.75 {
             return ConvertedMeasure(quantity: prettyRound(g / lb, decimals: 2), unit: "lb")
         }
